@@ -1,11 +1,9 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import '../../../../core/network/api_client.dart';
 import '../models/technician_model.dart';
 import '../../domain/entities/technician_entity.dart';
 import '../../domain/repositories/technician_repository.dart';
 
-/// Plug in your real base URL here — swap for Node.js / Firebase endpoint.
-const _kBaseUrl = 'https://api.techbes.com/v1';
+
 
 abstract class TechnicianRemoteDataSource {
   Future<List<TechnicianModel>> fetchTechnicians(GetTechniciansParams params);
@@ -15,13 +13,14 @@ abstract class TechnicianRemoteDataSource {
 /// Production implementation — makes real HTTP requests.
 /// Replace [_kBaseUrl] with your backend URL and add auth headers as needed.
 class TechnicianRemoteDataSourceImpl implements TechnicianRemoteDataSource {
-  final http.Client _client;
-  final String baseUrl;
+  final ApiClient _apiClient;
+  final String? _token;
 
-  const TechnicianRemoteDataSourceImpl({
-    required http.Client client,
-    this.baseUrl = _kBaseUrl,
-  }) : _client = client;
+  TechnicianRemoteDataSourceImpl({
+    required ApiClient apiClient,
+    String? token,
+  })  : _apiClient = apiClient,
+        _token = token;
 
   @override
   Future<List<TechnicianModel>> fetchTechnicians(GetTechniciansParams params) async {
@@ -36,28 +35,24 @@ class TechnicianRemoteDataSourceImpl implements TechnicianRemoteDataSource {
         'status': params.statusFilter!.label,
     };
 
-    final uri = Uri.parse('$baseUrl/technicians').replace(queryParameters: queryParams);
-    final response = await _client.get(uri, headers: {'Content-Type': 'application/json'});
+    final uri = Uri(path: '/manager/technicians', queryParameters: queryParams);
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body) as Map<String, dynamic>;
-      final list = data['technicians'] as List<dynamic>? ?? data['data'] as List<dynamic>;
+    try {
+      final response = await _apiClient.getJson(uri.toString(), token: _token);
+      final list = response['technicians'] as List<dynamic>? ?? response['data'] as List<dynamic>;
       return list.map((e) => TechnicianModel.fromJson(e as Map<String, dynamic>)).toList();
-    } else {
-      throw TechnicianApiException('Server error: ${response.statusCode}', response.statusCode);
+    } catch (e) {
+      throw TechnicianApiException('Server error: $e');
     }
   }
 
   @override
   Future<List<String>> fetchSkillCategories() async {
-    final uri = Uri.parse('$baseUrl/technicians/skills');
-    final response = await _client.get(uri, headers: {'Content-Type': 'application/json'});
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body) as Map<String, dynamic>;
-      return List<String>.from(data['skills'] as List<dynamic>);
-    } else {
-      throw TechnicianApiException('Server error: ${response.statusCode}', response.statusCode);
+    try {
+      final response = await _apiClient.getJson('/manager/technicians/skills', token: _token);
+      return List<String>.from(response['skills'] as List<dynamic>? ?? []);
+    } catch (e) {
+      throw TechnicianApiException('Server error: $e');
     }
   }
 }

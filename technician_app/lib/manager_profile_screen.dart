@@ -1,21 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
 import 'widgets.dart';
 import 'demo_data.dart';
 import 'account_details_screen.dart';
 import 'login_screen.dart';
 
-class ManagerProfileScreen extends StatelessWidget {
+class ManagerProfileScreen extends ConsumerWidget {
   const ManagerProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(authProvider);
+    final userName = session?.name ?? "Manager";
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         child: Column(
           children: [
-            _buildProductionProfileHeader(context),
+            _buildProductionProfileHeader(context, userName),
             Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -66,6 +71,7 @@ class ManagerProfileScreen extends StatelessWidget {
                   CustomButton(
                     label: "SIGN OUT",
                     onPressed: () {
+                      ref.read(authProvider.notifier).logout();
                       Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(builder: (context) => const LoginScreen()),
@@ -92,7 +98,7 @@ class ManagerProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProductionProfileHeader(BuildContext context) {
+  Widget _buildProductionProfileHeader(BuildContext context, String userName) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(24, 80, 24, 60),
@@ -131,9 +137,9 @@ class ManagerProfileScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          const Text(
-            "Manager Mike",
-            style: TextStyle(color: Color(0xFF0F172A), fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+          Text(
+            userName,
+            style: const TextStyle(color: Color(0xFF0F172A), fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -0.5),
           ),
           const SizedBox(height: 4),
           const Text(

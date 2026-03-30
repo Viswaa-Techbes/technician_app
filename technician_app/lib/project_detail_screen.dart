@@ -4,13 +4,17 @@ import 'widgets.dart';
 import 'demo_data.dart';
 import 'job_timer_widget.dart';
 
-class ProjectDetailScreen extends StatelessWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/network/api_client.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
+
+class ProjectDetailScreen extends ConsumerWidget {
   final Job job;
 
   const ProjectDetailScreen({super.key, required this.job});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -53,7 +57,7 @@ class ProjectDetailScreen extends StatelessWidget {
             if (job.status == JobStatus.pendingApproval)
               CustomButton(
                 label: "REVIEW COMPLETION",
-                onPressed: () => _showReviewDialog(context),
+                onPressed: () => _showReviewDialog(context, ref),
                 color: const Color(0xFF8B5CF6),
                 icon: Icons.rate_review_rounded,
               ),
@@ -181,7 +185,7 @@ class ProjectDetailScreen extends StatelessWidget {
     );
   }
 
-  void _showReviewDialog(BuildContext context) {
+  void _showReviewDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -190,7 +194,9 @@ class ProjectDetailScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () {
-              DemoData.instance.rejectJob(job.id);
+              final client = ref.read(apiClientProvider);
+              final session = ref.read(authProvider);
+              DemoData.instance.rejectJob(job.id, client, session?.token ?? '');
               Navigator.pop(context);
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Job rejected and sent back to technician.")));
@@ -199,7 +205,9 @@ class ProjectDetailScreen extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: () {
-              DemoData.instance.approveJob(job.id);
+              final client = ref.read(apiClientProvider);
+              final session = ref.read(authProvider);
+              DemoData.instance.approveJob(job.id, client, session?.token ?? '');
               Navigator.pop(context);
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Job approved and marked as completed.")));

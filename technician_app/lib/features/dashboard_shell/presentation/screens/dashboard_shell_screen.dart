@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../admin_dashboard_screen.dart' show CustomersPage, JobsPage, ServicesPage, PaymentsPage, TrackingPage, NotificationsPage, ReportsPage, SettingsPage, DashboardPage;
+import '../../../../admin_dashboard_screen.dart' show CustomersPage, JobsPage, DashboardPage;
+import '../../../../login_screen.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../auth/domain/entities/user_session.dart';
 import '../../../../core/security/rbac_constants.dart';
 import '../../../../core/security/role_access_provider.dart';
 import '../../../technicians/presentation/screens/technicians_screen.dart';
-import 'role_access_screen.dart';
+
 
 class NavItem {
   final String id;
@@ -26,13 +28,6 @@ const allNavItems = [
   NavItem(id: 'customers', label: 'Customers', icon: Icons.group, requiredPermission: Permission.viewUsers),
   NavItem(id: 'technicians', label: 'Technicians', icon: Icons.engineering, requiredPermission: Permission.manageTechnicians),
   NavItem(id: 'jobs', label: 'Service Requests', icon: Icons.work, requiredPermission: Permission.assignTasks),
-  NavItem(id: 'services', label: 'Services', icon: Icons.build, requiredPermission: Permission.manageServices),
-  NavItem(id: 'payments', label: 'Payments', icon: Icons.credit_card, requiredPermission: Permission.assignTasks),
-  NavItem(id: 'tracking', label: 'Live Tracking', icon: Icons.location_on, requiredPermission: Permission.trackOperations),
-  NavItem(id: 'notifications', label: 'Notifications', icon: Icons.notifications, requiredPermission: Permission.viewDashboard),
-  NavItem(id: 'reports', label: 'Reports & Analytics', icon: Icons.bar_chart, requiredPermission: Permission.viewReports),
-  NavItem(id: 'settings', label: 'Settings', icon: Icons.settings, requiredPermission: Permission.editSettings),
-  NavItem(id: 'access-control', label: 'Access Control', icon: Icons.admin_panel_settings, requiredPermission: Permission.manageRoleAccess),
 ];
 
 class DashboardShellScreen extends ConsumerStatefulWidget {
@@ -65,11 +60,11 @@ class _DashboardShellScreenState extends ConsumerState<DashboardShellScreen> {
       return permissions.contains(item.requiredPermission);
     }).toList();
 
-    if (!visibleNavItems.any((item) => item.id == activePage) && visibleNavItems.isNotEmpty) {
-      activePage = visibleNavItems.first.id;
-    }
+    final currentPage = visibleNavItems.any((item) => item.id == activePage) && visibleNavItems.isNotEmpty
+        ? activePage
+        : (visibleNavItems.isNotEmpty ? visibleNavItems.first.id : 'dashboard');
 
-    final String pageTitle = visibleNavItems.firstWhere((item) => item.id == activePage, orElse: () => allNavItems.first).label;
+    final String pageTitle = visibleNavItems.firstWhere((item) => item.id == currentPage, orElse: () => allNavItems.first).label;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
@@ -78,7 +73,7 @@ class _DashboardShellScreenState extends ConsumerState<DashboardShellScreen> {
           color: const Color(0xFF0F172A),
           child: _SidebarContent(
             items: visibleNavItems,
-            activePage: activePage,
+            activePage: currentPage,
             onSelect: _selectPage,
             userRole: session?.role.name.toUpperCase() ?? 'GUEST',
           ),
@@ -92,7 +87,7 @@ class _DashboardShellScreenState extends ConsumerState<DashboardShellScreen> {
               color: const Color(0xFF0F172A),
               child: _SidebarContent(
                 items: visibleNavItems,
-                activePage: activePage,
+                activePage: currentPage,
                 onSelect: _selectPage,
                 collapsed: collapsed,
                 onToggleCollapse: () => setState(() => collapsed = !collapsed),
@@ -104,7 +99,7 @@ class _DashboardShellScreenState extends ConsumerState<DashboardShellScreen> {
               children: [
                 _buildTopBar(context, pageTitle, isMobile || isTablet, session),
                 Expanded(
-                  child: _buildPageContent(),
+                  child: _buildPageContent(currentPage),
                 ),
               ],
             ),
@@ -114,7 +109,7 @@ class _DashboardShellScreenState extends ConsumerState<DashboardShellScreen> {
     );
   }
 
-  Widget _buildTopBar(BuildContext context, String pageTitle, bool showMenuIcon, dynamic session) {
+  Widget _buildTopBar(BuildContext context, String pageTitle, bool showMenuIcon, UserSession? session) {
     return Container(
       height: 70,
       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -160,10 +155,24 @@ class _DashboardShellScreenState extends ConsumerState<DashboardShellScreen> {
             ],
           ),
           const SizedBox(width: 14),
-          InkWell(
-            onTap: () {
-              Navigator.of(context).pop();
+          PopupMenuButton<String>(
+            tooltip: 'Account',
+            onSelected: (value) {
+              if (value == 'logout') {
+                ref.read(authProvider.notifier).logout();
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
             },
+            itemBuilder: (context) => const [
+              PopupMenuItem<String>(
+                value: 'logout',
+                child: Text('Log out'),
+              ),
+            ],
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE2E8F0))),
@@ -192,7 +201,7 @@ class _DashboardShellScreenState extends ConsumerState<DashboardShellScreen> {
     );
   }
 
-  Widget _buildPageContent() {
+  Widget _buildPageContent(String pageId) {
     final permissions = ref.watch(currentUserPermissionsProvider);
 
     bool hasAccess(Permission? permission) {
@@ -200,27 +209,13 @@ class _DashboardShellScreenState extends ConsumerState<DashboardShellScreen> {
       return permissions.contains(permission);
     }
 
-    switch (activePage) {
+    switch (pageId) {
       case 'customers':
         return hasAccess(Permission.viewUsers) ? const CustomersPage() : const _UnauthorizedFeatureView();
       case 'technicians':
         return hasAccess(Permission.manageTechnicians) ? const TechniciansScreen() : const _UnauthorizedFeatureView();
       case 'jobs':
         return hasAccess(Permission.assignTasks) ? const JobsPage() : const _UnauthorizedFeatureView();
-      case 'services':
-        return hasAccess(Permission.manageServices) ? const ServicesPage() : const _UnauthorizedFeatureView();
-      case 'payments':
-        return hasAccess(Permission.assignTasks) ? const PaymentsPage() : const _UnauthorizedFeatureView();
-      case 'tracking':
-        return hasAccess(Permission.trackOperations) ? const TrackingPage() : const _UnauthorizedFeatureView();
-      case 'notifications':
-        return hasAccess(Permission.viewDashboard) ? const NotificationsPage() : const _UnauthorizedFeatureView();
-      case 'reports':
-        return hasAccess(Permission.viewReports) ? const ReportsPage() : const _UnauthorizedFeatureView();
-      case 'settings':
-        return hasAccess(Permission.editSettings) ? const SettingsPage() : const _UnauthorizedFeatureView();
-      case 'access-control':
-        return hasAccess(Permission.manageRoleAccess) ? const RoleAccessScreen() : const _UnauthorizedFeatureView();
       case 'dashboard':
       default:
         return hasAccess(Permission.viewDashboard) ? const DashboardPage() : const _UnauthorizedFeatureView();

@@ -1,19 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'widgets.dart';
 import 'account_details_screen.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(authProvider);
+    final userName = session?.name ?? "Technician";
+    final userRole = session?.role.name.toUpperCase() ?? "SENIOR FIELD ENGINEER";
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         child: Column(
           children: [
-            _buildProductionProfileHeader(context),
+            _buildProductionProfileHeader(context, userName, userRole),
             Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -67,7 +73,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProductionProfileHeader(BuildContext context) {
+  Widget _buildProductionProfileHeader(BuildContext context, String name, String role) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(24, 80, 24, 60),
@@ -106,14 +112,14 @@ class ProfileScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          const Text(
-            "Alex Brown",
-            style: TextStyle(color: Color(0xFF0F172A), fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -0.5),
+          Text(
+            name,
+            style: const TextStyle(color: Color(0xFF0F172A), fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -0.5),
           ),
           const SizedBox(height: 4),
-          const Text(
-            "SENIOR FIELD ENGINEER",
-            style: TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.5),
+          Text(
+            role,
+            style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.5),
           ),
         ],
       ),

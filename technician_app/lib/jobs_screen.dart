@@ -1,30 +1,70 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models.dart';
 import 'widgets.dart';
 import 'job_detail_screen.dart';
+import 'core/network/api_client.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
 
-class JobsScreen extends StatefulWidget {
+class JobsScreen extends ConsumerStatefulWidget {
   const JobsScreen({super.key});
 
   @override
-  State<JobsScreen> createState() => _JobsScreenState();
+  ConsumerState<JobsScreen> createState() => _JobsScreenState();
 }
 
-class _JobsScreenState extends State<JobsScreen> with SingleTickerProviderStateMixin {
+class _JobsScreenState extends ConsumerState<JobsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  final List<Job> _allJobs = [
-    const Job(id: '001', serviceName: 'CCTV Installation', customerName: 'John Smith', customerPhone: '+1 555-010-9988', address: '123 Main St', time: '10:30 AM', status: JobStatus.inProgress),
-    const Job(id: '002', serviceName: 'AC Repair', customerName: 'Sarah Johnson', customerPhone: '+1 555-020-7766', address: '456 Oak Ave', time: '01:00 PM', status: JobStatus.assigned),
-    const Job(id: '003', serviceName: 'Electrical Fix', customerName: 'Mike Davis', customerPhone: '+1 555-030-5544', address: '789 Pine Rd', time: '03:30 PM', status: JobStatus.assigned),
-    const Job(id: '004', serviceName: 'Plumbing', customerName: 'Emily Brown', customerPhone: '+1 555-040-3322', address: '321 Elm St', time: '05:00 PM', status: JobStatus.completed),
-    const Job(id: '005', serviceName: 'Network Setup', customerName: 'Robert Wilson', customerPhone: '+1 555-050-1100', address: '555 Cedar Ln', time: '09:00 AM', status: JobStatus.completed),
-  ];
+  List<Job> _allJobs = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _fetchJobs();
+  }
+
+  Future<void> _fetchJobs() async {
+    try {
+      final apiClient = ref.read(apiClientProvider);
+      final session = ref.read(authProvider);
+
+      final tasksResp = await apiClient.getJson('/technician/tasks', token: session?.token);
+      final tasks = tasksResp['data'] as List<dynamic>? ?? [];
+      
+      final parsedJobs = tasks.map((t) {
+        JobStatus status = JobStatus.assigned;
+        if (t['status'] == 'in_progress') status = JobStatus.inProgress;
+        if (t['status'] == 'completed') status = JobStatus.completed;
+        if (t['status'] == 'pending') status = JobStatus.pendingApproval;
+
+        return Job(
+          id: t['id']?.toString() ?? '',
+          serviceName: t['title'] ?? 'Task',
+          customerName: t['assignedBy'] != null ? t['assignedBy']['name'] : 'System',
+          customerPhone: 'N/A',
+          address: 'See Notes',
+          time: 'Anytime',
+          status: status,
+          notes: t['description'] ?? '',
+        );
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _allJobs = parsedJobs;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -54,15 +94,17 @@ class _JobsScreenState extends State<JobsScreen> with SingleTickerProviderStateM
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        physics: const BouncingScrollPhysics(),
-        children: [
-          _buildJobList(JobStatus.assigned),
-          _buildJobList(JobStatus.inProgress),
-          _buildJobList(JobStatus.completed),
-        ],
-      ),
+      body: _isLoading 
+        ? const Center(child: CircularProgressIndicator()) 
+        : TabBarView(
+            controller: _tabController,
+            physics: const BouncingScrollPhysics(),
+            children: [
+              _buildJobList(JobStatus.assigned),
+              _buildJobList(JobStatus.inProgress),
+              _buildJobList(JobStatus.completed),
+            ],
+          ),
     );
   }
 

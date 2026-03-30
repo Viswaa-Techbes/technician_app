@@ -3,14 +3,18 @@ import 'models.dart';
 import 'widgets.dart';
 import 'demo_data.dart';
 
-class CompletionRequestsScreen extends StatefulWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/network/api_client.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
+
+class CompletionRequestsScreen extends ConsumerStatefulWidget {
   const CompletionRequestsScreen({super.key});
 
   @override
-  State<CompletionRequestsScreen> createState() => _CompletionRequestsScreenState();
+  ConsumerState<CompletionRequestsScreen> createState() => _CompletionRequestsScreenState();
 }
 
-class _CompletionRequestsScreenState extends State<CompletionRequestsScreen> {
+class _CompletionRequestsScreenState extends ConsumerState<CompletionRequestsScreen> {
 
   @override
   Widget build(BuildContext context) {
@@ -67,14 +71,18 @@ class _CompletionRequestsScreenState extends State<CompletionRequestsScreen> {
             children: [
               Expanded(
                 child: _buildActionButton("REJECT", const Color(0xFFF43F5E), () {
-                  DemoData.instance.rejectJob(job.id);
+                  final client = ref.read(apiClientProvider);
+                  final session = ref.read(authProvider);
+                  DemoData.instance.rejectJob(job.id, client, session?.token ?? '');
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Job rejected and sent back to technician.")));
                 }),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: _buildActionButton("APPROVE", const Color(0xFF10B981), () {
-                  DemoData.instance.approveJob(job.id);
+                  final client = ref.read(apiClientProvider);
+                  final session = ref.read(authProvider);
+                  DemoData.instance.approveJob(job.id, client, session?.token ?? '');
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Job approved and marked as completed.")));
                 }),
               ),

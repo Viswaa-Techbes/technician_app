@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'core/network/api_client.dart';
 import 'models.dart';
 
 class DemoData extends ChangeNotifier {
@@ -126,12 +127,18 @@ class DemoData extends ChangeNotifier {
     ];
   }
 
-  void approveJob(String jobId) {
-    _updateJobStatus(jobId, JobStatus.completed);
+  void approveJob(String jobId, ApiClient apiClient, String token) async {
+    try {
+      await apiClient.patchJson('/manager/tasks/$jobId/status', body: {'status': 'completed'}, token: token);
+      _updateJobStatus(jobId, JobStatus.completed);
+    } catch (_) {}
   }
 
-  void rejectJob(String jobId) {
-    _updateJobStatus(jobId, JobStatus.inProgress);
+  void rejectJob(String jobId, ApiClient apiClient, String token) async {
+    try {
+      await apiClient.patchJson('/manager/tasks/$jobId/status', body: {'status': 'in_progress'}, token: token);
+      _updateJobStatus(jobId, JobStatus.inProgress);
+    } catch (_) {}
   }
 
   void _updateJobStatus(String jobId, JobStatus newStatus) {
@@ -145,5 +152,64 @@ class DemoData extends ChangeNotifier {
   void addJob(Job job) {
     _jobs.add(job);
     notifyListeners();
+  }
+
+  Future<void> loadFromApi(ApiClient apiClient, String token) async {
+    try {
+      final resTasks = await apiClient.getJson('/manager/tasks', token: token);
+      if (resTasks['success'] == true) {
+        final List<dynamic> tData = resTasks['data'];
+        _jobs = tData.map((t) {
+          final String title = t['title']?.toString() ?? 'Task';
+          final String statusStr = t['status']?.toString() ?? 'pending';
+
+          JobStatus status = JobStatus.assigned;
+          if (statusStr == 'in_progress') status = JobStatus.inProgress;
+          if (statusStr == 'pending_approval' || statusStr == 'pending') status = JobStatus.pendingApproval;
+          if (statusStr == 'completed') status = JobStatus.completed;
+
+          final customer = t['assignedBy'] != null ? t['assignedBy']['name']?.toString() : 'Manager';
+          final techName = t['assignedTo'] != null ? t['assignedTo']['name']?.toString() : null;
+          final techId = t['assignedTo'] != null ? t['assignedTo']['id']?.toString() : null;
+
+          return Job(
+            id: t['id']?.toString() ?? '0',
+            serviceName: title,
+            customerName: customer ?? 'Manager',
+            customerPhone: 'N/A',
+            address: t['description']?.toString() ?? 'No description',
+            time: 'Now',
+            status: status,
+            technicianName: techName,
+            technicianId: techId,
+            assignedBy: customer,
+          );
+        }).toList();
+      }
+
+      final resTechs = await apiClient.getJson('/manager/technicians', token: token);
+      if (resTechs['success'] == true) {
+        final List<dynamic> techData = resTechs['data'];
+        _technicians = techData.map((t) {
+          TechnicianStatus status = TechnicianStatus.available;
+          if (t['status'] == 'offline') status = TechnicianStatus.offline;
+          if (t['status'] == 'busy') status = TechnicianStatus.busy;
+
+          return Technician(
+            id: t['id']?.toString() ?? '0',
+            name: t['name']?.toString() ?? 'Tech',
+            status: status,
+            phone: t['phone']?.toString() ?? 'N/A',
+            specialty: t['specialty']?.toString() ?? 'General Technician',
+          );
+        }).toList();
+      }
+
+      notifyListeners();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading backend data: $e');
+      }
+    }
   }
 }

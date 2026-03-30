@@ -42,6 +42,20 @@ async function listTechnicians(req, res, next) {
   }
 }
 
+async function listTasks(req, res, next) {
+  try {
+    const tasks = await Task.find({ assignedBy: req.user.id })
+      .sort({ createdAt: -1 })
+      .populate('assignedTo', 'name email role')
+      .populate('assignedBy', 'name email role')
+      .lean();
+
+    return res.json({ success: true, data: tasks.map(formatTask) });
+  } catch (err) {
+    next(err);
+  }
+}
+
 /**
  * POST /manager/tasks/assign — create a task assigned to a technician.
  * Body: { title, description?, technicianId }
@@ -113,9 +127,36 @@ function formatTask(doc) {
   };
 }
 
+async function updateTaskStatus(req, res, next) {
+  try {
+    const { taskId } = req.params;
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({ success: false, message: 'Status is required' });
+    }
+
+    const task = await Task.findOneAndUpdate(
+      { _id: taskId, assignedBy: req.user.id },
+      { status },
+      { new: true }
+    );
+
+    if (!task) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+
+    return res.json({ success: true, message: 'Task updated', data: formatTask(task) });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   dashboard,
   listTechnicians,
+  listTasks,
   assignTask,
+  updateTaskStatus,
   formatTask,
 };

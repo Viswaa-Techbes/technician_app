@@ -3,9 +3,10 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
+import 'core/network/api_config.dart';
 
 class LocationService {
-  static const String _baseUrl = 'http://10.0.2.2:5000/api/location'; // Using android emulator localhost binding
+  static String get _baseUrl => '${ApiConfig.baseUrl}/api/location';
   static final LocationService _instance = LocationService._internal();
   Timer? _timer;
   String? _currentTechnicianId;
@@ -83,6 +84,8 @@ class LocationService {
 
       if (response.statusCode == 200) {
         debugPrint('Location updated successfully: ${position.latitude}, ${position.longitude}');
+      } else if (response.statusCode == 404) {
+        debugPrint('Location endpoint is not available in the current backend.');
       } else {
         debugPrint('Failed to update location. Status: ${response.statusCode}');
       }
@@ -101,6 +104,8 @@ class LocationService {
         if (data['success'] == true) {
           return data['data'];
         }
+      } else if (response.statusCode == 404) {
+        debugPrint('Live location endpoint is not implemented in the current backend.');
       }
     } catch (e) {
       debugPrint('Error fetching live location: $e');

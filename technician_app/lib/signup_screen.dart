@@ -1,19 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class SignupScreen extends StatefulWidget {
+import 'core/security/rbac_constants.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
+import 'manager_main_screen.dart';
+import 'main_screen.dart';
+
+class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
 
   @override
-  State<SignupScreen> createState() => _SignupScreenState();
+  ConsumerState<SignupScreen> createState() => _SignupScreenState();
 }
 
-class _SignupScreenState extends State<SignupScreen> {
+class _SignupScreenState extends ConsumerState<SignupScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  
+
   String selectedRole = 'Technician';
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -198,9 +214,7 @@ class _SignupScreenState extends State<SignupScreen> {
       width: double.infinity,
       height: 60,
       child: ElevatedButton(
-        onPressed: () {
-          Navigator.pop(context);
-        },
+        onPressed: _isSubmitting ? null : _handleSignup,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.blue.shade900,
           foregroundColor: Colors.white,
@@ -210,14 +224,23 @@ class _SignupScreenState extends State<SignupScreen> {
             borderRadius: BorderRadius.circular(20),
           ),
         ),
-        child: const Text(
-          "SIGN UP",
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.5,
-          ),
-        ),
+        child: _isSubmitting
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : const Text(
+                "SIGN UP",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.5,
+                ),
+              ),
       ),
     );
   }
@@ -246,6 +269,63 @@ class _SignupScreenState extends State<SignupScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _handleSignup() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      _showMessage('Please complete name, email, and password.');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final session = await ref.read(authProvider.notifier).register(
+            name: name,
+            email: email,
+            password: password,
+            role: _selectedAppRole,
+          );
+
+      if (!mounted) return;
+
+      final nextScreen = session.role == Role.technician
+          ? const MainScreen()
+          : const ManagerMainScreen();
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => nextScreen),
+        (route) => false,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  Role get _selectedAppRole {
+    switch (selectedRole) {
+      case 'Manager':
+        return Role.manager;
+      case 'Technician':
+      default:
+        return Role.technician;
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 }

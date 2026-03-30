@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'core/network/api_client.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
 
 enum TimerStatus { pending, inProgress, paused, completed }
 
-class JobTimerWidget extends StatefulWidget {
+class JobTimerWidget extends ConsumerStatefulWidget {
   final String jobId;
   final String initialStatus; // pending, in_progress, paused, completed
   final int initialDurationSeconds;
@@ -17,12 +20,10 @@ class JobTimerWidget extends StatefulWidget {
   });
 
   @override
-  State<JobTimerWidget> createState() => _JobTimerWidgetState();
+  ConsumerState<JobTimerWidget> createState() => _JobTimerWidgetState();
 }
 
-class _JobTimerWidgetState extends State<JobTimerWidget> {
-  static const String _baseUrl = 'http://10.0.2.2:5000/api/jobs';
-  
+class _JobTimerWidgetState extends ConsumerState<JobTimerWidget> {
   late TimerStatus _status;
   late int _elapsedSeconds;
   Timer? _timer;
@@ -68,25 +69,33 @@ class _JobTimerWidgetState extends State<JobTimerWidget> {
     _timer?.cancel();
   }
 
-  Future<void> _updateJobBackend(String action) async {
+  Future<bool> _updateJobBackend(String action) async {
     setState(() => _isLoading = true);
     try {
-      final url = '$_baseUrl/${widget.jobId}/$action';
-      final response = await http.post(Uri.parse(url));
-      
-      if (response.statusCode == 200) {
-        // Success
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to $action job. Status ${response.statusCode}")),
-        );
+      final session = ref.read(authProvider);
+      if (session == null || session.token.isEmpty) {
+        throw const ApiException('Please log in again to update the task.');
       }
+
+      final nextStatus = switch (action) {
+        'start' || 'resume' => 'in_progress',
+        'pause' => 'pending',
+        'complete' => 'completed',
+        _ => throw const ApiException('Unsupported timer action.'),
+      };
+
+      await ref.read(apiClientProvider).patchJson(
+            '/technician/tasks/${widget.jobId}/status',
+            token: session.token,
+            body: <String, dynamic>{'status': nextStatus},
+          );
+      return true;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: Could not reach backend.")),
+        SnackBar(content: Text(e.toString())),
       );
+      return false;
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -95,8 +104,8 @@ class _JobTimerWidgetState extends State<JobTimerWidget> {
   }
 
   void _onStart() async {
-    await _updateJobBackend('start');
-    if (!mounted) return;
+    final updated = await _updateJobBackend('start');
+    if (!updated || !mounted) return;
     setState(() {
       _status = TimerStatus.inProgress;
     });
@@ -104,8 +113,8 @@ class _JobTimerWidgetState extends State<JobTimerWidget> {
   }
 
   void _onPause() async {
-    await _updateJobBackend('pause');
-    if (!mounted) return;
+    final updated = await _updateJobBackend('pause');
+    if (!updated || !mounted) return;
     setState(() {
       _status = TimerStatus.paused;
     });
@@ -113,8 +122,8 @@ class _JobTimerWidgetState extends State<JobTimerWidget> {
   }
 
   void _onResume() async {
-    await _updateJobBackend('resume');
-    if (!mounted) return;
+    final updated = await _updateJobBackend('resume');
+    if (!updated || !mounted) return;
     setState(() {
       _status = TimerStatus.inProgress;
     });
@@ -122,8 +131,8 @@ class _JobTimerWidgetState extends State<JobTimerWidget> {
   }
 
   void _onComplete() async {
-    await _updateJobBackend('complete');
-    if (!mounted) return;
+    final updated = await _updateJobBackend('complete');
+    if (!updated || !mounted) return;
     setState(() {
       _status = TimerStatus.completed;
     });

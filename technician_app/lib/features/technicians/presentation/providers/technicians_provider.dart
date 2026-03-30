@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/technician_entity.dart';
 import '../../domain/repositories/technician_repository.dart';
 import '../../domain/usecases/technician_usecases.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/datasources/technician_remote_datasource.dart';
 import '../../data/repositories/technician_repository_impl.dart';
 
@@ -152,10 +154,14 @@ class TechniciansNotifier extends StateNotifier<TechniciansState> {
 
 // ─── Providers ───────────────────────────────────────────────────────────────
 
-// Swap TechnicianMockDataSource() → TechnicianRemoteDataSourceImpl(client: http.Client())
-// when connecting to a real backend.
 final technicianRepositoryProvider = Provider<TechnicianRepository>((ref) {
-  final dataSource = TechnicianMockDataSource();
+  final apiClient = ref.watch(apiClientProvider);
+  final session = ref.watch(authProvider);
+
+  final dataSource = TechnicianRemoteDataSourceImpl(
+    apiClient: apiClient,
+    token: session?.token,
+  );
   return TechnicianRepositoryImpl(dataSource);
 });
 

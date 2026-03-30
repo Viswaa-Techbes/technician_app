@@ -1,37 +1,86 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models.dart';
 import 'widgets.dart';
 import 'job_detail_screen.dart';
+import 'core/network/api_client.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
+import 'login_screen.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _isOnDuty = false;
-  final List<Job> _todaysJobs = [
-    const Job(
-      id: '001',
-      serviceName: 'CCTV Installation',
-      customerName: 'John Smith',
-      customerPhone: '+1 555-010-9988',
-      address: '123 Main St, Downtown',
-      time: '10:30 AM',
-      status: JobStatus.inProgress,
-    ),
-    const Job(
-      id: '002',
-      serviceName: 'AC Repair',
-      customerName: 'Sarah Johnson',
-      customerPhone: '+1 555-020-7766',
-      address: '456 Oak Ave, Westside',
-      time: '01:00 PM',
-      status: JobStatus.assigned,
-    ),
-  ];
+  List<Job> _todaysJobs = [];
+  bool _isLoading = true;
+  String _userName = "Technician";
+  int _completedCount = 0;
+  String _earnings = "\$0";
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    try {
+      final apiClient = ref.read(apiClientProvider);
+      final session = ref.read(authProvider);
+      
+      if (session != null) {
+        _userName = session.name;
+      }
+      
+      final dbResp = await apiClient.getJson('/technician/dashboard', token: session?.token);
+      if (dbResp['success'] == true) {
+        final data = dbResp['data'];
+        _completedCount = data['completed'] ?? 0;
+        // mock earnings based on completed jobs for now
+        _earnings = "\$${_completedCount * 125}"; 
+      }
+
+      final tasksResp = await apiClient.getJson('/technician/tasks', token: session?.token);
+      final tasks = tasksResp['data'] as List<dynamic>? ?? [];
+      
+      final parsedJobs = tasks.map((t) {
+        JobStatus status = JobStatus.assigned;
+        if (t['status'] == 'in_progress') status = JobStatus.inProgress;
+        if (t['status'] == 'completed') status = JobStatus.completed;
+        if (t['status'] == 'pending') status = JobStatus.pendingApproval;
+
+        return Job(
+          id: t['id']?.toString() ?? '',
+          serviceName: t['title'] ?? 'Task',
+          customerName: t['assignedBy'] != null ? t['assignedBy']['name'] : 'System',
+          customerPhone: 'N/A',
+          address: 'See Notes',
+          time: 'Anytime',
+          status: status,
+          notes: t['description'] ?? '',
+        );
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _todaysJobs = parsedJobs;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -110,22 +159,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Hero(
-                            tag: 'app_logo',
-                            child: Image.asset(
-                              'assets/logos/logo.png',
-                              height: 40,
-                              fit: BoxFit.contain,
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Hero(
+                                tag: 'app_logo',
+                                child: Image.asset(
+                                  'assets/logos/logo.png',
+                                  height: 40,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () {
+                                  ref.read(authProvider.notifier).logout();
+                                  Navigator.pushAndRemoveUntil(
+                                    context,
+                                    MaterialPageRoute(builder: (context) => const LoginScreen()),
+                                    (route) => false,
+                                  );
+                                },
+                                icon: const Icon(Icons.logout_rounded, color: Colors.white70),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 16),
                           Text(
                             "WELCOME BACK,",
                             style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: 1.5),
                           ),
-                          const Text(
-                            "Alex Brown",
-                            style: TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: -1.5),
+                          Text(
+                            _userName,
+                            style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: -1.5),
                           ),
                         ],
                       ),
@@ -200,9 +266,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildProductionSummary() {
     return Row(
       children: [
-        Expanded(child: _buildProductionStatCard("COMPLETED", "24", Icons.verified_user_rounded, const Color(0xFF10B981))),
+        Expanded(child: _buildProductionStatCard("COMPLETED", _completedCount.toString(), Icons.verified_user_rounded, const Color(0xFF10B981))),
         const SizedBox(width: 16),
-        Expanded(child: _buildProductionStatCard("EARNINGS", "\$1,240", Icons.account_balance_rounded, const Color(0xFFF59E0B))),
+        Expanded(child: _buildProductionStatCard("EARNINGS", _earnings, Icons.account_balance_rounded, const Color(0xFFF59E0B))),
       ],
     );
   }
@@ -250,6 +316,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildStaggeredHorizontalTasks() {
+    if (_isLoading) {
+      return const SizedBox(height: 280, child: Center(child: CircularProgressIndicator()));
+    }
+    if (_todaysJobs.isEmpty) {
+      return const SizedBox(
+        height: 280, 
+        child: Center(child: Text("No assigned projects for today.", style: TextStyle(color: Colors.grey, fontSize: 16))),
+      );
+    }
+
     return SizedBox(
       height: 280,
       child: ListView.builder(

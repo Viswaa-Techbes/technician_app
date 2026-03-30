@@ -4,7 +4,8 @@ import 'signup_screen.dart';
 import 'main_screen.dart';
 import 'core/security/rbac_constants.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
-import 'features/dashboard_shell/presentation/screens/dashboard_shell_screen.dart';
+import 'manager_main_screen.dart';
+
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -17,6 +18,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String selectedRole = 'Technician';
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _isSubmitting = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -178,7 +187,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         children: [
           _buildRoleOption('Technician'),
           _buildRoleOption('Manager'),
-          _buildRoleOption('Admin'),
         ],
       ),
     );
@@ -254,30 +262,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       width: double.infinity,
       height: 60,
       child: ElevatedButton(
-        onPressed: () {
-          Role mappedRole;
-          if (selectedRole == 'Technician') {
-            mappedRole = Role.technician;
-          } else if (selectedRole == 'Manager') {
-            mappedRole = Role.manager;
-          } else {
-            mappedRole = Role.admin;
-          }
-
-          ref.read(authProvider.notifier).loginAs(mappedRole);
-
-          Widget nextScreen;
-          if (selectedRole == 'Technician') {
-            nextScreen = const MainScreen();
-          } else {
-            nextScreen = const DashboardShellScreen();
-          }
-
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => nextScreen),
-          );
-        },
+        onPressed: _isSubmitting ? null : _handleLogin,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.blue.shade900,
           foregroundColor: Colors.white,
@@ -285,11 +270,83 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           shadowColor: Colors.blue.shade900.withValues(alpha: 0.4),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         ),
-        child: const Text(
-          'LOGIN',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.5),
-        ),
+        child: _isSubmitting
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : const Text(
+                'LOGIN',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+              ),
       ),
+    );
+  }
+
+  Future<void> _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage('Please enter both email and password.');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final session = await ref.read(authProvider.notifier).login(
+            email: email,
+            password: password,
+          );
+
+      final selectedAppRole = _selectedAppRole;
+      if (session.role != selectedAppRole) {
+        ref.read(authProvider.notifier).logout();
+        if (!mounted) return;
+        _showMessage(
+          'This account is registered as ${session.role.name}. Switch the selected role and try again.',
+        );
+        return;
+      }
+
+      if (!mounted) return;
+
+      final Widget nextScreen = session.role == Role.technician
+          ? const MainScreen()
+          : const ManagerMainScreen();
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => nextScreen),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  Role get _selectedAppRole {
+    switch (selectedRole) {
+      case 'Manager':
+        return Role.manager;
+      case 'Technician':
+      default:
+        return Role.technician;
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 }

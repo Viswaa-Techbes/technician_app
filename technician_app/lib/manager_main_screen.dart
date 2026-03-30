@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/network/api_client.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
 import 'manager_dashboard_screen.dart';
 import 'manager_jobs_screen.dart';
 import 'teams_screen.dart';
 import 'completion_requests_screen.dart';
 import 'manager_profile_screen.dart';
+import 'demo_data.dart';
 
-class ManagerMainScreen extends StatefulWidget {
+class ManagerMainScreen extends ConsumerStatefulWidget {
   const ManagerMainScreen({super.key});
 
   @override
-  State<ManagerMainScreen> createState() => _ManagerMainScreenState();
+  ConsumerState<ManagerMainScreen> createState() => _ManagerMainScreenState();
 }
 
-class _ManagerMainScreenState extends State<ManagerMainScreen> {
+class _ManagerMainScreenState extends ConsumerState<ManagerMainScreen> {
   int _selectedIndex = 0;
+  bool _isLoading = true;
 
   final List<Widget> _screens = [
     const ManagerDashboardScreen(),
@@ -24,7 +29,28 @@ class _ManagerMainScreenState extends State<ManagerMainScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _initData();
+  }
+
+  Future<void> _initData() async {
+    final client = ref.read(apiClientProvider);
+    final session = ref.read(authProvider);
+    await DemoData.instance.loadFromApi(client, session?.token ?? '');
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,

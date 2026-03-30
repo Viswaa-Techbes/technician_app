@@ -56,12 +56,6 @@ class RoleAccessNotifier extends StateNotifier<RoleAccessState> {
             },
             users: const [
               UserRoleProfile(
-                userId: 'u_admin',
-                name: 'Admin User',
-                email: 'admin@techbes.com',
-                role: Role.admin,
-              ),
-              UserRoleProfile(
                 userId: 'u_manager',
                 name: 'Manager User',
                 email: 'manager@techbes.com',

@@ -7,16 +7,22 @@ import 'demo_data.dart';
 import 'dart:async';
 import 'location_service.dart';
 
-class ManagerDashboardScreen extends StatelessWidget {
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
+
+class ManagerDashboardScreen extends ConsumerWidget {
   const ManagerDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(authProvider);
+    final userName = session?.name ?? "Manager";
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: CustomScrollView(
         slivers: [
-          _buildHeader(context),
+          _buildHeader(context, userName),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -51,9 +57,9 @@ class ManagerDashboardScreen extends StatelessWidget {
                             value: DemoData.instance.completedJobs.toString(),
                             icon: Icons.check_circle_rounded,
                           ),
-                          const SummaryCard(
+                          SummaryCard(
                             label: "REVENUE",
-                            value: "4.2k",
+                            value: "\$${DemoData.instance.completedJobs * 120}",
                             icon: Icons.payments_rounded,
                           ),
                         ],
@@ -66,33 +72,42 @@ class ManagerDashboardScreen extends StatelessWidget {
                   const LiveLocationCard(),
                   const SizedBox(height: 32),
                   _buildSectionHeader("CRITICAL ACTIONS"),
-                  const SizedBox(height: 16),
-                  _buildActionCard(
-                    context,
-                    "Completion Requests",
-                    "3 technicians waiting for approval",
-                    Icons.pending_actions_rounded,
-                    const Color(0xFF8B5CF6),
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const CompletionRequestsScreen(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildActionCard(
-                    context,
-                    "Assign New Project",
-                    "Create and dispatch a new project",
-                    Icons.add_task_rounded,
-                    const Color(0xFF1E3A8A),
-                    () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AssignJobScreen(),
-                      ),
-                    ),
+                  ListenableBuilder(
+                    listenable: DemoData.instance,
+                    builder: (context, _) {
+                      final pendingCount = DemoData.instance.pendingApprovalJobs;
+                      return Column(
+                        children: [
+                          _buildActionCard(
+                            context,
+                            "Completion Requests",
+                            "$pendingCount technicians waiting for approval",
+                            Icons.pending_actions_rounded,
+                            const Color(0xFF8B5CF6),
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const CompletionRequestsScreen(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _buildActionCard(
+                            context,
+                            "Assign New Project",
+                            "Create and dispatch a new project",
+                            Icons.add_task_rounded,
+                            const Color(0xFF1E3A8A),
+                            () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const AssignJobScreen(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }
                   ),
                   const SizedBox(height: 32),
                   _buildSectionHeader("RECENT ACTIVITY"),
@@ -108,7 +123,7 @@ class ManagerDashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, String userName) {
     return SliverPadding(
       padding: const EdgeInsets.only(top: 60, left: 24, right: 24, bottom: 20),
       sliver: SliverToBoxAdapter(
@@ -126,9 +141,9 @@ class ManagerDashboardScreen extends StatelessWidget {
                     fontSize: 14,
                   ),
                 ),
-                const Text(
-                  "Manager Mike",
-                  style: TextStyle(
+                Text(
+                  userName,
+                  style: const TextStyle(
                     color: Color(0xFF1E293B),
                     fontWeight: FontWeight.w900,
                     fontSize: 26,

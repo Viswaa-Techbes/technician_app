@@ -1,5 +1,4 @@
 enum Role {
-  admin,
   manager,
   technician,
 }
@@ -31,18 +30,6 @@ const allPermissions = [
 ];
 
 const defaultRolePermissions = {
-  Role.admin: [
-    Permission.viewUsers,
-    Permission.manageTechnicians,
-    Permission.assignTasks,
-    Permission.editSettings,
-    Permission.viewDashboard,
-    Permission.viewOwnJobs,
-    Permission.manageRoleAccess,
-    Permission.viewReports,
-    Permission.manageServices,
-    Permission.trackOperations,
-  ],
   Role.manager: [
     Permission.viewDashboard,
     Permission.viewUsers,

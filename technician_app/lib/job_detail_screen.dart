@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 import 'models.dart';
 import 'widgets.dart';
+import 'core/network/api_client.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
 
-class JobDetailScreen extends StatefulWidget {
+class JobDetailScreen extends ConsumerStatefulWidget {
   final Job job;
 
   const JobDetailScreen({super.key, required this.job});
 
   @override
-  State<JobDetailScreen> createState() => _JobDetailScreenState();
+  ConsumerState<JobDetailScreen> createState() => _JobDetailScreenState();
 }
 
-class _JobDetailScreenState extends State<JobDetailScreen> {
+class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   late JobStatus _currentStatus;
   Duration _elapsed = Duration.zero;
   Timer? _timer;
@@ -374,6 +377,20 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     );
   }
 
+  Future<void> _updateStatus(String newStatus) async {
+    try {
+      final client = ref.read(apiClientProvider);
+      final session = ref.read(authProvider);
+      await client.patchJson(
+        '/technician/tasks/${widget.job.id}/status',
+        body: {'status': newStatus},
+        token: session?.token,
+      );
+    } catch (e) {
+      debugPrint("Failed to update status: $e");
+    }
+  }
+
   Widget _buildActionButtonForStatus() {
     switch (_currentStatus) {
       case JobStatus.pendingApproval:
@@ -402,12 +419,15 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
             Expanded(
               child: CustomButton(
                 label: "REQUEST COMPLETION",
-                onPressed: () {
+                onPressed: () async {
                   _pauseTimer();
+                  await _updateStatus('pending');
                   setState(() => _currentStatus = JobStatus.pendingApproval);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Completion request sent to manager.")),
-                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Completion request sent to manager.")),
+                    );
+                  }
                 },
                 color: const Color(0xFF8B5CF6),
                 icon: Icons.send_rounded,
@@ -418,10 +438,13 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
       case JobStatus.assigned:
         return CustomButton(
           label: "START SESSION",
-          onPressed: () => setState(() {
-            _currentStatus = JobStatus.inProgress;
+          onPressed: () async {
+            await _updateStatus('in_progress');
+            setState(() {
+              _currentStatus = JobStatus.inProgress;
+            });
             _startTimer();
-          }),
+          },
           color: const Color(0xFF2563EB),
           icon: Icons.play_circle_rounded,
         );

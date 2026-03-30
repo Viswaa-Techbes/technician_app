@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/network/api_client.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
 
 class TechbesDashboardApp extends StatelessWidget {
   const TechbesDashboardApp({super.key});
@@ -285,11 +288,55 @@ class _DashboardHomeState extends State<DashboardHome> {
   }
 }
 
-class DashboardPage extends StatelessWidget {
+class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
 
   @override
+  ConsumerState<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends ConsumerState<DashboardPage> {
+  int _totalTechnicians = 0;
+  int _myTasks = 0;
+  int _pendingTasks = 0;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDashboard();
+  }
+
+  Future<void> _fetchDashboard() async {
+    try {
+      final apiClient = ref.read(apiClientProvider);
+      final session = ref.read(authProvider);
+      final res = await apiClient.getJson('/manager/dashboard', token: session?.token);
+
+      if (res['success'] == true && mounted) {
+        final data = res['data'];
+        setState(() {
+          _totalTechnicians = data['techniciansTotal'] ?? 0;
+          _myTasks = data['tasksAssignedByMe'] ?? 0;
+          _pendingTasks = data['pendingTasks'] ?? 0;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+
+    final dynamicStatCards = [
+      {'label': 'Assigned Tasks', 'value': '$_myTasks', 'trend': '+1%', 'up': true, 'icon': '📋', 'light': const Color(0xFFEEF2FF), 'iconColor': const Color(0xFF6366F1)},
+      {'label': 'Pending Jobs', 'value': '$_pendingTasks', 'trend': '-2', 'up': false, 'icon': '⏳', 'light': const Color(0xFFFFFBEB), 'iconColor': const Color(0xFFF59E0B)},
+      {'label': 'Active Technicians', 'value': '$_totalTechnicians', 'trend': '+3', 'up': true, 'icon': '👷', 'light': const Color(0xFFF5F3FF), 'iconColor': const Color(0xFF8B5CF6)},
+    ];
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -298,23 +345,23 @@ class DashboardPage extends StatelessWidget {
           Wrap(
             spacing: 16,
             runSpacing: 16,
-            children: statCards.map((stat) => StatCard(item: stat)).toList(),
+            children: dynamicStatCards.map((stat) => StatCard(item: stat)).toList(),
           ),
           const SizedBox(height: 24),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: Column(children: [
-                const _SectionHeader(title: 'Service Requests Trend', subtitle: 'New vs completed over time'),
-                const _TrendSummary(),
-                const SizedBox(height: 16),
-                const _SectionHeader(title: 'Technician Performance', subtitle: 'Jobs completed this month'),
-                const PerformanceList(),
+              Expanded(child: Column(children: const [
+                _SectionHeader(title: 'Service Requests Trend', subtitle: 'New vs completed over time'),
+                _TrendSummary(),
+                SizedBox(height: 16),
+                _SectionHeader(title: 'Technician Performance', subtitle: 'Jobs completed this month'),
+                PerformanceList(),
               ])),
               const SizedBox(width: 16),
-              SizedBox(
+              const SizedBox(
                 width: 320,
-                child: Column(children: const [
+                child: Column(children: [
                   _SectionHeader(title: 'Service Distribution', subtitle: 'By service type'),
                   _ServiceDistributionCard(),
                 ]),
@@ -322,13 +369,13 @@ class DashboardPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(child: Column(children: const [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+            Expanded(child: Column(children: [
               _SectionHeader(title: 'Recent Service Requests', subtitle: 'Latest jobs and status updates'),
               _JobsTableCard(),
             ])),
-            const SizedBox(width: 16),
-            const SizedBox(width: 320, child: ActivityPanel()),
+            SizedBox(width: 16),
+            SizedBox(width: 320, child: ActivityPanel()),
           ]),
         ],
       ),
@@ -336,25 +383,72 @@ class DashboardPage extends StatelessWidget {
   }
 }
 
-class CustomersPage extends StatefulWidget {
+class CustomersPage extends ConsumerStatefulWidget {
   const CustomersPage({super.key});
 
   @override
-  State<CustomersPage> createState() => _CustomersPageState();
+  ConsumerState<CustomersPage> createState() => _CustomersPageState();
 }
 
-class _CustomersPageState extends State<CustomersPage> {
+class _CustomersPageState extends ConsumerState<CustomersPage> {
   String searchQuery = '';
   bool groupByStatus = false;
+  
+  List<Map<String, String>> _fetchedCustomers = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCustomers();
+  }
+
+  Future<void> _fetchCustomers() async {
+    try {
+      final apiClient = ref.read(apiClientProvider);
+      final session = ref.read(authProvider);
+      
+      final response = await apiClient.getJson('/customers', token: session?.token);
+      final List<dynamic> data = response['data'] ?? [];
+      
+      if (mounted) {
+        setState(() {
+          _fetchedCustomers = data.map((item) {
+            return {
+              'name': (item['name'] ?? '').toString(),
+              'email': (item['email'] ?? '').toString(),
+              'phone': (item['phone'] ?? '').toString(),
+              'address': (item['pincode'] ?? item['address'] ?? '').toString(),
+              'status': (item['status'] ?? 'Active').toString(),
+            };
+          }).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          // Fallback to mock data if backend fails
+          _fetchedCustomers = List<Map<String, String>>.from(customers);
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = customers.where((customer) {
+    if (_isLoading) {
+      return const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()));
+    }
+
+    final filtered = _fetchedCustomers.where((customer) {
       final query = searchQuery.toLowerCase();
-      return customer['name']!.toLowerCase().contains(query) ||
-          customer['email']!.toLowerCase().contains(query) ||
-          customer['phone']!.toLowerCase().contains(query) ||
-          customer['address']!.toLowerCase().contains(query);
+      final name = customer['name']?.toLowerCase() ?? '';
+      final email = customer['email']?.toLowerCase() ?? '';
+      final phone = customer['phone']?.toLowerCase() ?? '';
+      final address = customer['address']?.toLowerCase() ?? '';
+      return name.contains(query) || email.contains(query) || phone.contains(query) || address.contains(query);
     }).toList();
 
     return SingleChildScrollView(
@@ -422,11 +516,64 @@ class TechniciansPage extends StatelessWidget {
   }
 }
 
-class JobsPage extends StatelessWidget {
+class JobsPage extends ConsumerStatefulWidget {
   const JobsPage({super.key});
 
   @override
+  ConsumerState<JobsPage> createState() => _JobsPageState();
+}
+
+class _JobsPageState extends ConsumerState<JobsPage> {
+  List<Map<String, String>> _fetchedJobs = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchJobs();
+  }
+
+  Future<void> _fetchJobs() async {
+    try {
+      final apiClient = ref.read(apiClientProvider);
+      final session = ref.read(authProvider);
+      final response = await apiClient.getJson('/manager/tasks', token: session?.token);
+
+      if (response['success'] == true && mounted) {
+        final List<dynamic> data = response['data'] ?? [];
+        final parsed = data.map((t) {
+          final String title = t['title']?.toString() ?? 'Task';
+          final String status = t['status']?.toString().replaceAll('_', ' ') ?? 'Pending';
+          final String customer = t['assignedBy']?['name']?.toString() ?? 'Manager';
+          final String technician = t['assignedTo'] != null ? t['assignedTo']['name']?.toString() ?? 'Unassigned' : 'Unassigned';
+          final String date = t['createdAt'] != null ? t['createdAt'].toString().split('T')[0] : 'Today';
+          
+          return {
+            'id': t['id']?.toString() ?? '000',
+            'customer': customer,
+            'service': title,
+            'location': 'Tech: $technician',
+            'status': status.toUpperCase(),
+            'date': date,
+          };
+        }).toList();
+
+        setState(() {
+          _fetchedJobs = parsed;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -434,7 +581,10 @@ class JobsPage extends StatelessWidget {
         const SizedBox(height: 16),
         Wrap(spacing: 10, runSpacing: 10, children: statusChips.map((label) => ChoiceChip(label: Text(label), selected: label == 'All', onSelected: (_) {})).toList()),
         const SizedBox(height: 16),
-        CardWidget(child: Column(children: jobs.map((job) => _JobRow(job: job)).toList())),
+        if (_fetchedJobs.isEmpty)
+          const Padding(padding: EdgeInsets.all(20), child: Text("No jobs found.", style: TextStyle(color: Colors.grey)))
+        else
+          CardWidget(child: Column(children: _fetchedJobs.map((job) => _JobRow(job: job)).toList())),
       ]),
     );
   }
@@ -621,7 +771,7 @@ class _TrendSummary extends StatelessWidget {
 }
 
 class PerformanceList extends StatelessWidget {
-  const PerformanceList();
+  const PerformanceList({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -677,7 +827,7 @@ class _JobsTableCard extends StatelessWidget {
 }
 
 class ActivityPanel extends StatelessWidget {
-  const ActivityPanel();
+  const ActivityPanel({super.key});
 
   @override
   Widget build(BuildContext context) {
