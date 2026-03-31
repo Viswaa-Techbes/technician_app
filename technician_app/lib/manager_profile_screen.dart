@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'widgets.dart';
-import 'demo_data.dart';
 import 'account_details_screen.dart';
 import 'login_screen.dart';
 
@@ -28,27 +28,39 @@ class ManagerProfileScreen extends ConsumerWidget {
                 children: [
                    _buildSectionLabel(context, "Management Overview"),
                   const SizedBox(height: 20),
-                  ListenableBuilder(
-                    listenable: DemoData.instance,
-                    builder: (context, _) {
-                      return Column(
-                        children: [
-                          Row(
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance.collection('projects').snapshots(),
+                    builder: (context, projectsSnapshot) {
+                      return StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance.collection('technicians').snapshots(),
+                        builder: (context, techSnapshot) {
+                          final projects = projectsSnapshot.data?.docs ?? [];
+                          final techs = techSnapshot.data?.docs ?? [];
+
+                          final active = projects.where((d) => d['status'] == 'inProgress').length;
+                          final pending = projects.where((d) => d['status'] == 'pendingApproval').length;
+                          final completed = projects.where((d) => d['status'] == 'completed').length;
+
+                          return Column(
                             children: [
-                              Expanded(child: _buildMetricTile(context, DemoData.instance.activeJobs.toString(), "Active Jobs", Icons.bolt_rounded, const Color(0xFFEA580C))),
-                              const SizedBox(width: 16),
-                              Expanded(child: _buildMetricTile(context, DemoData.instance.pendingApprovalJobs.toString(), "Pending Review", Icons.hourglass_empty_rounded, const Color(0xFF8B5CF6))),
+                              Row(
+                                children: [
+                                  Expanded(child: _buildMetricTile(context, active.toString(), "Active Jobs", Icons.bolt_rounded, const Color(0xFFEA580C))),
+                                  const SizedBox(width: 16),
+                                  Expanded(child: _buildMetricTile(context, pending.toString(), "Pending Review", Icons.hourglass_empty_rounded, const Color(0xFF8B5CF6))),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  Expanded(child: _buildMetricTile(context, completed.toString(), "Completed", Icons.check_circle_rounded, const Color(0xFF10B981))),
+                                  const SizedBox(width: 16),
+                                  Expanded(child: _buildMetricTile(context, techs.length.toString(), "Team Size", Icons.group_rounded, const Color(0xFF2563EB))),
+                                ],
+                              ),
                             ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(child: _buildMetricTile(context, DemoData.instance.completedJobs.toString(), "Completed", Icons.check_circle_rounded, const Color(0xFF10B981))),
-                              const SizedBox(width: 16),
-                              Expanded(child: _buildMetricTile(context, DemoData.instance.technicians.length.toString(), "Team Size", Icons.group_rounded, const Color(0xFF2563EB))),
-                            ],
-                          ),
-                        ],
+                          );
+                        }
                       );
                     }
                   ),
@@ -113,18 +125,7 @@ class ManagerProfileScreen extends ConsumerWidget {
         children: [
           Stack(
             children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFF1F5F9), width: 2),
-                ),
-                child: const CircleAvatar(
-                  radius: 56,
-                  backgroundColor: Color(0xFFF8FAFC),
-                  child: Icon(Icons.manage_accounts_rounded, size: 60, color: Color(0xFF1E3A8A)),
-                ),
-              ),
+              const TechbesLogo(size: 112),
               Positioned(
                 bottom: 8,
                 right: 8,

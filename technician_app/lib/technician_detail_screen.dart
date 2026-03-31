@@ -1,13 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models.dart';
+import 'features/reviews/providers/review_providers.dart';
+import 'features/reviews/services/review_service.dart';
+import 'features/reviews/screens/technician_reviews_screen.dart';
 
-class TechnicianDetailScreen extends StatelessWidget {
+class TechnicianDetailScreen extends ConsumerWidget {
   final Technician technician;
 
   const TechnicianDetailScreen({super.key, required this.technician});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reviewsAsync = ref.watch(technicianReviewsProvider(technician.id));
+
+    final avgRating = reviewsAsync.maybeWhen(
+      data: (reviews) => ReviewService.calculateAverageRating(reviews),
+      orElse: () => 0.0,
+    );
+
+    final totalReviews = reviewsAsync.maybeWhen(
+      data: (reviews) => reviews.length,
+      orElse: () => 0,
+    );
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -18,7 +33,7 @@ class TechnicianDetailScreen extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            _buildProfileCard(context),
+            _buildProfileCard(context, avgRating, totalReviews),
             const SizedBox(height: 32),
             _buildSpecialtyCard(),
             const SizedBox(height: 32),
@@ -29,7 +44,7 @@ class TechnicianDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileCard(BuildContext context) {
+  Widget _buildProfileCard(BuildContext context, double avgRating, int totalReviews) {
     Color statusColor = Colors.grey;
     String statusText = "OFFLINE";
     if (technician.status == TechnicianStatus.available) {
@@ -106,6 +121,55 @@ class TechnicianDetailScreen extends StatelessWidget {
               const SizedBox(width: 24),
               _buildContactAction(Icons.message_rounded, const Color(0xFF0EA5E9)),
             ],
+          ),
+          const SizedBox(height: 32),
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TechnicianReviewsScreen(
+                  technicianId: technician.id,
+                  technicianName: technician.name,
+                ),
+              ),
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    avgRating > 0 ? avgRating.toStringAsFixed(1) : "No Ratings",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                      color: Color(0xFF92400E),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    "($totalReviews reviews)",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                      color: Color(0xFFB45309),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right_rounded,
+                      color: Color(0xFFB45309), size: 16),
+                ],
+              ),
+            ),
           ),
         ],
       ),

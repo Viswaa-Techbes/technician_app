@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
+import 'services/mock_data_service.dart';
 import 'models.dart';
 import 'widgets.dart';
-import 'core/network/api_client.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
+import 'features/job_description/widgets/job_description_section.dart';
+import 'features/reviews/screens/submit_review_screen.dart';
 
 class JobDetailScreen extends ConsumerStatefulWidget {
   final Job job;
@@ -74,10 +78,13 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                           children: [
                             const SizedBox(height: 32),
                             _buildCustomerCard(),
+                            JobDescriptionSection(projectId: widget.job.id),
                             _buildSectionHeader('Project Site Location'),
                             _buildMapCard(),
                             _buildSectionHeader('Technical Documentation'),
                             _buildPhotoGrid(),
+                            _buildSectionHeader('Project Attachments'),
+                            _buildAttachmentsList(),
                             _buildSectionHeader('Field Observations'),
                             _buildNotesArea(),
                             const SizedBox(height: 60),
@@ -280,30 +287,194 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
     );
   }
 
+  Future<void> _openGoogleMapsNavigation() async {
+    Uri url;
+    if (widget.job.googleMapsLink != null && widget.job.googleMapsLink!.isNotEmpty) {
+      url = Uri.parse(widget.job.googleMapsLink!);
+    } else {
+      final double lat = widget.job.latitude ?? 13.0827;
+      final double lng = widget.job.longitude ?? 80.2707;
+      url = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+    }
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open Google Maps')),
+        );
+      }
+    }
+  }
+
   Widget _buildMapCard() {
     return Container(
-      height: 220,
+      height: 260,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFF0F7FF),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
+        border: Border.all(color: const Color(0xFFDBEAFE), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF3B82F6).withValues(alpha: 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
       child: Stack(
         children: [
-          Center(
-            child: Opacity(
-              opacity: 0.1,
-              child: Icon(Icons.explore_rounded, size: 80, color: Colors.blue.shade900),
+          // Decorative grid lines
+          Positioned.fill(
+            child: CustomPaint(painter: _MapGridPainter()),
+          ),
+          // Decorative rings
+          Positioned(
+            top: 40,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: const Color(0xFF3B82F6).withValues(alpha: 0.08),
+                    width: 1.5,
+                  ),
+                ),
+                child: Center(
+                  child: Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFF3B82F6).withValues(alpha: 0.12),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFF2563EB).withValues(alpha: 0.15),
+                        ),
+                        child: const Icon(
+                          Icons.location_on_rounded,
+                          color: Color(0xFF2563EB),
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
+          // Address chip
           Positioned(
-            bottom: 24,
-            right: 24,
-            child: CustomButton(
-              label: "NAVIGATION",
-              onPressed: () {},
-              isFullWidth: false,
-              icon: Icons.near_me_rounded,
+            top: 16,
+            left: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 8,
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.pin_drop_rounded, size: 14, color: Color(0xFF2563EB)),
+                  const SizedBox(width: 6),
+                  Text(
+                    widget.job.address.length > 24
+                        ? '${widget.job.address.substring(0, 24)}…'
+                        : widget.job.address,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF475569),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Location chip
+          Positioned(
+            top: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                widget.job.googleMapsLink != null ? 'Map Link Attached' : '${widget.job.latitude ?? 0.0}° N, ${widget.job.longitude ?? 0.0}° E',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF2563EB),
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+          // Navigation button
+          Positioned(
+            bottom: 20,
+            left: 20,
+            right: 20,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _openGoogleMapsNavigation,
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF2563EB).withValues(alpha: 0.35),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.near_me_rounded, color: Colors.white, size: 20),
+                      SizedBox(width: 10),
+                      Text(
+                        'NAVIGATION',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -344,6 +515,38 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
     );
   }
 
+  Widget _buildAttachmentsList() {
+    final files = widget.job.fileAttachments ?? [];
+    if (files.isEmpty) {
+      return const Text("No attachments provided", style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13));
+    }
+    return Column(
+      children: files.map((path) => Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFF1F5F9)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.description_rounded, color: Color(0xFF3B82F6), size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                path.split('/').last,
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF334155)),
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const Icon(Icons.file_download_outlined, color: Color(0xFF94A3B8), size: 18),
+          ],
+        ),
+      )).toList(),
+    );
+  }
+
   Widget _buildNotesArea() {
     return TextField(
       maxLines: 4,
@@ -378,14 +581,39 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   }
 
   Future<void> _updateStatus(String newStatus) async {
+    if (MockDataService.useMock) {
+      // Convert string status back to Enum if needed
+      JobStatus statusEnum = JobStatus.assigned;
+      if (newStatus == 'inProgress') statusEnum = JobStatus.inProgress;
+      if (newStatus == 'pendingApproval') statusEnum = JobStatus.pendingApproval;
+      if (newStatus == 'completed') statusEnum = JobStatus.completed;
+
+      await MockDataService().updateJobStatus(widget.job.id, statusEnum);
+      if (mounted) {
+        setState(() => _currentStatus = statusEnum);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Mock: Job status moved to $newStatus")));
+      }
+      return;
+    }
+
     try {
-      final client = ref.read(apiClientProvider);
       final session = ref.read(authProvider);
-      await client.patchJson(
-        '/technician/tasks/${widget.job.id}/status',
-        body: {'status': newStatus},
-        token: session?.token,
-      );
+      final db = FirebaseFirestore.instance;
+      
+      // Update job status
+      await db.collection('projects').doc(widget.job.id).update({
+        'status': newStatus,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // Feature 1: Toggle technician online status when starting a job session
+      if (newStatus == 'inProgress' && session != null) {
+        await db.collection('technicians').doc(session.id).set({
+          'isOnline': true,
+          'lastActiveAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+
     } catch (e) {
       debugPrint("Failed to update status: $e");
     }
@@ -402,10 +630,22 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
         );
       case JobStatus.completed:
         return CustomButton(
-          label: "PROJECT COMPLETED",
-          onPressed: () {},
-          color: const Color(0xFF10B981),
-          icon: Icons.verified_rounded,
+          label: "COLLECT CLIENT REVIEW",
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SubmitReviewScreen(
+                  technicianId: widget.job.technicianId ?? '',
+                  technicianName: widget.job.technicianName ?? "Technician",
+                  projectId: widget.job.id,
+                  clientName: widget.job.customerName,
+                ),
+              ),
+            );
+          },
+          color: const Color(0xFFF59E0B),
+          icon: Icons.star_rounded,
         );
       case JobStatus.inProgress:
         return Row(
@@ -421,7 +661,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                 label: "REQUEST COMPLETION",
                 onPressed: () async {
                   _pauseTimer();
-                  await _updateStatus('pending');
+                  await _updateStatus('pendingApproval');
                   setState(() => _currentStatus = JobStatus.pendingApproval);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -439,7 +679,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
         return CustomButton(
           label: "START SESSION",
           onPressed: () async {
-            await _updateStatus('in_progress');
+            await _updateStatus('inProgress');
             setState(() {
               _currentStatus = JobStatus.inProgress;
             });
@@ -450,4 +690,35 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
         );
     }
   }
+}
+
+class _MapGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF3B82F6).withValues(alpha: 0.06)
+      ..strokeWidth = 1;
+
+    // Horizontal lines
+    const spacing = 28.0;
+    for (double y = 0; y < size.height; y += spacing) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+    // Vertical lines
+    for (double x = 0; x < size.width; x += spacing) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+
+    // Cross-hair center lines
+    final cx = size.width / 2;
+    final cy = size.height / 2 - 20;
+    final crossPaint = Paint()
+      ..color = const Color(0xFF3B82F6).withValues(alpha: 0.12)
+      ..strokeWidth = 1.2;
+    canvas.drawLine(Offset(cx, 0), Offset(cx, size.height), crossPaint);
+    canvas.drawLine(Offset(0, cy), Offset(size.width, cy), crossPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

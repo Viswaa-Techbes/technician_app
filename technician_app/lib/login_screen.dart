@@ -5,6 +5,7 @@ import 'main_screen.dart';
 import 'core/security/rbac_constants.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'manager_main_screen.dart';
+import 'widgets.dart';
 
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -128,7 +129,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      height: 240,
+      height: 300,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -143,14 +144,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Icon(Icons.construction_rounded, color: Colors.white, size: 46),
-          ),
+          const TechbesLogo(size: 140),
           const SizedBox(height: 16),
           const Text(
             'Techbes',

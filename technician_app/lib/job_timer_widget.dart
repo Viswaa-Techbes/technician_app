@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import 'core/network/api_client.dart';
-import 'features/auth/presentation/providers/auth_provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum TimerStatus { pending, inProgress, paused, completed }
 
@@ -72,28 +70,22 @@ class _JobTimerWidgetState extends ConsumerState<JobTimerWidget> {
   Future<bool> _updateJobBackend(String action) async {
     setState(() => _isLoading = true);
     try {
-      final session = ref.read(authProvider);
-      if (session == null || session.token.isEmpty) {
-        throw const ApiException('Please log in again to update the task.');
-      }
-
       final nextStatus = switch (action) {
-        'start' || 'resume' => 'in_progress',
-        'pause' => 'pending',
-        'complete' => 'completed',
-        _ => throw const ApiException('Unsupported timer action.'),
+        'start' || 'resume' => 'inProgress',
+        'pause' => 'assigned',
+        'complete' => 'pendingApproval',
+        _ => throw Exception('Unsupported timer action.'),
       };
 
-      await ref.read(apiClientProvider).patchJson(
-            '/technician/tasks/${widget.jobId}/status',
-            token: session.token,
-            body: <String, dynamic>{'status': nextStatus},
-          );
+      await FirebaseFirestore.instance.collection('projects').doc(widget.jobId).update({
+        'status': nextStatus,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
       return true;
     } catch (e) {
       if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text("Error: $e")),
       );
       return false;
     } finally {

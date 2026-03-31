@@ -1,6 +1,32 @@
 import 'package:flutter/material.dart';
 import 'models.dart';
 
+class TechbesLogo extends StatelessWidget {
+  final double size;
+  const TechbesLogo({super.key, this.size = 140});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      padding: EdgeInsets.all(size * 0.12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(size * 0.3),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Image.asset('assets/logos/logo.png', fit: BoxFit.contain),
+    );
+  }
+}
+
 class CustomButton extends StatefulWidget {
   final String label;
   final VoidCallback onPressed;

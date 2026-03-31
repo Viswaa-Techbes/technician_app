@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models.dart';
 import 'widgets.dart';
-import 'demo_data.dart';
-
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'core/network/api_client.dart';
-import 'features/auth/presentation/providers/auth_provider.dart';
 
 class CompletionRequestsScreen extends ConsumerStatefulWidget {
   const CompletionRequestsScreen({super.key});
@@ -15,24 +12,43 @@ class CompletionRequestsScreen extends ConsumerStatefulWidget {
 }
 
 class _CompletionRequestsScreenState extends ConsumerState<CompletionRequestsScreen> {
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(title: const Text("COMPLETION REQUESTS")),
-      body: ListenableBuilder(
-        listenable: DemoData.instance,
-        builder: (context, _) {
-          final requests = DemoData.instance.jobs.where((j) => j.status == JobStatus.pendingApproval).toList();
-          return requests.isEmpty
-              ? _buildEmptyState()
-              : ListView.builder(
-                  padding: const EdgeInsets.all(20),
-                  itemCount: requests.length,
-                  itemBuilder: (context, index) => _buildRequestCard(context, requests[index]),
-                );
-        }
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('projects')
+            .where('status', isEqualTo: 'pendingApproval')
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final docs = snapshot.data?.docs ?? [];
+          if (docs.isEmpty) {
+            return _buildEmptyState();
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.all(20),
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              final d = docs[index].data() as Map<String, dynamic>;
+              final job = Job(
+                id: docs[index].id,
+                serviceName: d['serviceName'] ?? 'No Service',
+                customerName: d['customerName'] ?? 'No Customer',
+                customerPhone: d['customerPhone'] ?? '',
+                address: d['address'] ?? '',
+                time: d['time'] ?? '',
+                status: JobStatus.pendingApproval,
+                technicianName: d['technicianName'],
+                technicianId: d['technicianId'],
+              );
+              return _buildRequestCard(context, job);
+            },
+          );
+        },
       ),
     );
   }
@@ -63,34 +79,39 @@ class _CompletionRequestsScreenState extends ConsumerState<CompletionRequestsScr
             children: [
               const Icon(Icons.person_outline_rounded, size: 16, color: Color(0xFF3B82F6)),
               const SizedBox(width: 8),
-              Text("Technician: ${job.technicianName}", style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
+              Text("Technician: ${job.technicianName ?? 'N/A'}", style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
             ],
           ),
           const Divider(height: 48, color: Color(0xFFF1F5F9)),
           Row(
             children: [
               Expanded(
-                child: _buildActionButton("REJECT", const Color(0xFFF43F5E), () {
-                  final client = ref.read(apiClientProvider);
-                  final session = ref.read(authProvider);
-                  DemoData.instance.rejectJob(job.id, client, session?.token ?? '');
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Job rejected and sent back to technician.")));
-                }),
+                child: _buildActionButton("REJECT", const Color(0xFFF43F5E), () => _handleAction(job.id, 'assigned')),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: _buildActionButton("APPROVE", const Color(0xFF10B981), () {
-                  final client = ref.read(apiClientProvider);
-                  final session = ref.read(authProvider);
-                  DemoData.instance.approveJob(job.id, client, session?.token ?? '');
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Job approved and marked as completed.")));
-                }),
+                child: _buildActionButton("APPROVE", const Color(0xFF10B981), () => _handleAction(job.id, 'completed')),
               ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _handleAction(String jobId, String newStatus) async {
+    try {
+      await FirebaseFirestore.instance.collection('projects').doc(jobId).update({
+        'status': newStatus,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      if (mounted) {
+        String msg = newStatus == 'completed' ? "Job approved and marked as completed." : "Job rejected and sent back to technician.";
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+    }
   }
 
   Widget _buildActionButton(String label, Color color, VoidCallback onTap) {

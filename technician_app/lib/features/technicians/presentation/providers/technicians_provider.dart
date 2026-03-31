@@ -2,8 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/technician_entity.dart';
 import '../../domain/repositories/technician_repository.dart';
 import '../../domain/usecases/technician_usecases.dart';
-import '../../../../core/network/api_client.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../data/datasources/technician_remote_datasource.dart';
 import '../../data/repositories/technician_repository_impl.dart';
 
@@ -155,13 +153,7 @@ class TechniciansNotifier extends StateNotifier<TechniciansState> {
 // ─── Providers ───────────────────────────────────────────────────────────────
 
 final technicianRepositoryProvider = Provider<TechnicianRepository>((ref) {
-  final apiClient = ref.watch(apiClientProvider);
-  final session = ref.watch(authProvider);
-
-  final dataSource = TechnicianRemoteDataSourceImpl(
-    apiClient: apiClient,
-    token: session?.token,
-  );
+  final dataSource = TechnicianRemoteDataSourceImpl();
   return TechnicianRepositoryImpl(dataSource);
 });
 

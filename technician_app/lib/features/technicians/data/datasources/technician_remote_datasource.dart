@@ -1,59 +1,54 @@
-import '../../../../core/network/api_client.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/technician_model.dart';
 import '../../domain/entities/technician_entity.dart';
 import '../../domain/repositories/technician_repository.dart';
-
-
 
 abstract class TechnicianRemoteDataSource {
   Future<List<TechnicianModel>> fetchTechnicians(GetTechniciansParams params);
   Future<List<String>> fetchSkillCategories();
 }
 
-/// Production implementation — makes real HTTP requests.
-/// Replace [_kBaseUrl] with your backend URL and add auth headers as needed.
 class TechnicianRemoteDataSourceImpl implements TechnicianRemoteDataSource {
-  final ApiClient _apiClient;
-  final String? _token;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  TechnicianRemoteDataSourceImpl({
-    required ApiClient apiClient,
-    String? token,
-  })  : _apiClient = apiClient,
-        _token = token;
+  TechnicianRemoteDataSourceImpl();
 
   @override
   Future<List<TechnicianModel>> fetchTechnicians(GetTechniciansParams params) async {
-    final queryParams = <String, String>{
-      'page': params.page.toString(),
-      'limit': params.pageSize.toString(),
-      if (params.searchQuery != null && params.searchQuery!.isNotEmpty)
-        'search': params.searchQuery!,
-      if (params.skillFilter != null && params.skillFilter!.isNotEmpty)
-        'skill': params.skillFilter!,
-      if (params.statusFilter != null)
-        'status': params.statusFilter!.label,
-    };
-
-    final uri = Uri(path: '/manager/technicians', queryParameters: queryParams);
-
     try {
-      final response = await _apiClient.getJson(uri.toString(), token: _token);
-      final list = response['technicians'] as List<dynamic>? ?? response['data'] as List<dynamic>;
-      return list.map((e) => TechnicianModel.fromJson(e as Map<String, dynamic>)).toList();
+      Query query = _db.collection('technicians');
+
+      if (params.skillFilter != null && params.skillFilter!.isNotEmpty) {
+        query = query.where('specialty', isEqualTo: params.skillFilter);
+      }
+      
+      // Firestore doesn't support easy multi-field searches like this without indexing or external services (Algolia)
+      // For now, we'll fetch and filter in-memory for simpler search simulation
+      final snapshot = await query.get();
+      
+      var list = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return TechnicianModel.fromJson({
+          ...data,
+          'id': doc.id,
+        });
+      }).toList();
+
+      if (params.searchQuery != null && params.searchQuery!.isNotEmpty) {
+        final q = params.searchQuery!.toLowerCase();
+        list = list.where((t) => t.name.toLowerCase().contains(q) || t.skill.toLowerCase().contains(q)).toList();
+      }
+
+      return list;
     } catch (e) {
-      throw TechnicianApiException('Server error: $e');
+      throw TechnicianApiException('Firestore error: $e');
     }
   }
 
   @override
   Future<List<String>> fetchSkillCategories() async {
-    try {
-      final response = await _apiClient.getJson('/manager/technicians/skills', token: _token);
-      return List<String>.from(response['skills'] as List<dynamic>? ?? []);
-    } catch (e) {
-      throw TechnicianApiException('Server error: $e');
-    }
+    // Ideally this comes from a metadata collection
+    return ['CCTV Installation', 'Laptop / Desktop', 'Networking', 'AMC Maintenance', 'Security Systems'];
   }
 }
 

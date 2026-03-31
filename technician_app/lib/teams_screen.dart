@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'models.dart';
-import 'demo_data.dart';
 import 'technician_detail_screen.dart';
 
 class TeamsScreen extends StatelessWidget {
@@ -11,16 +11,37 @@ class TeamsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(title: const Text("FIELD TEAMS")),
-      body: ListenableBuilder(
-        listenable: DemoData.instance,
-        builder: (context, _) {
-          final team = DemoData.instance.technicians;
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('technicians').snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final docs = snapshot.data?.docs ?? [];
+          if (docs.isEmpty) {
+            return const Center(child: Text("No technicians registered", style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.w700)));
+          }
           return ListView.builder(
             padding: const EdgeInsets.all(20),
-            itemCount: team.length,
-            itemBuilder: (context, index) => _buildTechnicianCard(context, team[index]),
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              final d = docs[index].data() as Map<String, dynamic>;
+              final tech = Technician(
+                id: docs[index].id,
+                name: d['name'] ?? 'Unknown',
+                email: d['email'] ?? '',
+                phone: d['phone'] ?? '+1 234 567 890',
+                specialty: d['specialty'] ?? 'General Maintenance',
+                status: (d['isOnline'] ?? false) ? TechnicianStatus.available : TechnicianStatus.offline,
+                assignedManager: d['managerName'] ?? 'Lead Manager',
+                performance: (d['performance'] ?? 0.0).toDouble(),
+                completedJobs: d['completedJobs'] ?? 0,
+                currentJobId: d['currentJobId'],
+              );
+              return _buildTechnicianCard(context, tech);
+            }
           );
-        }
+        },
       ),
     );
   }
@@ -41,30 +62,30 @@ class TeamsScreen extends StatelessWidget {
         ),
         child: Row(
           children: [
-          _buildStatusAvatar(tech.status),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(tech.name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF1E293B))),
-                const SizedBox(height: 4),
-                _buildSubInfo(tech),
-              ],
+            _buildStatusAvatar(tech.status),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(tech.name, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF1E293B))),
+                  const SizedBox(height: 4),
+                  _buildSubInfo(tech),
+                ],
+              ),
             ),
-          ),
-          IconButton.filledTonal(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => TechnicianDetailScreen(technician: tech)),
+            IconButton.filledTonal(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => TechnicianDetailScreen(technician: tech)),
+              ),
+              icon: const Icon(Icons.chevron_right_rounded),
+              style: IconButton.styleFrom(backgroundColor: const Color(0xFFF1F5F9)),
             ),
-            icon: const Icon(Icons.chevron_right_rounded),
-            style: IconButton.styleFrom(backgroundColor: const Color(0xFFF1F5F9)),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-   );
+    );
   }
 
   Widget _buildStatusAvatar(TechnicianStatus status) {
@@ -74,10 +95,10 @@ class TeamsScreen extends StatelessWidget {
 
     return Stack(
       children: [
-        CircleAvatar(
+        const CircleAvatar(
           radius: 28,
-          backgroundColor: const Color(0xFFF1F5F9),
-          child: Icon(Icons.person_rounded, color: Colors.blue.withValues(alpha: 0.5)),
+          backgroundColor: Color(0xFFF1F5F9),
+          child: Icon(Icons.person_rounded, color: Color(0xFF3B82F6), size: 30),
         ),
         Positioned(
           right: 0,

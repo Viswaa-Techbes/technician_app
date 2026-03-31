@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'widgets.dart';
 import 'account_details_screen.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
+import 'features/reviews/providers/review_providers.dart';
+import 'features/reviews/services/review_service.dart';
+import 'features/reviews/screens/technician_reviews_screen.dart';
+import 'login_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -12,6 +17,18 @@ class ProfileScreen extends ConsumerWidget {
     final session = ref.watch(authProvider);
     final userName = session?.name ?? "Technician";
     final userRole = session?.role.name.toUpperCase() ?? "SENIOR FIELD ENGINEER";
+
+    final reviewsAsync = ref.watch(technicianReviewsProvider(session?.id ?? ''));
+
+    final avgRating = reviewsAsync.maybeWhen(
+      data: (reviews) => ReviewService.calculateAverageRating(reviews),
+      orElse: () => 0.0,
+    );
+
+    final totalReviews = reviewsAsync.maybeWhen(
+      data: (reviews) => reviews.length,
+      orElse: () => 0,
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -29,14 +46,53 @@ class ProfileScreen extends ConsumerWidget {
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      Expanded(child: _buildMetricTile(context, "4.9", "Rating", Icons.auto_awesome_rounded, const Color(0xFFF59E0B))),
+                      Expanded(
+                        child: _buildMetricTile(
+                          context,
+                          avgRating > 0 ? avgRating.toStringAsFixed(1) : "N/A",
+                          "Rating",
+                          Icons.auto_awesome_rounded,
+                          const Color(0xFFF59E0B),
+                        ),
+                      ),
                       const SizedBox(width: 16),
-                      Expanded(child: _buildMetricTile(context, "128", "Projects", Icons.rocket_launch_rounded, const Color(0xFF2563EB))),
+                      Expanded(
+                        child: StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance.collection('projects')
+                              .where('technicianId', isEqualTo: session?.id)
+                              .where('status', isEqualTo: 'completed')
+                              .snapshots(),
+                          builder: (context, snapshot) {
+                            final count = snapshot.data?.docs.length ?? 0;
+                            return _buildMetricTile(
+                              context,
+                              count.toString(),
+                              "Projects",
+                              Icons.rocket_launch_rounded,
+                              const Color(0xFF2563EB),
+                            );
+                          },
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 32),
                   _buildSectionLabel(context, "Preferences & Security"),
                   const SizedBox(height: 16),
+                  _buildMenuAction(
+                    Icons.rate_review_outlined,
+                    "Client Reviews",
+                    "View what customers are saying ($totalReviews)",
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => TechnicianReviewsScreen(
+                          technicianId: session?.id ?? '',
+                          technicianName: userName,
+                        ),
+                      ),
+                    ),
+                  ),
                   _buildMenuAction(
                     Icons.person_outline_rounded,
                     "Account Details",
@@ -52,7 +108,16 @@ class ProfileScreen extends ConsumerWidget {
                   const SizedBox(height: 48),
                   CustomButton(
                     label: "SIGN OUT",
-                    onPressed: () {},
+                    onPressed: () async {
+                      await ref.read(authProvider.notifier).logout();
+                      if (context.mounted) {
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(builder: (context) => const LoginScreen()),
+                          (route) => false,
+                        );
+                      }
+                    },
                     color: const Color(0xFFF43F5E),
                     icon: Icons.power_settings_new_rounded,
                   ),

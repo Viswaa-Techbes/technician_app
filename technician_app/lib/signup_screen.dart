@@ -5,6 +5,7 @@ import 'core/security/rbac_constants.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'manager_main_screen.dart';
 import 'main_screen.dart';
+import 'widgets.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -50,6 +51,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const SizedBox(height: 10),
+              const Center(child: TechbesLogo(size: 80)),
+              const SizedBox(height: 30),
               const Text(
                 "Create Account",
                 style: TextStyle(

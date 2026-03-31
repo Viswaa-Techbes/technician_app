@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'core/network/api_client.dart';
-import 'features/auth/presentation/providers/auth_provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import 'widgets.dart';
 
 class TechbesDashboardApp extends StatelessWidget {
   const TechbesDashboardApp({super.key});
@@ -75,20 +76,7 @@ class _DashboardHomeState extends State<DashboardHome> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(11),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF6366F1), Color(0xFF06B6D4)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text('⚡', style: TextStyle(fontSize: 18)),
-                ),
+                const TechbesLogo(size: 36),
                 if (!collapsed) ...[
                   const SizedBox(width: 10),
                   Column(
@@ -309,16 +297,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   Future<void> _fetchDashboard() async {
     try {
-      final apiClient = ref.read(apiClientProvider);
-      final session = ref.read(authProvider);
-      final res = await apiClient.getJson('/manager/dashboard', token: session?.token);
-
-      if (res['success'] == true && mounted) {
-        final data = res['data'];
+      final techs = await FirebaseFirestore.instance.collection('technicians').get();
+      final projects = await FirebaseFirestore.instance.collection('projects').get();
+      
+      if (mounted) {
         setState(() {
-          _totalTechnicians = data['techniciansTotal'] ?? 0;
-          _myTasks = data['tasksAssignedByMe'] ?? 0;
-          _pendingTasks = data['pendingTasks'] ?? 0;
+          _totalTechnicians = techs.docs.length;
+          _myTasks = projects.docs.length; // Approximate for now
+          _pendingTasks = projects.docs.where((d) => d.data()['status'] == 'assigned').length;
           _isLoading = false;
         });
       }
@@ -405,23 +391,27 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
 
   Future<void> _fetchCustomers() async {
     try {
-      final apiClient = ref.read(apiClientProvider);
-      final session = ref.read(authProvider);
+      final snapshot = await FirebaseFirestore.instance.collection('projects').get();
       
-      final response = await apiClient.getJson('/customers', token: session?.token);
-      final List<dynamic> data = response['data'] ?? [];
-      
+      // Get unique customers from projects
+      final uniqueCustomers = <String, Map<String, String>>{};
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final name = data['customerName']?.toString() ?? 'Unknown Customer';
+        if (!uniqueCustomers.containsKey(name)) {
+          uniqueCustomers[name] = {
+            'name': name,
+            'email': 'customer@example.com',
+            'phone': '+91 00000 00000',
+            'address': data['location']?.toString() ?? 'Bangalore',
+            'status': 'Active',
+          };
+        }
+      }
+
       if (mounted) {
         setState(() {
-          _fetchedCustomers = data.map((item) {
-            return {
-              'name': (item['name'] ?? '').toString(),
-              'email': (item['email'] ?? '').toString(),
-              'phone': (item['phone'] ?? '').toString(),
-              'address': (item['pincode'] ?? item['address'] ?? '').toString(),
-              'status': (item['status'] ?? 'Active').toString(),
-            };
-          }).toList();
+          _fetchedCustomers = uniqueCustomers.values.toList();
           _isLoading = false;
         });
       }
@@ -429,7 +419,6 @@ class _CustomersPageState extends ConsumerState<CustomersPage> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          // Fallback to mock data if backend fails
           _fetchedCustomers = List<Map<String, String>>.from(customers);
         });
       }
@@ -535,29 +524,27 @@ class _JobsPageState extends ConsumerState<JobsPage> {
 
   Future<void> _fetchJobs() async {
     try {
-      final apiClient = ref.read(apiClientProvider);
-      final session = ref.read(authProvider);
-      final response = await apiClient.getJson('/manager/tasks', token: session?.token);
+      final snapshot = await FirebaseFirestore.instance.collection('projects').get();
+      
+      final parsed = snapshot.docs.map((doc) {
+        final data = doc.data();
+        final String title = data['title']?.toString() ?? 'Task';
+        final String status = data['status']?.toString() ?? 'assigned';
+        final String customer = data['customerName']?.toString() ?? 'Manager';
+        final String technician = data['technicianName']?.toString() ?? 'Unassigned';
+        final String date = data['createdAt'] != null ? (data['createdAt'] as Timestamp).toDate().toString().split(' ')[0] : 'Today';
+        
+        return {
+          'id': doc.id.substring(0, 5).toUpperCase(),
+          'customer': customer,
+          'service': title,
+          'location': 'Tech: $technician',
+          'status': status.replaceAll('Approval', ' Approval').toUpperCase(),
+          'date': date,
+        };
+      }).toList();
 
-      if (response['success'] == true && mounted) {
-        final List<dynamic> data = response['data'] ?? [];
-        final parsed = data.map((t) {
-          final String title = t['title']?.toString() ?? 'Task';
-          final String status = t['status']?.toString().replaceAll('_', ' ') ?? 'Pending';
-          final String customer = t['assignedBy']?['name']?.toString() ?? 'Manager';
-          final String technician = t['assignedTo'] != null ? t['assignedTo']['name']?.toString() ?? 'Unassigned' : 'Unassigned';
-          final String date = t['createdAt'] != null ? t['createdAt'].toString().split('T')[0] : 'Today';
-          
-          return {
-            'id': t['id']?.toString() ?? '000',
-            'customer': customer,
-            'service': title,
-            'location': 'Tech: $technician',
-            'status': status.toUpperCase(),
-            'date': date,
-          };
-        }).toList();
-
+      if (mounted) {
         setState(() {
           _fetchedJobs = parsed;
           _isLoading = false;

@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
 
-class AccountDetailsScreen extends StatelessWidget {
+class AccountDetailsScreen extends ConsumerWidget {
   const AccountDetailsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(authProvider);
+    final name = session?.name ?? 'User';
+    final email = session?.email ?? 'N/A';
+    final role = session?.role.name.toUpperCase() ?? 'TECHNICIAN';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -28,7 +35,7 @@ class AccountDetailsScreen extends StatelessWidget {
         physics: const BouncingScrollPhysics(),
         child: Column(
           children: [
-            _buildProfileCard(),
+            _buildProfileCard(name, role),
             Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -37,7 +44,7 @@ class AccountDetailsScreen extends StatelessWidget {
                   _buildSectionHeader("Personal Information"),
                   const SizedBox(height: 16),
                   _buildDetailTile(Icons.badge_outlined, "Employee ID", "EMP-2024-0042", const Color(0xFF6366F1)),
-                  _buildDetailTile(Icons.email_outlined, "Email Address", "alex.brown@fieldservice.com", const Color(0xFF3B82F6)),
+                  _buildDetailTile(Icons.email_outlined, "Email Address", email, const Color(0xFF3B82F6)),
                   _buildDetailTile(Icons.phone_outlined, "Phone Number", "+1 (555) 0123-4567", const Color(0xFF10B981)),
                   _buildDetailTile(Icons.location_on_outlined, "Primary Location", "San Francisco, CA", const Color(0xFFF59E0B)),
                   
@@ -58,7 +65,7 @@ class AccountDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileCard() {
+  Widget _buildProfileCard(String name, String role) {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.all(24),
@@ -93,9 +100,9 @@ class AccountDetailsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
-            "Alex Brown",
-            style: TextStyle(
+          Text(
+            name,
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 24,
               fontWeight: FontWeight.w900,
@@ -103,7 +110,7 @@ class AccountDetailsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            "Senior Field Engineer",
+            role,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.8),
               fontSize: 14,

@@ -1,27 +1,57 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/network/api_client.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/security/rbac_constants.dart';
 import '../../domain/entities/user_session.dart';
 
 class AuthNotifier extends StateNotifier<UserSession?> {
-  AuthNotifier(this._apiClient) : super(null);
+  AuthNotifier() : super(null);
 
-  final ApiClient _apiClient;
+  final _auth = FirebaseAuth.instance;
+  final _db = FirebaseFirestore.instance;
+
+  // Set this to true to reconnect to real Firebase later
+  static const bool _bypassAuth = true;
 
   Future<UserSession> login({
     required String email,
     required String password,
   }) async {
-    final response = await _apiClient.postJson(
-      '/auth/login',
-      body: <String, dynamic>{
-        'email': email.trim(),
-        'password': password,
-      },
-    );
+    if (_bypassAuth) {
+      final role = email.contains('admin') || email.contains('manager') 
+          ? Role.manager 
+          : Role.technician;
+      
+      final session = UserSession(
+        id: 'mock_user_id',
+        name: 'Guest User',
+        email: email,
+        role: role,
+        token: 'mock_token',
+      );
+      state = session;
+      return session;
+    }
 
-    final session = UserSession.fromApi(
-      response['data'] as Map<String, dynamic>? ?? <String, dynamic>{},
+    final cred = await _auth.signInWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
+    
+    final doc = await _db.collection('users').doc(cred.user!.uid).get();
+    if (!doc.exists) {
+      throw Exception('User data not found in registration records.');
+    }
+    
+    final session = UserSession(
+      id: cred.user!.uid,
+      name: doc.data()?['name'] ?? 'Unknown',
+      email: cred.user!.email ?? '',
+      role: Role.values.firstWhere(
+        (e) => e.name == (doc.data()?['role'] ?? 'technician'),
+        orElse: () => Role.technician,
+      ),
+      token: '',
     );
     state = session;
     return session;
@@ -33,28 +63,55 @@ class AuthNotifier extends StateNotifier<UserSession?> {
     required String password,
     required Role role,
   }) async {
-    final response = await _apiClient.postJson(
-      '/auth/register',
-      body: <String, dynamic>{
-        'name': name.trim(),
-        'email': email.trim(),
-        'password': password,
-        'role': role.name,
-      },
+    if (_bypassAuth) {
+      final session = UserSession(
+        id: 'mock_user_${DateTime.now().millisecondsSinceEpoch}',
+        name: name,
+        email: email,
+        role: role,
+        token: 'mock_token',
+      );
+      state = session;
+      return session;
+    }
+
+    final cred = await _auth.createUserWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
     );
 
-    final session = UserSession.fromApi(
-      response['data'] as Map<String, dynamic>? ?? <String, dynamic>{},
+    await _db.collection('users').doc(cred.user!.uid).set({
+      'name': name.trim(),
+      'email': email.trim(),
+      'role': role.name,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    final session = UserSession(
+      id: cred.user!.uid,
+      name: name.trim(),
+      email: email.trim(),
+      role: role,
+      token: '',
     );
     state = session;
     return session;
   }
 
-  void logout() {
+  Future<void> logout() async {
+    if (!_bypassAuth) {
+      if (state?.role == Role.technician) {
+        await _db.collection('technicians').doc(_auth.currentUser?.uid).update({
+          'isOnline': false,
+          'lastActiveAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await _auth.signOut();
+    }
     state = null;
   }
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, UserSession?>((ref) {
-  return AuthNotifier(ref.watch(apiClientProvider));
+  return AuthNotifier();
 });

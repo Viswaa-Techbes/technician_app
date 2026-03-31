@@ -35,6 +35,13 @@ dependencies:
   geolocator: ^13.0.0
   http: ^1.2.0
   flutter_riverpod: ^2.5.1
+  url_launcher: ^6.3.0
+  file_picker: ^8.1.0
+  firebase_core: ^3.10.1
+  firebase_auth: ^5.4.1
+  cloud_firestore: ^5.6.2
+  firebase_storage: ^12.3.7
+  intl: ^0.19.0
 
 dev_dependencies:
   flutter_test:
