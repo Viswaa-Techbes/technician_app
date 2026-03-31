@@ -1,12 +1,12 @@
 const mongoose = require('mongoose');
 
-const TASK_STATUSES = ['pending', 'in_progress', 'completed', 'cancelled'];
+const TASK_STATUSES = ['assigned', 'inProgress', 'pendingApproval', 'completed', 'cancelled'];
 
 const taskSchema = new mongoose.Schema(
   {
-    title: {
+    serviceName: {
       type: String,
-      required: [true, 'Title is required'],
+      required: [true, 'Service Name is required'],
       trim: true,
     },
     description: {
@@ -14,20 +14,55 @@ const taskSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    customerName: {
+      type: String,
+      default: 'Client',
+    },
+    customerPhone: {
+      type: String,
+      default: '',
+    },
+    address: {
+      type: String,
+      required: [true, 'Address is required'],
+    },
+    time: {
+      type: String,
+      default: 'ASAP',
+    },
     status: {
       type: String,
       enum: TASK_STATUSES,
-      default: 'pending',
+      default: 'assigned',
+    },
+    price: {
+      type: Number,
+      default: 0.0,
     },
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'assignedTo (technician) is required'],
+      required: false, // Can be unassigned initially
+    },
+    technicianName: {
+      type: String,
     },
     assignedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'assignedBy (manager) is required'],
+    },
+    notes: {
+      type: String,
+      default: '',
+    },
+    latitude: Number,
+    longitude: Number,
+    googleMapsLink: String,
+    fileAttachments: [String],
+    timerDurationSeconds: {
+      type: Number,
+      default: 0,
     },
   },
   { timestamps: true }

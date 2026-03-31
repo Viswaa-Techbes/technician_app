@@ -7,6 +7,9 @@ import 'widgets.dart';
 import 'job_timer_widget.dart';
 import 'features/job_description/widgets/job_description_section.dart';
 import 'features/job_description/screens/add_job_description_screen.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
+import 'assign_job_screen.dart';
+import '../../core/security/rbac_constants.dart';
 
 class ProjectDetailScreen extends ConsumerWidget {
   final Job job;
@@ -32,6 +35,9 @@ class ProjectDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(authProvider);
+    final bool isManager = session?.role == Role.manager;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -68,13 +74,25 @@ class ProjectDetailScreen extends ConsumerWidget {
             const SizedBox(height: 24),
             _buildTimelineSection(),
             const SizedBox(height: 32),
-            if (job.status != JobStatus.assigned)
+            // Hide JobTimerWidget (Start Job button) for Managers
+            if (!isManager && job.status != JobStatus.assigned)
               JobTimerWidget(
                 jobId: job.id,
                 initialStatus: job.status.name,
               ),
             const SizedBox(height: 40),
-            if (job.status == JobStatus.pendingApproval)
+            if (isManager)
+              CustomButton(
+                label: "ASSIGN TECHNICIAN",
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AssignJobScreen()),
+                ),
+                color: const Color(0xFF2563EB),
+                icon: Icons.person_add_rounded,
+              ),
+            const SizedBox(height: 16),
+            if (job.status == JobStatus.pendingApproval && isManager)
               CustomButton(
                 label: "REVIEW COMPLETION",
                 onPressed: () => _showReviewDialog(context, ref),

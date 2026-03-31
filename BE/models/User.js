@@ -30,6 +30,25 @@ const userSchema = new mongoose.Schema(
       required: true,
       default: 'technician',
     },
+    isOnline: {
+      type: Boolean,
+      default: false,
+    },
+    status: {
+      type: String,
+      enum: ['available', 'busy', 'offline'],
+      default: 'offline',
+    },
+    lat: {
+      type: Number,
+      default: 0.0,
+    },
+    lng: {
+      type: Number,
+      default: 0.0,
+    },
+    phoneNumber: String,
+    specialty: String,
   },
   { timestamps: true }
 );

@@ -276,47 +276,6 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
     );
   }
 
-  Widget _buildTechDropdown() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFF1F5F9))),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _selectedTechId,
-          isExpanded: true,
-          icon: const Icon(Icons.arrow_drop_down_circle_rounded, color: Color(0xFF1E3A8A)),
-          items: _technicians.map((tech) {
-            return DropdownMenuItem<String>(
-              value: tech['id'] as String?,
-              child: Row(
-                children: [
-                  Container(
-                    width: 32, height: 32,
-                    decoration: const BoxDecoration(color: Color(0xFFF0F7FF), shape: BoxShape.circle),
-                    child: const Icon(Icons.person_rounded, size: 16, color: Color(0xFF2563EB)),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(tech['name'], style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
-                      Text(tech['email'], style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-          onChanged: (newValue) {
-            setState(() {
-              _selectedTechId = newValue;
-              _selectedTechName = _technicians.firstWhere((t) => t['id'] == newValue)['name'];
-            });
-          },
-        ),
-      ),
-    );
-  }
 
   Widget _buildFilePicker() {
     return Column(

@@ -1,21 +1,26 @@
 const User = require('../models/User');
 const Task = require('../models/Task');
+const Expense = require('../models/Expense');
+const Review = require('../models/Review');
 
 async function dashboard(req, res, next) {
   try {
     const managerId = req.user.id;
-    const [technicianCount, myTasks, pendingCount] = await Promise.all([
-      User.countDocuments({ role: 'technician' }),
-      Task.countDocuments({ assignedBy: managerId }),
-      Task.countDocuments({ assignedBy: managerId, status: 'pending' }),
+    const [techs, tasks, expenses] = await Promise.all([
+      User.find({ role: 'technician' }).lean(),
+      Task.find({ assignedBy: managerId }).lean(),
+      Expense.find({ status: 'pending' }).lean(),
     ]);
 
     return res.json({
       success: true,
       data: {
-        techniciansTotal: technicianCount,
-        tasksAssignedByMe: myTasks,
-        pendingTasks: pendingCount,
+        totalTechnicians: techs.length,
+        onlineTechnicians: techs.filter(t => t.isOnline).length,
+        jobsAssigned: tasks.length,
+        jobsInProgress: tasks.filter(t => t.status === 'inProgress').length,
+        pendingCompletionApprovals: tasks.filter(t => t.status === 'pendingApproval').length,
+        pendingExpenses: expenses.length,
       },
     });
   } catch (err) {
@@ -29,14 +34,20 @@ async function listTechnicians(req, res, next) {
       .sort({ name: 1 })
       .lean();
 
-    const data = technicians.map((u) => ({
-      id: u._id.toString(),
-      name: u.name,
-      email: u.email,
-      role: u.role,
-    }));
-
-    return res.json({ success: true, data });
+    return res.json({ 
+      success: true, 
+      data: technicians.map(u => ({
+        id: u._id.toString(),
+        name: u.name,
+        email: u.email,
+        status: u.status,
+        isOnline: u.isOnline,
+        lat: u.lat,
+        lng: u.lng,
+        phoneNumber: u.phoneNumber,
+        specialty: u.specialty,
+      }))
+    });
   } catch (err) {
     next(err);
   }
@@ -46,8 +57,7 @@ async function listTasks(req, res, next) {
   try {
     const tasks = await Task.find({ assignedBy: req.user.id })
       .sort({ createdAt: -1 })
-      .populate('assignedTo', 'name email role')
-      .populate('assignedBy', 'name email role')
+      .populate('assignedTo', 'name email role status')
       .lean();
 
     return res.json({ success: true, data: tasks.map(formatTask) });
@@ -56,100 +66,91 @@ async function listTasks(req, res, next) {
   }
 }
 
-/**
- * POST /manager/tasks/assign — create a task assigned to a technician.
- * Body: { title, description?, technicianId }
- */
 async function assignTask(req, res, next) {
   try {
-    const { title, description = '', technicianId } = req.body;
-    if (!title || !technicianId) {
-      return res.status(400).json({
-        success: false,
-        message: 'title and technicianId are required',
-      });
+    const { serviceName, address, technicianId, customerName, customerPhone, time, price, description } = req.body;
+    
+    if (!serviceName || !address) {
+      return res.status(400).json({ success: false, message: 'serviceName and address are required' });
     }
 
-    const tech = await User.findOne({ _id: technicianId, role: 'technician' });
-    if (!tech) {
-      return res.status(404).json({
-        success: false,
-        message: 'Technician not found',
-      });
+    let techName = '';
+    if (technicianId) {
+       const tech = await User.findOne({ _id: technicianId, role: 'technician' });
+       if (!tech) return res.status(404).json({ success: false, message: 'Technician not found' });
+       techName = tech.name;
     }
 
     const task = await Task.create({
-      title: title.trim(),
-      description: String(description).trim(),
+      serviceName,
+      address,
+      description,
+      customerName,
+      customerPhone,
+      time,
+      price,
       assignedTo: technicianId,
+      technicianName: techName,
       assignedBy: req.user.id,
-      status: 'pending',
+      status: 'assigned',
     });
 
-    await task.populate([
-      { path: 'assignedTo', select: 'name email role' },
-      { path: 'assignedBy', select: 'name email role' },
-    ]);
-
-    return res.status(201).json({
-      success: true,
-      message: 'Task assigned',
-      data: formatTask(task),
-    });
+    return res.status(201).json({ success: true, data: formatTask(task) });
   } catch (err) {
     next(err);
   }
 }
 
-function formatTask(doc) {
-  const t = doc.toObject ? doc.toObject() : doc;
+async function listExpenditures(req, res, next) {
+  try {
+    const expenses = await Expense.find()
+      .populate('technicianId', 'name email')
+      .populate('projectId', 'serviceName')
+      .sort({ createdAt: -1 })
+      .lean();
+    return res.json({ success: true, data: expenses });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function approveExpenditure(req, res, next) {
+  try {
+    const { expenseId } = req.params;
+    const { status } = req.body; // 'approved' or 'rejected'
+
+    const expense = await Expense.findByIdAndUpdate(expenseId, { status }, { new: true });
+    if (!expense) return res.status(404).json({ success: false, message: 'Expense not found' });
+
+    return res.json({ success: true, data: expense });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getTechnicianReviews(req, res, next) {
+  try {
+    const { techId } = req.params;
+    const reviews = await Review.find({ technicianId: techId }).sort({ createdAt: -1 }).lean();
+    return res.json({ success: true, data: reviews });
+  } catch (err) {
+    next(err);
+  }
+}
+
+function formatTask(t) {
   return {
     id: t._id.toString(),
-    title: t.title,
+    serviceName: t.serviceName,
     description: t.description,
     status: t.status,
-    assignedTo: t.assignedTo
-      ? {
-          id: t.assignedTo._id?.toString() ?? t.assignedTo.toString(),
-          name: t.assignedTo.name,
-          email: t.assignedTo.email,
-        }
-      : undefined,
-    assignedBy: t.assignedBy
-      ? {
-          id: t.assignedBy._id?.toString() ?? t.assignedBy.toString(),
-          name: t.assignedBy.name,
-          email: t.assignedBy.email,
-        }
-      : undefined,
+    address: t.address,
+    customerName: t.customerName,
+    technicianName: t.technicianName,
+    price: t.price,
+    assignedTo: t.assignedTo,
     createdAt: t.createdAt,
-    updatedAt: t.updatedAt,
   };
-}
-
-async function updateTaskStatus(req, res, next) {
-  try {
-    const { taskId } = req.params;
-    const { status } = req.body;
-
-    if (!status) {
-      return res.status(400).json({ success: false, message: 'Status is required' });
-    }
-
-    const task = await Task.findOneAndUpdate(
-      { _id: taskId, assignedBy: req.user.id },
-      { status },
-      { new: true }
-    );
-
-    if (!task) {
-      return res.status(404).json({ success: false, message: 'Task not found' });
-    }
-
-    return res.json({ success: true, message: 'Task updated', data: formatTask(task) });
-  } catch (err) {
-    next(err);
-  }
 }
 
 module.exports = {
@@ -157,6 +158,7 @@ module.exports = {
   listTechnicians,
   listTasks,
   assignTask,
-  updateTaskStatus,
-  formatTask,
+  listExpenditures,
+  approveExpenditure,
+  getTechnicianReviews,
 };

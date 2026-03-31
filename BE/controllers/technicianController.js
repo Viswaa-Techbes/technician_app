@@ -1,23 +1,32 @@
 const Task = require('../models/Task');
-const { TASK_STATUSES } = require('../models/Task');
+const User = require('../models/User');
+const Expense = require('../models/Expense');
+const Review = require('../models/Review');
 
 async function dashboard(req, res, next) {
   try {
     const techId = req.user.id;
-    const [total, pending, inProgress, completed] = await Promise.all([
-      Task.countDocuments({ assignedTo: techId }),
-      Task.countDocuments({ assignedTo: techId, status: 'pending' }),
-      Task.countDocuments({ assignedTo: techId, status: 'in_progress' }),
-      Task.countDocuments({ assignedTo: techId, status: 'completed' }),
+    const [tasks, reviews, profile] = await Promise.all([
+      Task.find({ assignedTo: techId }).lean(),
+      Review.find({ technicianId: techId }).lean(),
+      User.findById(techId).lean(),
     ]);
+
+    const completedTasks = tasks.filter(t => t.status === 'completed');
+    const totalRating = reviews.reduce((sum, r) => sum + r.rating, 0);
+    const avgRating = reviews.length > 0 ? (totalRating / reviews.length).toFixed(1) : 0;
 
     return res.json({
       success: true,
       data: {
-        totalTasks: total,
-        pending,
-        inProgress,
-        completed,
+        totalJobs: tasks.length,
+        pendingJobs: tasks.filter(t => t.status === 'assigned').length,
+        inProgress: tasks.filter(t => t.status === 'inProgress').length,
+        completed: completedTasks.length,
+        avgRating,
+        totalReviews: reviews.length,
+        isOnline: profile.isOnline,
+        status: profile.status,
       },
     });
   } catch (err) {
@@ -32,76 +41,87 @@ async function listTasks(req, res, next) {
       .populate('assignedBy', 'name email role')
       .lean();
 
-    const data = tasks.map((t) => ({
-      id: t._id.toString(),
-      title: t.title,
-      description: t.description,
-      status: t.status,
-      assignedBy: t.assignedBy
-        ? {
-            id: t.assignedBy._id.toString(),
-            name: t.assignedBy.name,
-            email: t.assignedBy.email,
-          }
-        : null,
-      createdAt: t.createdAt,
-      updatedAt: t.updatedAt,
-    }));
-
-    return res.json({ success: true, data });
+    return res.json({ 
+      success: true, 
+      data: tasks.map(t => ({
+        id: t._id.toString(),
+        serviceName: t.serviceName,
+        customerName: t.customerName,
+        customerPhone: t.customerPhone,
+        address: t.address,
+        time: t.time,
+        status: t.status,
+        price: t.price,
+        notes: t.notes,
+        googleMapsLink: t.googleMapsLink,
+        createdAt: t.createdAt,
+      }))
+    });
   } catch (err) {
     next(err);
   }
 }
 
-/**
- * PATCH /technician/tasks/:taskId/status
- * Body: { status: 'pending' | 'in_progress' | 'completed' | 'cancelled' }
- */
 async function updateTaskStatus(req, res, next) {
   try {
     const { taskId } = req.params;
-    const { status } = req.body;
+    const { status, notes, durationSeconds } = req.body;
+    
+    // Validate status
+    const allowed = ['assigned', 'inProgress', 'pendingApproval', 'completed'];
+    if (status && !allowed.includes(status)) return res.status(400).json({ success: false, message: 'Invalid status' });
 
-    if (!status || !TASK_STATUSES.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: `status must be one of: ${TASK_STATUSES.join(', ')}`,
-      });
-    }
+    const update = {};
+    if (status) update.status = status;
+    if (notes) update.notes = notes;
+    if (durationSeconds) update.timerDurationSeconds = durationSeconds;
 
-    const task = await Task.findOne({
-      _id: taskId,
-      assignedTo: req.user.id,
-    });
+    const task = await Task.findOneAndUpdate({ _id: taskId, assignedTo: req.user.id }, update, { new: true });
+    if (!task) return res.status(404).json({ success: false, message: 'Task not found' });
 
-    if (!task) {
-      return res.status(404).json({ success: false, message: 'Task not found' });
-    }
+    return res.json({ success: true, data: task });
+  } catch (err) {
+    next(err);
+  }
+}
 
-    task.status = status;
-    await task.save();
+async function updateLocation(req, res, next) {
+  try {
+    const { lat, lng, isOnline, status } = req.body;
+    const update = {};
+    if (lat !== undefined) update.lat = lat;
+    if (lng !== undefined) update.lng = lng;
+    if (isOnline !== undefined) update.isOnline = isOnline;
+    if (status !== undefined) update.status = status;
 
-    await task.populate('assignedBy', 'name email role');
+    const user = await User.findByIdAndUpdate(req.user.id, update, { new: true });
+    return res.json({ success: true, data: { id: user._id, isOnline: user.isOnline, status: user.status, lat: user.lat, lng: user.lng } });
+  } catch (err) {
+    next(err);
+  }
+}
 
-    return res.json({
-      success: true,
-      message: 'Task status updated',
-      data: {
-        id: task._id.toString(),
-        title: task.title,
-        description: task.description,
-        status: task.status,
-        assignedBy: task.assignedBy
-          ? {
-              id: task.assignedBy._id.toString(),
-              name: task.assignedBy.name,
-              email: task.assignedBy.email,
-            }
-          : null,
-        updatedAt: task.updatedAt,
-      },
-    });
+async function submitExpense(req, res, next) {
+  try {
+     const { description, amount, projectId, receiptUrl } = req.body;
+     const expense = await Expense.create({
+        description,
+        amount,
+        technicianId: req.user.id,
+        projectId,
+        receiptUrl,
+        status: 'pending',
+     });
+     return res.status(201).json({ success: true, data: expense });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getMyReviews(req, res, next) {
+  try {
+    const reviews = await Review.find({ technicianId: req.user.id }).sort({ createdAt: -1 }).lean();
+    return res.json({ success: true, data: reviews });
   } catch (err) {
     next(err);
   }
@@ -111,4 +131,7 @@ module.exports = {
   dashboard,
   listTasks,
   updateTaskStatus,
+  updateLocation,
+  submitExpense,
+  getMyReviews,
 };
