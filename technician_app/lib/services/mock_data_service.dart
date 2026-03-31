@@ -33,8 +33,41 @@ class MockDataService {
       address: 'Main St 500',
       time: '02:00 PM',
       status: JobStatus.assigned,
-      technicianId: 'tech2',
-      technicianName: 'Sarah Tech (Available)',
+      technicianId: 'tech1',
+      technicianName: 'John Tech (Online)',
+    ),
+    Job(
+      id: 'jobC',
+      serviceName: 'Project C: WiFi Installation',
+      customerName: 'City Hospital',
+      customerPhone: '444555666',
+      address: 'Medical Center Dr',
+      time: '11:30 AM',
+      status: JobStatus.inProgress,
+      technicianId: 'tech1',
+      technicianName: 'John Tech (Online)',
+    ),
+    Job(
+      id: 'jobD',
+      serviceName: 'Project D: Firewall Config',
+      customerName: 'Secure Bank',
+      customerPhone: '111222333',
+      address: 'Finance Plaza',
+      time: '08:45 AM',
+      status: JobStatus.pendingApproval,
+      technicianId: 'tech1',
+      technicianName: 'John Tech (Online)',
+    ),
+    Job(
+      id: 'jobE',
+      serviceName: 'Project E: CCTV Maintenance',
+      customerName: 'Warehouse Ltd',
+      customerPhone: '777888999',
+      address: 'Industrial Zone B',
+      time: 'Yesterday',
+      status: JobStatus.completed,
+      technicianId: 'tech1',
+      technicianName: 'John Tech (Online)',
     ),
   ];
 
@@ -44,8 +77,9 @@ class MockDataService {
   ];
 
   final List<Map<String, dynamic>> _reviews = [
-    {'id': 'rev1', 'rating': 4.5, 'comment': 'Excellent work!', 'jobId': 'jobA'},
-    {'id': 'rev2', 'rating': 5.0, 'comment': 'Highly professional.', 'jobId': 'jobB'},
+    {'id': 'rev1', 'rating': 4.5, 'comment': 'Excellent work!', 'jobId': 'jobA', 'techId': 'tech1', 'customerName': 'Global Corp', 'date': '2 days ago'},
+    {'id': 'rev2', 'rating': 5.0, 'comment': 'Highly professional.', 'jobId': 'jobB', 'techId': 'tech1', 'customerName': 'Retail Inc', 'date': '1 week ago'},
+    {'id': 'rev3', 'rating': 4.0, 'comment': 'Good service.', 'jobId': 'jobC', 'techId': 'tech1', 'customerName': 'City Hospital', 'date': '3 days ago'},
   ];
 
   // Logic functions
@@ -100,6 +134,11 @@ class MockDataService {
   Future<void> addExpense(double amount, String desc, String techId) async {
     await Future.delayed(const Duration(milliseconds: 600));
     _expenses.add({'id': 'exp${_expenses.length + 1}', 'amount': amount, 'description': desc, 'status': 'pending', 'techId': techId});
+  }
+
+  Future<List<Map<String, dynamic>>> getReviews(String techId) async {
+    await Future.delayed(const Duration(milliseconds: 600));
+    return _reviews.where((r) => r['techId'] == techId).toList();
   }
 
   // To toggle mock mode in the future if needed

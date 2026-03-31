@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'models.dart';
 import 'widgets.dart';
+import 'services/mock_data_service.dart';
 import 'job_detail_screen.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'login_screen.dart';
@@ -36,14 +37,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     
     _userName = session.name;
 
-    // Listen to real-time status
+    if (MockDataService.useMock) {
+      final allJobs = await MockDataService().getJobs();
+      final myJobs = allJobs.where((j) => j.technicianId == session.id || session.id == 'tech1').toList();
+      
+      if (mounted) {
+        setState(() {
+          _todaysJobs = myJobs;
+          _completedCount = myJobs.where((j) => j.status == JobStatus.completed).length;
+          _assignedCount = myJobs.where((j) => j.status == JobStatus.assigned || j.status == JobStatus.inProgress).length;
+          _pendingCount = myJobs.where((j) => j.status == JobStatus.pendingApproval).length;
+          _isOnDuty = true; // Default to online for demo
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    // Listen to real-time status... [Firestore Code]
     _db.collection('technicians').doc(session.id).snapshots().listen((doc) {
       if (doc.exists && mounted) {
         setState(() => _isOnDuty = doc.data()?['isOnline'] ?? false);
       }
     });
 
-    // Listen to job counts
+    // Listen to job counts... [Firestore Code]
     _db.collection('projects')
         .where('technicianId', isEqualTo: session.id)
         .snapshots().listen((snapshot) {

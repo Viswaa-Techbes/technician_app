@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'models.dart';
+import 'services/mock_data_service.dart';
 import 'technician_detail_screen.dart';
 
 class TeamsScreen extends StatelessWidget {
@@ -11,38 +12,55 @@ class TeamsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(title: const Text("FIELD TEAMS")),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('technicians').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final docs = snapshot.data?.docs ?? [];
-          if (docs.isEmpty) {
-            return const Center(child: Text("No technicians registered", style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.w700)));
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.all(20),
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final d = docs[index].data() as Map<String, dynamic>;
-              final tech = Technician(
-                id: docs[index].id,
-                name: d['name'] ?? 'Unknown',
-                email: d['email'] ?? '',
-                phone: d['phone'] ?? '+1 234 567 890',
-                specialty: d['specialty'] ?? 'General Maintenance',
-                status: (d['isOnline'] ?? false) ? TechnicianStatus.available : TechnicianStatus.offline,
-                assignedManager: d['managerName'] ?? 'Lead Manager',
-                performance: (d['performance'] ?? 0.0).toDouble(),
-                completedJobs: d['completedJobs'] ?? 0,
-                currentJobId: d['currentJobId'],
+      body: MockDataService.useMock 
+        ? FutureBuilder<List<Technician>>(
+            future: MockDataService().getTechnicians(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+              final allTechs = snapshot.data ?? [];
+              if (allTechs.isEmpty) return const Center(child: Text("No technicians registered", style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.w700)));
+              return ListView.builder(
+                padding: const EdgeInsets.all(20),
+                itemCount: allTechs.length,
+                itemBuilder: (context, index) {
+                  final tech = allTechs[index];
+                  return _buildTechnicianCard(context, tech);
+                },
               );
-              return _buildTechnicianCard(context, tech);
-            }
-          );
-        },
-      ),
+            },
+          )
+        : StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance.collection('technicians').snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final docs = snapshot.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return const Center(child: Text("No technicians registered", style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.w700)));
+              }
+              return ListView.builder(
+                padding: const EdgeInsets.all(20),
+                itemCount: docs.length,
+                itemBuilder: (context, index) {
+                  final d = docs[index].data() as Map<String, dynamic>;
+                  final tech = Technician(
+                    id: docs[index].id,
+                    name: d['name'] ?? 'Unknown',
+                    email: d['email'] ?? '',
+                    phone: d['phone'] ?? '+1 234 567 890',
+                    specialty: d['specialty'] ?? 'General Maintenance',
+                    status: (d['isOnline'] ?? false) ? TechnicianStatus.available : TechnicianStatus.offline,
+                    assignedManager: d['managerName'] ?? 'Lead Manager',
+                    performance: (d['performance'] ?? 0.0).toDouble(),
+                    completedJobs: d['completedJobs'] ?? 0,
+                    currentJobId: d['currentJobId'],
+                  );
+                  return _buildTechnicianCard(context, tech);
+                }
+              );
+            },
+          ),
     );
   }
 

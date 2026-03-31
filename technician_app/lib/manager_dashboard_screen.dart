@@ -61,22 +61,25 @@ class ManagerDashboardScreen extends ConsumerWidget {
                   const LiveLocationCard(),
                   const SizedBox(height: 32),
                   _buildSectionHeader("CRITICAL ACTIONS"),
-                  StreamBuilder<QuerySnapshot>(
-                    stream: db.collection('projects').where('status', isEqualTo: 'pending').snapshots(),
-                    builder: (context, snapshot) {
-                      final pendingCount = snapshot.data?.docs.length ?? 0;
-                      return Column(
+                  MockDataService.useMock
+                    ? Column(
                         children: [
-                          _buildActionCard(
-                            context,
-                            "Completion Requests",
-                            "$pendingCount technicians waiting for approval",
-                            Icons.pending_actions_rounded,
-                            const Color(0xFF8B5CF6),
-                            () => Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const CompletionRequestsScreen()),
-                            ),
+                          FutureBuilder<List<Job>>(
+                            future: MockDataService().getJobs(),
+                            builder: (context, snapshot) {
+                              final pendingCount = (snapshot.data ?? []).where((j) => j.status == JobStatus.pendingApproval).length;
+                              return _buildActionCard(
+                                context,
+                                "Completion Requests",
+                                "$pendingCount technicians waiting for approval",
+                                Icons.pending_actions_rounded,
+                                const Color(0xFF8B5CF6),
+                                () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const CompletionRequestsScreen()),
+                                ),
+                              );
+                            }
                           ),
                           const SizedBox(height: 12),
                           _buildActionCard(
@@ -103,9 +106,52 @@ class ManagerDashboardScreen extends ConsumerWidget {
                             ),
                           ),
                         ],
-                      );
-                    },
-                  ),
+                      )
+                    : StreamBuilder<QuerySnapshot>(
+                        stream: db.collection('projects').where('status', isEqualTo: 'pending').snapshots(),
+                        builder: (context, snapshot) {
+                          final pendingCount = snapshot.data?.docs.length ?? 0;
+                          return Column(
+                            children: [
+                              _buildActionCard(
+                                context,
+                                "Completion Requests",
+                                "$pendingCount technicians waiting for approval",
+                                Icons.pending_actions_rounded,
+                                const Color(0xFF8B5CF6),
+                                () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const CompletionRequestsScreen()),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              _buildActionCard(
+                                context,
+                                "Assign New Project",
+                                "Create and dispatch a new project",
+                                Icons.add_task_rounded,
+                                const Color(0xFF1E3A8A),
+                                () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const AssignJobScreen()),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              _buildActionCard(
+                                context,
+                                "Technician Reviews",
+                                "Monitor performance and client feedback",
+                                Icons.star_rate_rounded,
+                                const Color(0xFFF59E0B),
+                                () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const ManagerReviewsScreen()),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
                   const SizedBox(height: 32),
                   _buildSectionHeader("RECENT ACTIVITY"),
                   const SizedBox(height: 16),
@@ -189,6 +235,20 @@ class ManagerDashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildRecentJobsList(BuildContext context) {
+    if (MockDataService.useMock) {
+      return FutureBuilder<List<Job>>(
+        future: MockDataService().getJobs(),
+        builder: (context, snapshot) {
+          final allJobs = snapshot.data ?? [];
+          return Column(
+            children: allJobs.take(3).map((job) => JobCard(
+              job: job,
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ProjectDetailScreen(job: job))),
+            )).toList(),
+          );
+        },
+      );
+    }
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('projects').orderBy('createdAt', descending: true).limit(5).snapshots(),
       builder: (context, snapshot) {
@@ -246,46 +306,59 @@ class LiveLocationCard extends StatefulWidget {
 class _LiveLocationCardState extends State<LiveLocationCard> {
   @override
   Widget build(BuildContext context) {
+    if (MockDataService.useMock) {
+      return FutureBuilder<List<Technician>>(
+        future: MockDataService().getTechnicians(),
+        builder: (context, snapshot) {
+          final activeTechs = (snapshot.data ?? []).where((t) => t.isOnline).toList();
+          return _buildContent(activeTechs.length);
+        },
+      );
+    }
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('technicians').where('isOnline', isEqualTo: true).snapshots(),
       builder: (context, snapshot) {
         final activeTechs = snapshot.data?.docs ?? [];
-        return Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 15, offset: const Offset(0, 8))],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: const Color(0xFF10B981).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(16)),
-                child: const Icon(Icons.my_location_rounded, color: Color(0xFF10B981), size: 24),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      activeTechs.isEmpty ? "No Technicians Active" : "${activeTechs.length} Active Now",
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF1E293B)),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      activeTechs.isEmpty ? "All field staff are currently offline" : "Real-time status monitoring active",
-                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 13, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
+        return _buildContent(activeTechs.length);
       },
+    );
+  }
+
+  Widget _buildContent(int count) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 15, offset: const Offset(0, 8))],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: const Color(0xFF10B981).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(16)),
+            child: const Icon(Icons.my_location_rounded, color: Color(0xFF10B981), size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  count == 0 ? "No Technicians Active" : "$count Active Now",
+                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF1E293B)),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  count == 0 ? "All field staff are currently offline" : "Real-time status monitoring active",
+                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

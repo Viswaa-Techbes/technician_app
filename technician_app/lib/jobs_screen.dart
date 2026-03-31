@@ -58,14 +58,15 @@ class _JobsScreenState extends ConsumerState<JobsScreen> with SingleTickerProvid
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
               final allJobs = snapshot.data ?? [];
-              final filteredForUser = allJobs.where((j) => j.technicianId == session?.id || session == null).toList();
+              // For demo purposes, we show all mock jobs to every user
+              final filteredForUser = allJobs; 
               return TabBarView(
                 controller: _tabController,
                 physics: const BouncingScrollPhysics(),
                 children: [
-                  _buildJobList(filteredForUser, JobStatus.assigned),
-                  _buildJobList(filteredForUser, JobStatus.inProgress),
-                  _buildJobList(filteredForUser, JobStatus.completed),
+                  _buildJobList(filteredForUser, [JobStatus.assigned]),
+                  _buildJobList(filteredForUser, [JobStatus.inProgress, JobStatus.pendingApproval]),
+                  _buildJobList(filteredForUser, [JobStatus.completed]),
                 ],
               );
             },
@@ -85,9 +86,9 @@ class _JobsScreenState extends ConsumerState<JobsScreen> with SingleTickerProvid
                 controller: _tabController,
                 physics: const BouncingScrollPhysics(),
                 children: [
-                  _buildJobList(allJobs, JobStatus.assigned),
-                  _buildJobList(allJobs, JobStatus.inProgress),
-                  _buildJobList(allJobs, JobStatus.completed),
+                  _buildJobList(allJobs, [JobStatus.assigned]),
+                  _buildJobList(allJobs, [JobStatus.inProgress, JobStatus.pendingApproval]),
+                  _buildJobList(allJobs, [JobStatus.completed]),
                 ],
               );
             },
@@ -95,8 +96,8 @@ class _JobsScreenState extends ConsumerState<JobsScreen> with SingleTickerProvid
     );
   }
 
-  Widget _buildJobList(List<Job> allJobs, JobStatus status) {
-    final filtered = allJobs.where((j) => j.status == status).toList();
+  Widget _buildJobList(List<Job> allJobs, List<JobStatus> statuses) {
+    final filtered = allJobs.where((j) => statuses.contains(j.status)).toList();
     if (filtered.isEmpty) {
       return Center(
         child: Column(

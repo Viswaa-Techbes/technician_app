@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'models.dart';
 import 'widgets.dart';
 import 'account_details_screen.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
+import 'services/mock_data_service.dart';
 import 'features/reviews/providers/review_providers.dart';
 import 'features/reviews/services/review_service.dart';
 import 'features/reviews/screens/technician_reviews_screen.dart';
@@ -18,7 +20,8 @@ class ProfileScreen extends ConsumerWidget {
     final userName = session?.name ?? "Technician";
     final userRole = session?.role.name.toUpperCase() ?? "SENIOR FIELD ENGINEER";
 
-    final reviewsAsync = ref.watch(technicianReviewsProvider(session?.id ?? ''));
+    final techId = (MockDataService.useMock && (session?.id == null || session!.id.isEmpty)) ? 'tech1' : (session?.id ?? '');
+    final reviewsAsync = ref.watch(technicianReviewsProvider(techId));
 
     final avgRating = reviewsAsync.maybeWhen(
       data: (reviews) => ReviewService.calculateAverageRating(reviews),
@@ -57,22 +60,37 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: StreamBuilder<QuerySnapshot>(
-                          stream: FirebaseFirestore.instance.collection('projects')
-                              .where('technicianId', isEqualTo: session?.id)
-                              .where('status', isEqualTo: 'completed')
-                              .snapshots(),
-                          builder: (context, snapshot) {
-                            final count = snapshot.data?.docs.length ?? 0;
-                            return _buildMetricTile(
-                              context,
-                              count.toString(),
-                              "Projects",
-                              Icons.rocket_launch_rounded,
-                              const Color(0xFF2563EB),
-                            );
-                          },
-                        ),
+                        child: MockDataService.useMock
+                            ? FutureBuilder<List<Job>>(
+                                future: MockDataService().getJobs(),
+                                builder: (context, snapshot) {
+                                  final allJobs = snapshot.data ?? [];
+                                  final count = allJobs.where((j) => j.technicianId == techId && j.status == JobStatus.completed).length;
+                                  return _buildMetricTile(
+                                    context,
+                                    count.toString(),
+                                    "Projects",
+                                    Icons.rocket_launch_rounded,
+                                    const Color(0xFF2563EB),
+                                  );
+                                },
+                              )
+                            : StreamBuilder<QuerySnapshot>(
+                                stream: FirebaseFirestore.instance.collection('projects')
+                                    .where('technicianId', isEqualTo: session?.id)
+                                    .where('status', isEqualTo: 'completed')
+                                    .snapshots(),
+                                builder: (context, snapshot) {
+                                  final count = snapshot.data?.docs.length ?? 0;
+                                  return _buildMetricTile(
+                                    context,
+                                    count.toString(),
+                                    "Projects",
+                                    Icons.rocket_launch_rounded,
+                                    const Color(0xFF2563EB),
+                                  );
+                                },
+                              ),
                       ),
                     ],
                   ),
@@ -87,7 +105,7 @@ class ProfileScreen extends ConsumerWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) => TechnicianReviewsScreen(
-                          technicianId: session?.id ?? '',
+                          technicianId: techId,
                           technicianName: userName,
                         ),
                       ),

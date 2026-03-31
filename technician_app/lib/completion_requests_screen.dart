@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models.dart';
 import 'widgets.dart';
+import 'services/mock_data_service.dart';
 
 class CompletionRequestsScreen extends ConsumerStatefulWidget {
   const CompletionRequestsScreen({super.key});
@@ -11,46 +12,120 @@ class CompletionRequestsScreen extends ConsumerStatefulWidget {
   ConsumerState<CompletionRequestsScreen> createState() => _CompletionRequestsScreenState();
 }
 
-class _CompletionRequestsScreenState extends ConsumerState<CompletionRequestsScreen> {
+class _CompletionRequestsScreenState extends ConsumerState<CompletionRequestsScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(title: const Text("COMPLETION REQUESTS")),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('projects')
-            .where('status', isEqualTo: 'pendingApproval')
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final docs = snapshot.data?.docs ?? [];
-          if (docs.isEmpty) {
-            return _buildEmptyState();
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.all(20),
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final d = docs[index].data() as Map<String, dynamic>;
-              final job = Job(
-                id: docs[index].id,
-                serviceName: d['serviceName'] ?? 'No Service',
-                customerName: d['customerName'] ?? 'No Customer',
-                customerPhone: d['customerPhone'] ?? '',
-                address: d['address'] ?? '',
-                time: d['time'] ?? '',
-                status: JobStatus.pendingApproval,
-                technicianName: d['technicianName'],
-                technicianId: d['technicianId'],
-              );
-              return _buildRequestCard(context, job);
-            },
-          );
-        },
+      appBar: AppBar(
+        title: const Text("REQUEST CENTER"),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: const Color(0xFF1E3A8A),
+          unselectedLabelColor: const Color(0xFF94A3B8),
+          indicatorColor: const Color(0xFF1E3A8A),
+          indicatorWeight: 4,
+          labelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+          tabs: const [
+            Tab(text: "COMPLETIONS"),
+            Tab(text: "EXPENDITURES"),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildJobsTab(),
+          _buildExpensesTab(),
+        ],
       ),
     );
+  }
+
+  Widget _buildJobsTab() {
+    return MockDataService.useMock 
+        ? FutureBuilder<List<Job>>(
+            future: MockDataService().getJobs(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+              final allJobs = snapshot.data ?? [];
+              final pendingJobs = allJobs.where((j) => j.status == JobStatus.pendingApproval).toList();
+              if (pendingJobs.isEmpty) return _buildEmptyState("No completion requests");
+              return ListView.builder(
+                padding: const EdgeInsets.all(20),
+                itemCount: pendingJobs.length,
+                itemBuilder: (context, index) => _buildRequestCard(context, pendingJobs[index]),
+              );
+            },
+          )
+        : StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance.collection('projects')
+                .where('status', isEqualTo: 'pendingApproval')
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+              final docs = snapshot.data?.docs ?? [];
+              if (docs.isEmpty) return _buildEmptyState("No completion requests");
+              return ListView.builder(
+                padding: const EdgeInsets.all(20),
+                itemCount: docs.length,
+                itemBuilder: (context, index) {
+                  final job = Job.fromFirestore(docs[index].data() as Map<String, dynamic>, docs[index].id);
+                  return _buildRequestCard(context, job);
+                },
+              );
+            },
+          );
+  }
+
+  Widget _buildExpensesTab() {
+    return MockDataService.useMock 
+        ? FutureBuilder<List<Map<String, dynamic>>>(
+            future: MockDataService().getExpenses(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+              final allExpenses = snapshot.data ?? [];
+              final pendingExpenses = allExpenses.where((e) => e['status'] == 'pending').toList();
+              if (pendingExpenses.isEmpty) return _buildEmptyState("No expenditure requests");
+              return ListView.builder(
+                padding: const EdgeInsets.all(20),
+                itemCount: pendingExpenses.length,
+                itemBuilder: (context, index) => _buildExpenseCard(context, pendingExpenses[index]),
+              );
+            },
+          )
+        : StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance.collection('expenses')
+                .where('status', isEqualTo: 'pending')
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+              final docs = snapshot.data?.docs ?? [];
+              if (docs.isEmpty) return _buildEmptyState("No expenditure requests");
+              return ListView.builder(
+                padding: const EdgeInsets.all(20),
+                itemCount: docs.length,
+                itemBuilder: (context, index) {
+                  final data = docs[index].data() as Map<String, dynamic>;
+                  data['id'] = docs[index].id;
+                  return _buildExpenseCard(context, data);
+                },
+              );
+            },
+          );
   }
 
   Widget _buildRequestCard(BuildContext context, Job job) {
@@ -86,11 +161,11 @@ class _CompletionRequestsScreenState extends ConsumerState<CompletionRequestsScr
           Row(
             children: [
               Expanded(
-                child: _buildActionButton("REJECT", const Color(0xFFF43F5E), () => _handleAction(job.id, 'assigned')),
+                child: _buildActionButton("REJECT", const Color(0xFFF43F5E), () => _handleAction(job.id, JobStatus.assigned)),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: _buildActionButton("APPROVE", const Color(0xFF10B981), () => _handleAction(job.id, 'completed')),
+                child: _buildActionButton("APPROVE", const Color(0xFF10B981), () => _showJobDetailDialog(job)),
               ),
             ],
           ),
@@ -99,15 +174,140 @@ class _CompletionRequestsScreenState extends ConsumerState<CompletionRequestsScr
     );
   }
 
-  Future<void> _handleAction(String jobId, String newStatus) async {
+  Widget _buildExpenseCard(BuildContext context, Map<String, dynamic> exp) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 20, offset: const Offset(0, 10))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("EXPENDITURE", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13, color: Color(0xFF94A3B8), letterSpacing: 1)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: const Color(0xFFF59E0B).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                child: const Text("PENDING", style: TextStyle(color: Color(0xFFF59E0B), fontSize: 10, fontWeight: FontWeight.w900)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(exp['description'] ?? 'No Description', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF1E293B))),
+          const SizedBox(height: 8),
+          Text("\$${exp['amount']}", style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 24, color: Color(0xFF3B82F6))),
+          const Divider(height: 48, color: Color(0xFFF1F5F9)),
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionButton("REJECT", const Color(0xFFF43F5E), () {}),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildActionButton("APPROVE", const Color(0xFF10B981), () => _showExpenseDetailDialog(exp)),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showJobDetailDialog(Job job) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: Text("Approve Completion: ${job.serviceName}", style: const TextStyle(fontWeight: FontWeight.w900)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow("Client", job.customerName),
+            _buildDetailRow("Location", job.address),
+            _buildDetailRow("Technician", job.technicianName ?? 'System'),
+            _buildDetailRow("Time Taken", "02:45:00"),
+            const SizedBox(height: 16),
+            const Text("NOTES:", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.grey)),
+            Text(job.notes ?? "Work completed as per specifications. No issues found.", style: const TextStyle(fontSize: 14)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL", style: TextStyle(fontWeight: FontWeight.w900, color: Colors.grey))),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _handleAction(job.id, JobStatus.completed);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            child: const Text("CONFIRM APPROVAL", style: TextStyle(fontWeight: FontWeight.w900)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showExpenseDetailDialog(Map<String, dynamic> exp) {
+     showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: const Text("Expense Approval", style: TextStyle(fontWeight: FontWeight.w900)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow("Description", exp['description']),
+            _buildDetailRow("Amount", "\$${exp['amount']}"),
+            _buildDetailRow("Category", "Maintenance & Repairs"),
+            const SizedBox(height: 16),
+            Container(height: 120, width: double.infinity, decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.grey.shade300)), child: const Center(child: Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.receipt_long_rounded, size: 40, color: Colors.grey), Text("Receipt Attached", style: TextStyle(color: Colors.grey, fontSize: 12))]))),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL", style: TextStyle(fontWeight: FontWeight.w900, color: Colors.grey))),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              if (MockDataService.useMock) {
+                await MockDataService().approveExpense(exp['id']);
+                setState(() {});
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            child: const Text("APPROVE PAYMENT", style: TextStyle(fontWeight: FontWeight.w900)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(children: [Text("$label: ", style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.grey, fontSize: 13)), Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1E293B), fontSize: 13), overflow: TextOverflow.ellipsis))]),
+    );
+  }
+
+  Future<void> _handleAction(String jobId, JobStatus newStatus) async {
     try {
-      await FirebaseFirestore.instance.collection('projects').doc(jobId).update({
-        'status': newStatus,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      if (MockDataService.useMock) {
+        await MockDataService().updateJobStatus(jobId, newStatus);
+      } else {
+        await FirebaseFirestore.instance.collection('projects').doc(jobId).update({
+          'status': newStatus.name,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
       if (mounted) {
-        String msg = newStatus == 'completed' ? "Job approved and marked as completed." : "Job rejected and sent back to technician.";
+        String msg = newStatus == JobStatus.completed ? "Job approved and marked as completed." : "Job rejected and sent back to technician.";
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        if (MockDataService.useMock) setState(() {}); // Refresh for mock
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
@@ -130,14 +330,14 @@ class _CompletionRequestsScreenState extends ConsumerState<CompletionRequestsScr
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(String message) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.done_all_rounded, size: 80, color: Colors.green.withValues(alpha: 0.2)),
+          Icon(Icons.inventory_2_rounded, size: 80, color: Colors.blue.withValues(alpha: 0.1)),
           const SizedBox(height: 24),
-          const Text("No pending requests", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF94A3B8))),
+          Text(message, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF94A3B8))),
         ],
       ),
     );

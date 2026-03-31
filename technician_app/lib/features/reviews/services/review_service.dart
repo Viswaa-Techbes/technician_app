@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/review_model.dart';
+import '../../../services/mock_data_service.dart';
 
 class ReviewService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -14,6 +15,10 @@ class ReviewService {
     required int rating,
     required String review,
   }) async {
+    if (MockDataService.useMock) {
+      await MockDataService().submitReview(projectId, rating, review);
+      return;
+    }
     final docRef = _db.collection('reviews').doc();
     await docRef.set({
       'technicianId': technicianId,
@@ -29,6 +34,17 @@ class ReviewService {
   Future<List<Review>> fetchReviewsByTechnician({
     required String technicianId,
   }) async {
+    if (MockDataService.useMock) {
+      final mockData = await MockDataService().getReviews(technicianId);
+      return mockData.map((data) => Review(
+        technicianId: data['techId'] ?? '',
+        projectId: data['jobId'] ?? '',
+        clientName: data['customerName'] ?? 'Client',
+        rating: (data['rating'] as num).toInt(),
+        review: data['comment'] ?? '',
+        createdAt: DateTime.now().subtract(const Duration(days: 1)),
+      )).toList();
+    }
     final snapshot = await _db.collection('reviews')
         .where('technicianId', isEqualTo: technicianId)
         .orderBy('createdAt', descending: true)
