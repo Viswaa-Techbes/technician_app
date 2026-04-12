@@ -25,36 +25,33 @@ class ApiService {
     return jsonDecode(res.body);
   }
 
-  // --- Manager Endpoints ---
-  Future<List<Technician>> getTechnicians() async {
-    final res = await http.get(Uri.parse("$baseUrl/manager/technicians"), headers: _headers);
+  // --- Dashboard Endpoints ---
+  Future<Map<String, dynamic>> getDashboard() async {
+    final res = await http.get(Uri.parse("$baseUrl/admin/dashboard"), headers: _headers);
+    if (res.statusCode == 200) return jsonDecode(res.body)['data'] ?? {};
+    return {};
+  }
+
+  // --- Job Endpoints ---
+  Future<List<Job>> getJobs({String? status}) async {
+    final uri = Uri.parse("$baseUrl/jobs").replace(queryParameters: {
+      if (status != null) 'status': status,
+    });
+    final res = await http.get(uri, headers: _headers);
     if (res.statusCode == 200) {
       final json = jsonDecode(res.body);
       final List data = json['data'] ?? [];
-      return data.map((t) => Technician.fromFirestore(t, t['id'] ?? '')).toList();
+      return data.map((j) => Job.fromFirestore(j, j['id'] ?? j['_id'] ?? '')).toList();
     }
     return [];
   }
 
-  Future<List<Job>> getManagerJobs() async {
-    final res = await http.get(Uri.parse("$baseUrl/manager/tasks"), headers: _headers);
-    if (res.statusCode == 200) {
-      final json = jsonDecode(res.body);
-      final List data = json['data'] ?? [];
-      return data.map((j) => Job.fromFirestore(j, j['id'] ?? '')).toList();
-    }
-    return [];
-  }
-
-  // --- Technician Endpoints ---
-  Future<List<Job>> getTechnicianJobs() async {
-    final res = await http.get(Uri.parse("$baseUrl/technician/tasks"), headers: _headers);
-    if (res.statusCode == 200) {
-      final json = jsonDecode(res.body);
-      final List data = json['data'] ?? [];
-      return data.map((j) => Job.fromFirestore(j, j['id'] ?? '')).toList();
-    }
-    return [];
+  Future<void> assignJob(String jobId, String technicianId) async {
+    await http.post(
+      Uri.parse("$baseUrl/jobs/assign"),
+      headers: _headers,
+      body: jsonEncode({"jobId": jobId, "technicianId": technicianId}),
+    );
   }
 
   Future<void> updateJobStatus(String jobId, String status, {String? notes}) async {
@@ -65,6 +62,17 @@ class ApiService {
     );
   }
 
+  // --- Technician Endpoints ---
+  Future<List<Technician>> getTechnicians() async {
+    final res = await http.get(Uri.parse("$baseUrl/technicians"), headers: _headers);
+    if (res.statusCode == 200) {
+      final json = jsonDecode(res.body);
+      final List data = json['data'] ?? [];
+      return data.map((t) => Technician.fromFirestore(t, t['id'] ?? t['_id'] ?? '')).toList();
+    }
+    return [];
+  }
+
   Future<void> updateLocation(double lat, double lng, {bool? isOnline}) async {
     await http.patch(
       Uri.parse("$baseUrl/technician/location"),
@@ -73,6 +81,59 @@ class ApiService {
         "lat": lat,
         "lng": lng,
         ... (isOnline != null ? {"isOnline": isOnline} : {}),
+      }),
+    );
+  }
+
+  // --- Expense Endpoints ---
+  Future<List<Map<String, dynamic>>> getExpenses() async {
+    final res = await http.get(Uri.parse("$baseUrl/expenses"), headers: _headers);
+    if (res.statusCode == 200) {
+      final json = jsonDecode(res.body);
+      return List<Map<String, dynamic>>.from(json['data'] ?? []);
+    }
+    return [];
+  }
+
+  Future<void> submitExpense(double amount, String description, {String? jobId}) async {
+    await http.post(
+      Uri.parse("$baseUrl/expenses"),
+      headers: _headers,
+      body: jsonEncode({
+        "amount": amount,
+        "description": description,
+        if (jobId != null) "jobId": jobId,
+      }),
+    );
+  }
+
+  Future<void> updateExpenseStatus(String id, String status) async {
+    await http.patch(
+      Uri.parse("$baseUrl/expenses/$id/status"),
+      headers: _headers,
+      body: jsonEncode({"status": status}),
+    );
+  }
+
+  // --- Review Endpoints ---
+  Future<List<Map<String, dynamic>>> getReviews() async {
+    final res = await http.get(Uri.parse("$baseUrl/reviews"), headers: _headers);
+    if (res.statusCode == 200) {
+      final json = jsonDecode(res.body);
+      return List<Map<String, dynamic>>.from(json['data'] ?? []);
+    }
+    return [];
+  }
+
+  Future<void> submitReview(double rating, String comment, String technicianId, {String? jobId}) async {
+    await http.post(
+      Uri.parse("$baseUrl/reviews"),
+      headers: _headers,
+      body: jsonEncode({
+        "rating": rating,
+        "comment": comment,
+        "technicianId": technicianId,
+        if (jobId != null) "jobId": jobId,
       }),
     );
   }

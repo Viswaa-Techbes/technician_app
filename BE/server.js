@@ -13,16 +13,46 @@ require('dotenv').config({
   override: true,
 });
 
+const http = require('http');
+const { Server } = require('socket.io');
 const connectDB = require('./config/db');
 const app = require('./app');
 
 const PORT = Number(process.env.PORT) || 5000;
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+// Store io in app to use in controllers if needed
+app.set('io', io);
+
+io.on('connection', (socket) => {
+  console.log('New client connected:', socket.id);
+
+  socket.on('join', (userId) => {
+    socket.join(userId);
+    console.log(`User ${userId} joined room`);
+  });
+
+  socket.on('update_location', (data) => {
+    // data: { userId, lat, lng }
+    io.emit('location_updated', data); // Broadcast to all (ideally filter by manager)
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Client disconnected');
+  });
+});
 
 async function start() {
   try {
     await connectDB();
-    app.listen(PORT, () => {
-      console.log(`API listening on http://localhost:${PORT}`);
+    server.listen(PORT, () => {
+      console.log(`API + Realtime listening on http://localhost:${PORT}`);
     });
   } catch (err) {
     console.error('Failed to start server:', err.message || err);

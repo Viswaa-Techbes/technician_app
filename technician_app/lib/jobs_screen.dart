@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'models.dart';
 import 'widgets.dart';
-import 'services/mock_data_service.dart';
+import 'services/api_service.dart';
 import 'job_detail_screen.dart';
-import 'features/auth/presentation/providers/auth_provider.dart';
 
 class JobsScreen extends ConsumerStatefulWidget {
   const JobsScreen({super.key});
@@ -31,7 +29,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    final session = ref.watch(authProvider);
+    final api = ref.watch(apiServiceProvider);
     
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -52,47 +50,24 @@ class _JobsScreenState extends ConsumerState<JobsScreen> with SingleTickerProvid
           ],
         ),
       ),
-      body: MockDataService.useMock 
-        ? FutureBuilder<List<Job>>(
-            future: MockDataService().getJobs(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-              final allJobs = snapshot.data ?? [];
-              // For demo purposes, we show all mock jobs to every user
-              final filteredForUser = allJobs; 
-              return TabBarView(
-                controller: _tabController,
-                physics: const BouncingScrollPhysics(),
-                children: [
-                  _buildJobList(filteredForUser, [JobStatus.assigned]),
-                  _buildJobList(filteredForUser, [JobStatus.inProgress, JobStatus.pendingApproval]),
-                  _buildJobList(filteredForUser, [JobStatus.completed]),
-                ],
-              );
-            },
-          )
-        : StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance.collection('projects')
-                .where('technicianId', isEqualTo: session?.id)
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final docs = snapshot.data?.docs ?? [];
-              final allJobs = docs.map((doc) => Job.fromFirestore(doc.data() as Map<String, dynamic>, doc.id)).toList();
-
-              return TabBarView(
-                controller: _tabController,
-                physics: const BouncingScrollPhysics(),
-                children: [
-                  _buildJobList(allJobs, [JobStatus.assigned]),
-                  _buildJobList(allJobs, [JobStatus.inProgress, JobStatus.pendingApproval]),
-                  _buildJobList(allJobs, [JobStatus.completed]),
-                ],
-              );
-            },
-          ),
+      body: FutureBuilder<List<Job>>(
+        future: api.getJobs(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final allJobs = snapshot.data ?? [];
+          return TabBarView(
+            controller: _tabController,
+            physics: const BouncingScrollPhysics(),
+            children: [
+              _buildJobList(allJobs, [JobStatus.assigned]),
+              _buildJobList(allJobs, [JobStatus.inProgress, JobStatus.pendingApproval]),
+              _buildJobList(allJobs, [JobStatus.completed]),
+            ],
+          );
+        },
+      ),
     );
   }
 

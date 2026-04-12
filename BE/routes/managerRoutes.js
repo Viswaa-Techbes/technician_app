@@ -1,19 +1,18 @@
 const express = require('express');
 const managerController = require('../controllers/managerController');
+const technicianController = require('../controllers/technicianController');
+const jobController = require('../controllers/jobController');
 const { authenticate, requireRoles } = require('../middlewares/auth');
 
 const router = express.Router();
 
-router.use(authenticate, requireRoles('manager'));
+router.use(authenticate, requireRoles('manager', 'admin'));
 
-router.get('/dashboard', managerController.dashboard);
-router.get('/technicians', managerController.listTechnicians);
-router.get('/technicians/:techId/reviews', managerController.getTechnicianReviews);
+// Compatibility with Frontend ApiService
+router.get('/technicians', technicianController.listTechnicians);
+router.get('/tasks', jobController.listJobs);
 
-router.get('/tasks', managerController.listTasks);
-router.post('/tasks/assign', managerController.assignTask);
-
-router.get('/expenditures', managerController.listExpenditures);
-router.patch('/expenditures/:expenseId', managerController.approveExpenditure);
+// GET /managers/:id/team → list technicians under a manager
+router.get('/:id/team', managerController.listTeam);
 
 module.exports = router;

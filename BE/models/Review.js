@@ -7,9 +7,9 @@ const reviewSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
-    taskId: {
+    jobId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Task',
+      ref: 'Job',
       required: false, // Optional if general feedback
     },
     clientName: {

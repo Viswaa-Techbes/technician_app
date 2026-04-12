@@ -147,6 +147,8 @@ class Technician {
   final double performance;
   final int completedJobs;
   final bool isOnline;
+  final double? lat;
+  final double? lng;
 
   const Technician({
     required this.id,
@@ -160,6 +162,8 @@ class Technician {
     this.performance = 0.0,
     this.completedJobs = 0,
     this.isOnline = false,
+    this.lat,
+    this.lng,
   });
 
   factory Technician.fromFirestore(Map<String, dynamic> data, String id) {
@@ -179,6 +183,8 @@ class Technician {
       performance: (data['performance'] ?? 0.0).toDouble(),
       completedJobs: data['completedJobs'] ?? 0,
       isOnline: data['isOnline'] ?? false,
+      lat: (data['lat'] ?? 0.0).toDouble(),
+      lng: (data['lng'] ?? 0.0).toDouble(),
     );
   }
 }

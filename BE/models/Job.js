@@ -1,0 +1,70 @@
+const mongoose = require('mongoose');
+
+const JOB_STATUSES = ['pending', 'assigned', 'in_progress', 'pending_approval', 'completed'];
+
+const jobSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: [true, 'Job title is required'],
+      trim: true,
+    },
+    description: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    status: {
+      type: String,
+      enum: JOB_STATUSES,
+      default: 'pending',
+    },
+    assignedTechnician: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    assignedManager: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: [true, 'assignedManager is required'],
+    },
+    location: {
+      type: String, // Acts as address
+      default: '',
+    },
+    googleMapsLink: {
+      type: String,
+      default: '',
+    },
+    attachments: [
+      {
+        type: String,
+      },
+    ],
+    // Compatibility fields
+    customerName: {
+      type: String,
+      default: '',
+    },
+    customerPhone: {
+      type: String,
+      default: '',
+    },
+    scheduledTime: {
+      type: String,
+      default: 'ASAP',
+    },
+    price: {
+      type: Number,
+      default: 0,
+    },
+  },
+  { timestamps: true }
+);
+
+jobSchema.index({ assignedTechnician: 1, status: 1 });
+jobSchema.index({ assignedManager: 1, createdAt: -1 });
+
+module.exports = mongoose.model('Job', jobSchema);
+module.exports.JOB_STATUSES = JOB_STATUSES;

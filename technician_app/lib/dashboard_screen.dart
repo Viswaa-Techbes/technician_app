@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'models.dart';
 import 'widgets.dart';
-import 'services/mock_data_service.dart';
+import 'services/api_service.dart';
+import 'services/realtime_service.dart';
 import 'job_detail_screen.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'login_screen.dart';
+import 'dart:async';
+import 'package:geolocator/geolocator.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -23,12 +25,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _completedCount = 0;
   int _assignedCount = 0;
   int _pendingCount = 0;
-  final _db = FirebaseFirestore.instance;
+  Timer? _trackingTimer;
 
   @override
   void initState() {
     super.initState();
     _fetchData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(realtimeServiceProvider).connect();
+    });
+  }
+
+  @override
+  void dispose() {
+    _trackingTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _fetchData() async {
@@ -37,91 +48,62 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     
     _userName = session.name;
 
-    if (MockDataService.useMock) {
-      final allJobs = await MockDataService().getJobs();
-      final myJobs = allJobs.where((j) => j.technicianId == session.id || session.id == 'tech1').toList();
+    final api = ref.read(apiServiceProvider);
+    
+    try {
+      final jobs = await api.getJobs();
       
       if (mounted) {
         setState(() {
-          _todaysJobs = myJobs;
-          _completedCount = myJobs.where((j) => j.status == JobStatus.completed).length;
-          _assignedCount = myJobs.where((j) => j.status == JobStatus.assigned || j.status == JobStatus.inProgress).length;
-          _pendingCount = myJobs.where((j) => j.status == JobStatus.pendingApproval).length;
-          _isOnDuty = true; // Default to online for demo
-          _isLoading = false;
-        });
-      }
-      return;
-    }
-
-    // Listen to real-time status... [Firestore Code]
-    _db.collection('technicians').doc(session.id).snapshots().listen((doc) {
-      if (doc.exists && mounted) {
-        setState(() => _isOnDuty = doc.data()?['isOnline'] ?? false);
-      }
-    });
-
-    // Listen to job counts... [Firestore Code]
-    _db.collection('projects')
-        .where('technicianId', isEqualTo: session.id)
-        .snapshots().listen((snapshot) {
-      if (mounted) {
-        int completed = 0;
-        int assigned = 0;
-        int pending = 0;
-        
-        List<Job> jobs = [];
-        
-        for (var doc in snapshot.docs) {
-          final data = doc.data();
-          final statusStr = data['status'] as String? ?? 'assigned';
-          
-          JobStatus status = JobStatus.assigned;
-          if (statusStr == 'in_progress') {
-            status = JobStatus.inProgress;
-            assigned++;
-          } else if (statusStr == 'completed') {
-            status = JobStatus.completed;
-            completed++;
-          } else if (statusStr == 'pending') {
-            status = JobStatus.pendingApproval;
-            pending++;
-          } else {
-            assigned++;
-          }
-
-          jobs.add(Job(
-            id: doc.id,
-            serviceName: data['serviceName'] ?? 'Task',
-            customerName: data['customerName'] ?? 'System',
-            customerPhone: data['customerPhone'] ?? 'N/A',
-            address: data['address'] ?? 'See Notes',
-            time: data['time'] ?? 'Anytime',
-            status: status,
-            notes: data['notes'] ?? '',
-          ));
-        }
-
-        setState(() {
-          _completedCount = completed;
-          _assignedCount = assigned;
-          _pendingCount = pending;
           _todaysJobs = jobs;
+          _completedCount = jobs.where((j) => j.status == JobStatus.completed).length;
+          _assignedCount = jobs.where((j) => j.status == JobStatus.assigned || j.status == JobStatus.inProgress).length;
+          _pendingCount = jobs.where((j) => j.status == JobStatus.pendingApproval).length;
           _isLoading = false;
         });
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showMessage("Failed to load dashboard data: $e");
+      }
+    }
   }
 
   Future<void> _toggleDuty(bool val) async {
     final session = ref.read(authProvider);
     if (session == null) return;
 
-    await _db.collection('technicians').doc(session.id).set({
-      'isOnline': val,
-      'lastActiveAt': FieldValue.serverTimestamp(),
-      'name': session.name,
-    }, SetOptions(merge: true));
+    try {
+      await ref.read(apiServiceProvider).updateLocation(0, 0, isOnline: val);
+      setState(() => _isOnDuty = val);
+      
+      if (val) {
+        _startTracking();
+      } else {
+        _trackingTimer?.cancel();
+      }
+    } catch (e) {
+      _showMessage("Failed to update status: $e");
+    }
+  }
+
+  void _startTracking() {
+    _trackingTimer?.cancel();
+    _trackingTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
+      try {
+        final pos = await Geolocator.getCurrentPosition();
+        ref.read(realtimeServiceProvider).updateLocation(pos.latitude, pos.longitude);
+        await ref.read(apiServiceProvider).updateLocation(pos.latitude, pos.longitude, isOnline: true);
+      } catch (e) {
+        debugPrint("Location update failed: $e");
+      }
+    });
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
 

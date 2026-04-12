@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../auth/presentation/providers/auth_provider.dart';
 import '../providers/review_providers.dart';
 import '../widgets/star_rating_widget.dart';
-import '../../../services/mock_data_service.dart';
+import '../../../services/api_service.dart';
 import '../../../widgets.dart';
 
 /// Full-screen review submission screen, triggered after job completion.
@@ -54,28 +53,17 @@ class _SubmitReviewScreenState extends ConsumerState<SubmitReviewScreen>
   }
 
   Future<void> _submitReview() async {
-    if (MockDataService.useMock) {
-      await MockDataService().submitReview(widget.projectId, _rating, _reviewController.text.trim());
+    final api = ref.read(apiServiceProvider);
+
+    try {
+      await api.submitReview(
+        _rating.toDouble(),
+        _reviewController.text.trim(),
+        widget.technicianId,
+        jobId: widget.projectId,
+      );
+      
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Mock: Review submitted successfully!')));
-        Navigator.pop(context, true);
-      }
-      return;
-    }
-
-    final session = ref.read(authProvider);
-    if (session == null) return;
-
-    final success = await ref.read(reviewSubmitProvider.notifier).submit(
-          technicianId: widget.technicianId,
-          projectId: widget.projectId,
-          clientName: widget.clientName,
-          rating: _rating,
-          review: _reviewController.text.trim(),
-        );
-
-    if (mounted) {
-      if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Review submitted successfully!'),
@@ -83,11 +71,13 @@ class _SubmitReviewScreenState extends ConsumerState<SubmitReviewScreen>
           ),
         );
         Navigator.pop(context, true);
-      } else {
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to submit review. Please try again.'),
-            backgroundColor: Color(0xFFF43F5E),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: const Color(0xFFF43F5E),
           ),
         );
       }

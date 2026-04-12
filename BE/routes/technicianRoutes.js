@@ -1,17 +1,23 @@
 const express = require('express');
 const technicianController = require('../controllers/technicianController');
+const jobController = require('../controllers/jobController');
 const { authenticate, requireRoles } = require('../middlewares/auth');
 
 const router = express.Router();
 
-router.use(authenticate, requireRoles('technician'));
+// Compatibility with Frontend ApiService
+router.get('/tasks', authenticate, requireRoles('technician'), jobController.listJobs);
+router.patch('/tasks/:id/status', authenticate, requireRoles('technician'), jobController.updateJobStatus);
+router.patch('/location', authenticate, requireRoles('technician'), (req, res, next) => {
+    // Alias to updateStatus but using self ID
+    req.params.id = req.user.id;
+    technicianController.updateStatus(req, res, next);
+});
 
-router.get('/dashboard', technicianController.dashboard);
-router.get('/tasks', technicianController.listTasks);
-router.patch('/tasks/:taskId/status', technicianController.updateTaskStatus);
-
-router.patch('/location', technicianController.updateLocation);
-router.post('/expenditures', technicianController.submitExpense);
-router.get('/reviews', technicianController.getMyReviews);
+// Standard Routes
+router.get('/', authenticate, requireRoles('manager', 'admin'), technicianController.listTechnicians);
+router.get('/:id', authenticate, technicianController.getTechnicianDetails);
+router.patch('/:id/status', authenticate, technicianController.updateStatus);
+router.get('/:id/jobs', authenticate, technicianController.listTechnicianJobs);
 
 module.exports = router;

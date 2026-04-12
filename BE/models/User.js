@@ -30,6 +30,7 @@ const userSchema = new mongoose.Schema(
       required: true,
       default: 'technician',
     },
+    phone: String,
     isOnline: {
       type: Boolean,
       default: false,
@@ -39,6 +40,12 @@ const userSchema = new mongoose.Schema(
       enum: ['available', 'busy', 'offline'],
       default: 'offline',
     },
+    specialty: String,
+    assignedManager: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
     lat: {
       type: Number,
       default: 0.0,
@@ -47,8 +54,14 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0.0,
     },
-    phoneNumber: String,
-    specialty: String,
+    resetToken: {
+      type: String,
+      select: false,
+    },
+    resetTokenExpiry: {
+      type: Date,
+      select: false,
+    },
   },
   { timestamps: true }
 );
@@ -70,6 +83,11 @@ userSchema.methods.toSafeObject = function toSafeObject() {
     name: this.name,
     email: this.email,
     role: this.role,
+    phone: this.phone,
+    isOnline: this.isOnline,
+    status: this.status,
+    specialty: this.specialty,
+    assignedManager: this.assignedManager,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };

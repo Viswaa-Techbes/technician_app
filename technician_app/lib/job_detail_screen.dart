@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
-import 'services/mock_data_service.dart';
+import 'services/api_service.dart';
 import 'models.dart';
 import 'widgets.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
@@ -581,41 +580,15 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   }
 
   Future<void> _updateStatus(String newStatus) async {
-    if (MockDataService.useMock) {
-      // Convert string status back to Enum if needed
-      JobStatus statusEnum = JobStatus.assigned;
-      if (newStatus == 'inProgress') statusEnum = JobStatus.inProgress;
-      if (newStatus == 'pendingApproval') statusEnum = JobStatus.pendingApproval;
-      if (newStatus == 'completed') statusEnum = JobStatus.completed;
-
-      await MockDataService().updateJobStatus(widget.job.id, statusEnum);
-      if (mounted) {
-        setState(() => _currentStatus = statusEnum);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Mock: Job status moved to $newStatus")));
-      }
-      return;
-    }
-
+    final api = ref.read(apiServiceProvider);
     try {
-      final session = ref.read(authProvider);
-      final db = FirebaseFirestore.instance;
+      await api.updateJobStatus(widget.job.id, newStatus);
       
-      // Update job status
-      await db.collection('projects').doc(widget.job.id).update({
-        'status': newStatus,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      // Feature 1: Toggle technician online status when starting a job session
-      if (newStatus == 'inProgress' && session != null) {
-        await db.collection('technicians').doc(session.id).set({
-          'isOnline': true,
-          'lastActiveAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-      }
-
+      // Feature: Trigger location/status update if needed
+      // Since this is for technician, the backend already handles role-based updates.
     } catch (e) {
       debugPrint("Failed to update status: $e");
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models.dart';
 import 'widgets.dart';
-import 'services/mock_data_service.dart';
+import 'services/api_service.dart';
 
 class CompletionRequestsScreen extends ConsumerStatefulWidget {
   const CompletionRequestsScreen({super.key});
@@ -56,76 +55,38 @@ class _CompletionRequestsScreenState extends ConsumerState<CompletionRequestsScr
   }
 
   Widget _buildJobsTab() {
-    return MockDataService.useMock 
-        ? FutureBuilder<List<Job>>(
-            future: MockDataService().getJobs(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-              final allJobs = snapshot.data ?? [];
-              final pendingJobs = allJobs.where((j) => j.status == JobStatus.pendingApproval).toList();
-              if (pendingJobs.isEmpty) return _buildEmptyState("No completion requests");
-              return ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: pendingJobs.length,
-                itemBuilder: (context, index) => _buildRequestCard(context, pendingJobs[index]),
-              );
-            },
-          )
-        : StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance.collection('projects')
-                .where('status', isEqualTo: 'pendingApproval')
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-              final docs = snapshot.data?.docs ?? [];
-              if (docs.isEmpty) return _buildEmptyState("No completion requests");
-              return ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: docs.length,
-                itemBuilder: (context, index) {
-                  final job = Job.fromFirestore(docs[index].data() as Map<String, dynamic>, docs[index].id);
-                  return _buildRequestCard(context, job);
-                },
-              );
-            },
+     final api = ref.watch(apiServiceProvider);
+     return FutureBuilder<List<Job>>(
+        future: api.getJobs(status: 'pending_approval'),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          final pendingJobs = snapshot.data ?? [];
+          if (pendingJobs.isEmpty) return _buildEmptyState("No completion requests");
+          return ListView.builder(
+            padding: const EdgeInsets.all(20),
+            itemCount: pendingJobs.length,
+            itemBuilder: (context, index) => _buildRequestCard(context, pendingJobs[index]),
           );
+        },
+      );
   }
 
   Widget _buildExpensesTab() {
-    return MockDataService.useMock 
-        ? FutureBuilder<List<Map<String, dynamic>>>(
-            future: MockDataService().getExpenses(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-              final allExpenses = snapshot.data ?? [];
-              final pendingExpenses = allExpenses.where((e) => e['status'] == 'pending').toList();
-              if (pendingExpenses.isEmpty) return _buildEmptyState("No expenditure requests");
-              return ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: pendingExpenses.length,
-                itemBuilder: (context, index) => _buildExpenseCard(context, pendingExpenses[index]),
-              );
-            },
-          )
-        : StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance.collection('expenses')
-                .where('status', isEqualTo: 'pending')
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-              final docs = snapshot.data?.docs ?? [];
-              if (docs.isEmpty) return _buildEmptyState("No expenditure requests");
-              return ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: docs.length,
-                itemBuilder: (context, index) {
-                  final data = docs[index].data() as Map<String, dynamic>;
-                  data['id'] = docs[index].id;
-                  return _buildExpenseCard(context, data);
-                },
-              );
-            },
+    final api = ref.watch(apiServiceProvider);
+    return FutureBuilder<List<Map<String, dynamic>>>(
+        future: api.getExpenses(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+          final allExpenses = snapshot.data ?? [];
+          final pendingExpenses = allExpenses.where((e) => e['status'] == 'pending' || e['status'] == 'pending_approval').toList();
+          if (pendingExpenses.isEmpty) return _buildEmptyState("No expenditure requests");
+          return ListView.builder(
+            padding: const EdgeInsets.all(20),
+            itemCount: pendingExpenses.length,
+            itemBuilder: (context, index) => _buildExpenseCard(context, pendingExpenses[index]),
           );
+        },
+      );
   }
 
   Widget _buildRequestCard(BuildContext context, Job job) {
@@ -205,7 +166,7 @@ class _CompletionRequestsScreenState extends ConsumerState<CompletionRequestsScr
           Row(
             children: [
               Expanded(
-                child: _buildActionButton("REJECT", const Color(0xFFF43F5E), () {}),
+                child: _buildActionButton("REJECT", const Color(0xFFF43F5E), () => _handleExpenseAction(exp['id'] ?? exp['_id'], 'rejected')),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -272,12 +233,9 @@ class _CompletionRequestsScreenState extends ConsumerState<CompletionRequestsScr
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL", style: TextStyle(fontWeight: FontWeight.w900, color: Colors.grey))),
           ElevatedButton(
-            onPressed: () async {
+            onPressed: () {
               Navigator.pop(context);
-              if (MockDataService.useMock) {
-                await MockDataService().approveExpense(exp['id']);
-                setState(() {});
-              }
+              _handleExpenseAction(exp['id'] ?? exp['_id'], 'approved');
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
             child: const Text("APPROVE PAYMENT", style: TextStyle(fontWeight: FontWeight.w900)),
@@ -296,18 +254,23 @@ class _CompletionRequestsScreenState extends ConsumerState<CompletionRequestsScr
 
   Future<void> _handleAction(String jobId, JobStatus newStatus) async {
     try {
-      if (MockDataService.useMock) {
-        await MockDataService().updateJobStatus(jobId, newStatus);
-      } else {
-        await FirebaseFirestore.instance.collection('projects').doc(jobId).update({
-          'status': newStatus.name,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      }
+      await ref.read(apiServiceProvider).updateJobStatus(jobId, newStatus.name);
       if (mounted) {
         String msg = newStatus == JobStatus.completed ? "Job approved and marked as completed." : "Job rejected and sent back to technician.";
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-        if (MockDataService.useMock) setState(() {}); // Refresh for mock
+        setState(() {});
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+    }
+  }
+
+  Future<void> _handleExpenseAction(String id, String status) async {
+    try {
+      await ref.read(apiServiceProvider).updateExpenseStatus(id, status);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Expense $status callback.")));
+        setState(() {});
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));

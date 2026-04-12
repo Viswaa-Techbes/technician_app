@@ -1,4 +1,5 @@
 enum Role {
+  admin,
   manager,
   technician,
 }
@@ -30,6 +31,7 @@ const allPermissions = [
 ];
 
 const defaultRolePermissions = {
+  Role.admin: allPermissions,
   Role.manager: [
     Permission.viewDashboard,
     Permission.viewUsers,

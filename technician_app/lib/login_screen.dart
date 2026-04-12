@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'signup_screen.dart';
 import 'main_screen.dart';
-import 'core/security/rbac_constants.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'manager_main_screen.dart';
 import 'widgets.dart';
-
+import 'core/security/rbac_constants.dart' as RoleEnum;
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -179,8 +178,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ),
       child: Row(
         children: [
-          _buildRoleOption('Technician'),
           _buildRoleOption('Manager'),
+          _buildRoleOption('Technician'),
         ],
       ),
     );
@@ -310,9 +309,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (!mounted) return;
 
-      final Widget nextScreen = session.role == Role.technician
-          ? const MainScreen()
-          : const ManagerMainScreen();
+      final Widget nextScreen = session.role == RoleEnum.Role.manager
+              ? const ManagerMainScreen()
+              : const MainScreen();
 
       Navigator.pushReplacement(
         context,
@@ -328,13 +327,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  Role get _selectedAppRole {
+  RoleEnum.Role get _selectedAppRole {
     switch (selectedRole) {
       case 'Manager':
-        return Role.manager;
+        return RoleEnum.Role.manager;
       case 'Technician':
       default:
-        return Role.technician;
+        return RoleEnum.Role.technician;
     }
   }
 

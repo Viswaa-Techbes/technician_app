@@ -17,9 +17,9 @@ const expenseSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
-    projectId: {
+    jobId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Task',
+      ref: 'Job',
     },
     status: {
       type: String,
