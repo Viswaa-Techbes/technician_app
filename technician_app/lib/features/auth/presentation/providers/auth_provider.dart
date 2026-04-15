@@ -29,13 +29,13 @@ class AuthNotifier extends StateNotifier<UserSession?> {
   }
 
   Future<UserSession> login({
-    required String email,
+    required String mobileNumber,
     required String password,
   }) async {
     final res = await http.post(
       Uri.parse("$_baseUrl/auth/login"),
       headers: {"Content-Type": "application/json"},
-      body: jsonEncode({"email": email, "password": password}),
+      body: jsonEncode({"mobileNumber": mobileNumber.trim(), "password": password}),
     );
     
     final apiResponse = jsonDecode(res.body);
@@ -51,7 +51,8 @@ class AuthNotifier extends StateNotifier<UserSession?> {
     final session = UserSession(
       id: backendUser['id'] ?? backendUser['_id'] ?? '',
       name: backendUser['name'] ?? 'User',
-      email: backendUser['email'] ?? email,
+      mobileNumber: backendUser['mobileNumber'] ?? mobileNumber.trim(),
+      email: backendUser['email'] ?? '',
       role: Role.values.firstWhere(
         (e) => e.name == (backendUser['role'] ?? 'technician'),
         orElse: () => Role.technician,
@@ -65,8 +66,8 @@ class AuthNotifier extends StateNotifier<UserSession?> {
   }
 
   Future<UserSession> register({
-    required String name,
-    required String email,
+    String name = '',
+    required String mobileNumber,
     required String password,
     required Role role,
   }) async {
@@ -75,7 +76,7 @@ class AuthNotifier extends StateNotifier<UserSession?> {
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         'name': name.trim(),
-        'email': email.trim(),
+        'mobileNumber': mobileNumber.trim(),
         'password': password,
         'role': role.name,
       }),
@@ -93,8 +94,9 @@ class AuthNotifier extends StateNotifier<UserSession?> {
 
     final session = UserSession(
       id: backendUser['id'] ?? backendUser['_id'] ?? '',
-      name: name.trim(),
-      email: email.trim(),
+      name: (backendUser['name'] ?? name).toString(),
+      mobileNumber: backendUser['mobileNumber'] ?? mobileNumber.trim(),
+      email: backendUser['email'] ?? '',
       role: role,
       token: token,
     );

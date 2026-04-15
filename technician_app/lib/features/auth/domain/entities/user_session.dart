@@ -3,6 +3,7 @@ import '../../../../core/security/rbac_constants.dart';
 class UserSession {
   final String id;
   final String name;
+  final String mobileNumber;
   final String email;
   final Role role;
   final String token;
@@ -10,7 +11,8 @@ class UserSession {
   const UserSession({
     required this.id,
     required this.name,
-    required this.email,
+    required this.mobileNumber,
+    this.email = '',
     required this.role,
     required this.token,
   });
@@ -19,6 +21,7 @@ class UserSession {
     return UserSession(
       id: map['id']?.toString() ?? '',
       name: map['name']?.toString() ?? 'User',
+      mobileNumber: map['mobileNumber']?.toString() ?? '',
       email: map['email']?.toString() ?? '',
       role: Role.values.firstWhere(
         (e) => e.name == map['role'],
@@ -32,6 +35,7 @@ class UserSession {
     return {
       'id': id,
       'name': name,
+      'mobileNumber': mobileNumber,
       'email': email,
       'role': role.name,
       'token': token,

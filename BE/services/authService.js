@@ -1,8 +1,9 @@
 const User = require('../models/User');
 const { signToken } = require('../utils/jwt');
 
-async function loginUser(email, password) {
-  const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
+async function loginUser(mobileNumber, password) {
+  const normalizedMobile = mobileNumber.trim();
+  const user = await User.findOne({ mobileNumber: normalizedMobile }).select('+password');
   if (!user) {
     throw new Error('Invalid credentials');
   }
@@ -17,19 +18,34 @@ async function loginUser(email, password) {
 }
 
 async function registerUser(userData) {
-  const { name, email, password, role = 'technician', phone, specialty, assignedManager } = userData;
+  const { name, mobileNumber, email, password, role = 'technician', phone, specialty, assignedManager } = userData;
 
-  const existing = await User.findOne({ email: email.toLowerCase().trim() });
+  if (!mobileNumber || !password) {
+    throw new Error('mobileNumber and password are required');
+  }
+
+  const normalizedMobile = mobileNumber.trim();
+  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+
+  const existing = await User.findOne({ mobileNumber: normalizedMobile });
   if (existing) {
-    throw new Error('Email already registered');
+    throw new Error('Mobile number already registered');
+  }
+
+  if (normalizedEmail) {
+    const existingEmailUser = await User.findOne({ email: normalizedEmail });
+    if (existingEmailUser) {
+      throw new Error('Email already registered');
+    }
   }
 
   const user = await User.create({
-    name: name.trim(),
-    email: email.toLowerCase().trim(),
+    name: (name ?? '').trim(),
+    mobileNumber: normalizedMobile,
+    ...(normalizedEmail ? { email: normalizedEmail } : {}),
     password,
     role,
-    phone,
+    phone: phone ?? normalizedMobile,
     specialty,
     assignedManager,
   });

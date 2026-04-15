@@ -16,13 +16,13 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   String selectedRole = 'Technician';
-  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _mobileController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isSubmitting = false;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _mobileController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -61,10 +61,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   _buildRoleSelector(),
                   const SizedBox(height: 28),
                   _buildTextField(
-                    controller: _emailController,
-                    label: 'Email Address',
-                    icon: Icons.email_outlined,
-                    hint: 'Enter your email',
+                    controller: _mobileController,
+                    label: 'Mobile Number',
+                    icon: Icons.phone_android_rounded,
+                    hint: 'Enter your mobile number',
                   ),
                   const SizedBox(height: 20),
                   _buildTextField(
@@ -282,11 +282,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    final email = _emailController.text.trim();
+    final mobileNumber = _mobileController.text.trim();
     final password = _passwordController.text;
 
-    if (email.isEmpty || password.isEmpty) {
-      _showMessage('Please enter both email and password.');
+    if (mobileNumber.isEmpty || password.isEmpty) {
+      _showMessage('Please enter both mobile number and password.');
       return;
     }
 
@@ -294,7 +294,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       final session = await ref.read(authProvider.notifier).login(
-            email: email,
+            mobileNumber: mobileNumber,
             password: password,
           );
 

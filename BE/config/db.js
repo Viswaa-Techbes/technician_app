@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const User = require('../models/User');
 
 /**
  * Connects to MongoDB (Atlas or local) using MONGODB_URI from environment.
@@ -40,6 +41,13 @@ async function connectDB() {
   }
 
   console.log('MongoDB connected');
+
+  try {
+    await User.syncIndexes();
+    console.log('[db] User indexes synchronized');
+  } catch (err) {
+    console.warn('[db] Failed to synchronize User indexes:', err?.message ?? err);
+  }
 }
 
 module.exports = connectDB;

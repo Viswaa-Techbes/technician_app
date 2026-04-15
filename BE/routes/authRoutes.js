@@ -4,13 +4,13 @@ const { authenticate } = require('../middlewares/auth');
 
 const router = express.Router();
 
-// POST /auth/login
+// POST /auth/login or /login
 router.post('/login', authController.login);
 
-// POST /auth/register
+// POST /auth/register or /register
 router.post('/register', authController.register);
 
-// GET /auth/me (for token verification and profile)
+// GET /auth/me or /me
 router.get('/me', authenticate, authController.me);
 
 module.exports = router;

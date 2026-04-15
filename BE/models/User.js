@@ -7,16 +7,21 @@ const userSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: [true, 'Name is required'],
       trim: true,
+      default: '',
+    },
+    mobileNumber: {
+      type: String,
+      required: [true, 'Mobile number is required'],
+      unique: true,
+      trim: true,
+      match: [/^\d{10,15}$/, 'Please use a valid mobile number'],
     },
     email: {
       type: String,
-      required: [true, 'Email is required'],
-      unique: true,
       lowercase: true,
       trim: true,
-      match: [/^\S+@\S+\.\S+$/, 'Please use a valid email'],
+      default: undefined,
     },
     password: {
       type: String,
@@ -66,6 +71,15 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+userSchema.index({ email: 1 }, { unique: true, sparse: true });
+
+userSchema.pre('validate', function normalizeBlankEmail(next) {
+  if (typeof this.email === 'string' && this.email.trim() === '') {
+    this.email = undefined;
+  }
+  next();
+});
+
 userSchema.pre('save', async function hashPassword(next) {
   if (!this.isModified('password')) return next();
   const salt = await bcrypt.genSalt(12);
@@ -80,7 +94,9 @@ userSchema.methods.comparePassword = async function comparePassword(candidate) {
 userSchema.methods.toSafeObject = function toSafeObject() {
   return {
     id: this._id.toString(),
+    userId: this._id.toString(),
     name: this.name,
+    mobileNumber: this.mobileNumber,
     email: this.email,
     role: this.role,
     phone: this.phone,

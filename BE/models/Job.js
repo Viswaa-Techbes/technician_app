@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const JOB_STATUSES = ['pending', 'assigned', 'in_progress', 'pending_approval', 'completed'];
+const PAYMENT_STATUSES = ['pending', 'verification_pending', 'paid', 'rejected'];
 
 const jobSchema = new mongoose.Schema(
   {
@@ -59,6 +60,41 @@ const jobSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    amount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    paymentStatus: {
+      type: String,
+      enum: PAYMENT_STATUSES,
+      default: 'pending',
+    },
+    paymentDescription: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    currency: {
+      type: String,
+      default: 'INR',
+      trim: true,
+    },
+    orderId: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    paymentId: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    paymentSignature: {
+      type: String,
+      default: '',
+      trim: true,
+    },
   },
   { timestamps: true }
 );
@@ -68,3 +104,4 @@ jobSchema.index({ assignedManager: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Job', jobSchema);
 module.exports.JOB_STATUSES = JOB_STATUSES;
+module.exports.PAYMENT_STATUSES = PAYMENT_STATUSES;

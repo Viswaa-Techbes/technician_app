@@ -176,3 +176,31 @@ BE/
 - Set a strong `JWT_SECRET` in production.
 - Use HTTPS in production.
 - Passwords are hashed with **bcrypt** (salt rounds 12).
+- Add `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` to `BE/.env` before using payment APIs.
+
+## Razorpay payment endpoints
+
+```http
+POST /create-order
+Authorization: Bearer <MANAGER_JWT>
+Content-Type: application/json
+
+{
+  "amount": 250000,
+  "description": "CCTV installation payment",
+  "receipt": "job_1712345678901"
+}
+```
+
+```http
+POST /verify-payment
+Authorization: Bearer <TECHNICIAN_JWT>
+Content-Type: application/json
+
+{
+  "jobId": "<job_id>",
+  "razorpay_order_id": "<order_id>",
+  "razorpay_payment_id": "<payment_id>",
+  "razorpay_signature": "<signature>"
+}
+```

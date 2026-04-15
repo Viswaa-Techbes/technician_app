@@ -268,6 +268,12 @@ class JobCard extends StatelessWidget {
                     _buildProductionInfoRow(Icons.access_time_filled_rounded, job.time, const Color(0xFFF59E0B)),
                     const SizedBox(height: 12),
                     _buildProductionInfoRow(Icons.location_on_rounded, job.address, const Color(0xFFF43F5E)),
+                    const SizedBox(height: 12),
+                    _buildProductionInfoRow(
+                      Icons.currency_rupee_rounded,
+                      'INR ${job.price.toStringAsFixed(2)} • ${job.paymentStatus.name.toUpperCase()}',
+                      job.paymentStatus == PaymentStatus.paid ? const Color(0xFF10B981) : const Color(0xFF0EA5E9),
+                    ),
                     if (width == null) ...[
                       const SizedBox(height: 24),
                       CustomButton(

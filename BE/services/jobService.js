@@ -2,7 +2,25 @@ const Job = require('../models/Job');
 const User = require('../models/User');
 
 async function createJob(jobData) {
-  const { title, description, location, googleMapsLink, attachments, scheduledTime, customerName, customerPhone, assignedManager, assignedTechnician, price } = jobData;
+  const {
+    title,
+    description,
+    location,
+    googleMapsLink,
+    attachments,
+    scheduledTime,
+    customerName,
+    customerPhone,
+    assignedManager,
+    assignedTechnician,
+    price,
+    amount,
+    paymentStatus,
+    paymentDescription,
+    orderId,
+  } = jobData;
+
+  const normalizedAmount = Number(amount ?? price ?? 0);
 
   const job = await Job.create({
     title,
@@ -16,7 +34,12 @@ async function createJob(jobData) {
     assignedManager,
     assignedTechnician: assignedTechnician || null,
     status: assignedTechnician ? 'assigned' : 'pending',
-    price,
+    price: normalizedAmount,
+    amount: normalizedAmount,
+    paymentStatus: paymentStatus || 'pending',
+    paymentDescription: paymentDescription || description || title,
+    orderId: orderId || '',
+    currency: 'INR',
   });
 
   return job;

@@ -10,6 +10,7 @@ const expenseRoutes = require('./routes/expenseRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const leadRoutes = require('./routes/leadRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 const errorHandler = require('./middlewares/errorHandler');
 
 const app = express();
@@ -22,6 +23,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/auth', authRoutes);
+app.use('/', authRoutes);
 app.use('/admin', adminRoutes);
 app.use('/managers', managerRoutes);
 app.use('/manager', managerRoutes); // Alias
@@ -32,6 +34,7 @@ app.use('/expenses', expenseRoutes);
 app.use('/reviews', reviewRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/leads', leadRoutes);
+app.use('/', paymentRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });

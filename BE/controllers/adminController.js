@@ -42,7 +42,7 @@ async function adminLogin(req, res, next) {
 
 async function dashboard(req, res, next) {
   try {
-    const [userCounts, jobCounts, recentJobs, liveTechnicians, pendingRequests, reviews, leadsCount, pendingExpenses] = await Promise.all([
+    const [userCounts, jobCounts, recentJobs, liveTechnicians, pendingRequests, paymentRequests, reviews, leadsCount, pendingExpenses] = await Promise.all([
       User.aggregate([
         { $group: { _id: '$role', count: { $sum: 1 } } },
       ]),
@@ -58,7 +58,12 @@ async function dashboard(req, res, next) {
         .sort({ updatedAt: -1 })
         .limit(8)
         .lean(),
-      Job.find({ status: 'pending' }) // pending status is 'pending' in new Job schema
+      Job.find({ status: 'pending_approval' })
+        .sort({ updatedAt: -1 })
+        .limit(8)
+        .populate('assignedTechnician', 'name email status isOnline specialty')
+        .lean(),
+      Job.find({ paymentStatus: 'verification_pending' })
         .sort({ updatedAt: -1 })
         .limit(8)
         .populate('assignedTechnician', 'name email status isOnline specialty')
@@ -105,10 +110,12 @@ async function dashboard(req, res, next) {
           totalManagers: usersByRole.manager || 0,
           totalRevenue,
           pendingRequests: pendingRequests.length,
+          paymentApprovals: paymentRequests.length,
         },
         recentJobs: recentJobs.map(formatJob),
         liveTechnicians: liveTechnicians.map(formatTechnician),
         pendingRequests: pendingRequests.map(formatJob),
+        paymentRequests: paymentRequests.map(formatJob),
         recentReviews: reviews.map(formatReview),
       },
     });
@@ -162,7 +169,7 @@ async function listJobs(req, res, next) {
 
 async function createJob(req, res, next) {
   try {
-    const { title, description, location, technicianId, customerName, customerPhone, scheduledTime, price } = req.body;
+    const { title, description, location, technicianId, customerName, customerPhone, scheduledTime, price, amount, paymentDescription, orderId } = req.body;
 
     if (!title || !location) {
       return res.status(400).json({
@@ -178,7 +185,10 @@ async function createJob(req, res, next) {
       customerPhone,
       location,
       scheduledTime,
-      price,
+      price: amount || price,
+      amount: amount || price || 0,
+      paymentDescription: paymentDescription || description || title,
+      orderId: orderId || '',
       assignedTechnician: technicianId || null,
       assignedManager: req.user.id,
       status: technicianId ? 'assigned' : 'pending',
@@ -189,6 +199,106 @@ async function createJob(req, res, next) {
       .lean();
 
     return res.status(201).json({ success: true, data: formatJob(hydratedJob) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function listCompletionRequests(req, res, next) {
+  try {
+    const jobs = await Job.find({ status: 'pending_approval' })
+      .sort({ updatedAt: -1 })
+      .populate('assignedTechnician', 'name email status isOnline specialty')
+      .populate('assignedManager', 'name email role')
+      .lean();
+
+    return res.json({ success: true, data: jobs.map(formatJob) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateCompletionRequest(req, res, next) {
+  try {
+    const { taskId } = req.params;
+    const { action } = req.body;
+
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'action must be approve or reject' });
+    }
+
+    const job = await Job.findById(taskId);
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+
+    if (job.status !== 'pending_approval') {
+      return res.status(400).json({ success: false, message: 'Job is not awaiting admin approval' });
+    }
+
+    job.status = action === 'approve' ? 'completed' : 'assigned';
+    await job.save();
+
+    const updated = await Job.findById(job._id)
+      .populate('assignedTechnician', 'name email status isOnline specialty')
+      .populate('assignedManager', 'name email role')
+      .lean();
+
+    return res.json({
+      success: true,
+      message: action === 'approve' ? 'Completion approved' : 'Completion rejected',
+      data: formatJob(updated),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function listPaymentRequests(req, res, next) {
+  try {
+    const jobs = await Job.find({ paymentStatus: 'verification_pending' })
+      .sort({ updatedAt: -1 })
+      .populate('assignedTechnician', 'name email status isOnline specialty')
+      .populate('assignedManager', 'name email role')
+      .lean();
+
+    return res.json({ success: true, data: jobs.map(formatJob) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updatePaymentRequest(req, res, next) {
+  try {
+    const { jobId } = req.params;
+    const { action } = req.body;
+
+    if (!['approve', 'reject'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'action must be approve or reject' });
+    }
+
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+
+    if (job.paymentStatus !== 'verification_pending') {
+      return res.status(400).json({ success: false, message: 'Payment is not awaiting admin confirmation' });
+    }
+
+    job.paymentStatus = action === 'approve' ? 'paid' : 'rejected';
+    await job.save();
+
+    const updated = await Job.findById(job._id)
+      .populate('assignedTechnician', 'name email status isOnline specialty')
+      .populate('assignedManager', 'name email role')
+      .lean();
+
+    return res.json({
+      success: true,
+      message: action === 'approve' ? 'Payment approved' : 'Payment rejected',
+      data: formatJob(updated),
+    });
   } catch (err) {
     next(err);
   }
@@ -269,6 +379,10 @@ module.exports = {
   listTechnicians,
   listJobs,
   createJob,
+  listCompletionRequests,
+  updateCompletionRequest,
+  listPaymentRequests,
+  updatePaymentRequest,
   createManager,
   createTechnician,
 };
@@ -283,6 +397,11 @@ function formatJob(job) {
     location: job.location,
     scheduledTime: job.scheduledTime,
     price: job.price,
+    amount: job.amount ?? job.price ?? 0,
+    paymentStatus: job.paymentStatus || 'pending',
+    orderId: job.orderId || '',
+    paymentId: job.paymentId || '',
+    paymentDescription: job.paymentDescription || '',
     status: formatStatus(job.status),
     rawStatus: job.status,
     technicianName: job.assignedTechnician?.name || '',

@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 import 'services/api_service.dart';
+import 'services/payment_firestore_service.dart';
 import 'models.dart';
 import 'widgets.dart';
 import 'features/job_description/widgets/job_description_section.dart';
 import 'features/reviews/screens/submit_review_screen.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
+import 'core/payments/razorpay_config.dart';
 
 class JobDetailScreen extends ConsumerStatefulWidget {
   final Job job;
@@ -19,14 +23,24 @@ class JobDetailScreen extends ConsumerStatefulWidget {
 
 class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   late JobStatus _currentStatus;
+  late PaymentStatus _currentPaymentStatus;
   Duration _elapsed = Duration.zero;
   Timer? _timer;
   bool _isRunning = false;
+  bool _isProcessingPayment = false;
+  late final Razorpay _razorpay;
+  late final PaymentFirestoreService _paymentFirestoreService;
 
   @override
   void initState() {
     super.initState();
     _currentStatus = widget.job.status;
+    _currentPaymentStatus = widget.job.paymentStatus;
+    _paymentFirestoreService = PaymentFirestoreService();
+    _razorpay = Razorpay()
+      ..on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess)
+      ..on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError)
+      ..on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     if (_currentStatus == JobStatus.inProgress) {
       _startTimer();
     }
@@ -34,6 +48,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
 
   @override
   void dispose() {
+    _razorpay.clear();
     _timer?.cancel();
     super.dispose();
   }
@@ -76,6 +91,8 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                           children: [
                             const SizedBox(height: 32),
                             _buildCustomerCard(),
+                            _buildSectionHeader('Payment Summary'),
+                            _buildPaymentCard(),
                             JobDescriptionSection(projectId: widget.job.id),
                             _buildSectionHeader('Project Site Location'),
                             _buildMapCard(),
@@ -281,6 +298,72 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
           color: Color(0xFF94A3B8),
           letterSpacing: 2,
         ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentCard() {
+    final amountText = widget.job.price.toStringAsFixed(2);
+    final isPaid = _currentPaymentStatus == PaymentStatus.paid;
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 15, offset: const Offset(0, 6))],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Amount to Collect',
+                style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF64748B)),
+              ),
+              Text(
+                'INR $amountText',
+                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22, color: Color(0xFF1E3A8A)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildPaymentInfoChip(
+                  isPaid ? 'PAID' : 'PENDING',
+                  isPaid ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  widget.job.orderId?.isNotEmpty == true ? 'Order: ${widget.job.orderId}' : 'Order not linked',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentInfoChip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: TextStyle(color: color, fontWeight: FontWeight.w900, letterSpacing: 1),
       ),
     );
   }
@@ -591,6 +674,103 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
     }
   }
 
+  Future<void> _startPaymentCollection() async {
+    final session = ref.read(authProvider);
+    final orderId = widget.job.orderId;
+
+    if (orderId == null || orderId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment order is missing. Ask the manager to recreate this payment link.')),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isProcessingPayment = true);
+
+    try {
+      _razorpay.open({
+        'key': RazorpayConfig.keyId,
+        'amount': (widget.job.price * 100).round(),
+        'name': RazorpayConfig.companyName,
+        'description': widget.job.description.isNotEmpty ? widget.job.description : widget.job.serviceName,
+        'order_id': orderId,
+        'prefill': {
+          'contact': widget.job.customerPhone,
+          'email': session?.email ?? '',
+        },
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isProcessingPayment = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Unable to open Razorpay checkout: $e')));
+      }
+    }
+  }
+
+  Future<void> _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    final api = ref.read(apiServiceProvider);
+
+    try {
+      await api.verifyPayment(
+        jobId: widget.job.id,
+        orderId: response.orderId ?? '',
+        paymentId: response.paymentId ?? '',
+        signature: response.signature ?? '',
+      );
+
+      await _paymentFirestoreService.markPaymentPaid(
+        jobId: widget.job.id,
+        orderId: response.orderId ?? '',
+        paymentId: response.paymentId ?? '',
+        amount: widget.job.price,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _isProcessingPayment = false;
+        _currentPaymentStatus = PaymentStatus.paid;
+      });
+
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Payment Successful'),
+          content: Text('Payment ${response.paymentId ?? ''} was verified and the job was marked as paid.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessingPayment = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Payment was captured but verification failed: $e')),
+      );
+    }
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    if (!mounted) return;
+    setState(() => _isProcessingPayment = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(response.message ?? 'Payment failed. Please try again.')),
+    );
+  }
+
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    if (!mounted) return;
+    setState(() => _isProcessingPayment = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('External wallet selected: ${response.walletName ?? 'Unknown'}')),
+    );
+  }
+
   Widget _buildActionButtonForStatus() {
     switch (_currentStatus) {
       case JobStatus.pendingApproval:
@@ -601,6 +781,14 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
           icon: Icons.hourglass_bottom_rounded,
         );
       case JobStatus.completed:
+        if (_currentPaymentStatus == PaymentStatus.pending) {
+          return CustomButton(
+            label: _isProcessingPayment ? "PROCESSING PAYMENT" : "COLLECT PAYMENT",
+            onPressed: _isProcessingPayment ? () {} : _startPaymentCollection,
+            color: const Color(0xFF10B981),
+            icon: Icons.currency_rupee_rounded,
+          );
+        }
         return CustomButton(
           label: "COLLECT CLIENT REVIEW",
           onPressed: () {

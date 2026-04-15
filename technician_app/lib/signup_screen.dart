@@ -16,8 +16,7 @@ class SignupScreen extends ConsumerStatefulWidget {
 
 class _SignupScreenState extends ConsumerState<SignupScreen> {
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _mobileController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
 
@@ -27,8 +26,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
+    _mobileController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -83,17 +81,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               ),
               const SizedBox(height: 20),
               _buildTextField(
-                controller: _emailController,
-                label: "Email Address",
-                icon: Icons.email_outlined,
-                hint: "Enter your email",
-              ),
-              const SizedBox(height: 20),
-              _buildTextField(
-                controller: _phoneController,
-                label: "Phone Number",
-                icon: Icons.phone_outlined,
-                hint: "Enter your phone number",
+                controller: _mobileController,
+                label: "Mobile Number",
+                icon: Icons.phone_android_rounded,
+                hint: "Enter your mobile number",
               ),
               const SizedBox(height: 20),
               _buildRoleDropdown(),
@@ -289,12 +280,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   Future<void> _handleSignup() async {
     final name = _nameController.text.trim();
-    final email = _emailController.text.trim();
+    final mobileNumber = _mobileController.text.trim();
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    if (name.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
-      _showMessage('Please complete all fields.');
+    if (mobileNumber.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+      _showMessage('Please enter mobile number and password.');
+      return;
+    }
+
+    if (password.length < 6) {
+      _showMessage('Password must be at least 6 characters.');
       return;
     }
 
@@ -308,7 +304,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     try {
       final session = await ref.read(authProvider.notifier).register(
             name: name,
-            email: email,
+            mobileNumber: mobileNumber,
             password: password,
             role: _selectedAppRole,
           );

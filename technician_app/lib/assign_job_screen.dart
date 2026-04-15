@@ -16,6 +16,9 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _customerNameController = TextEditingController();
+  final _customerPhoneController = TextEditingController();
+  final _amountController = TextEditingController();
   final _addressController = TextEditingController();
   final _locationLinkController = TextEditingController();
   List<PlatformFile> _selectedFiles = [];
@@ -85,29 +88,46 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
     final api = ref.read(apiServiceProvider);
 
     try {
-        final locationInput = _locationLinkController.text.trim();
-        String finalLocation = locationInput;
-        // If user enters "lat,lng" instead of a link:
-        if (RegExp(r'^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$').hasMatch(locationInput)) {
-          finalLocation = "https://www.google.com/maps?q=$locationInput";
-        }
-        
-        // Use api.assignJob or appropriate method
-        // Since the backend 'admin/dashboard' has recentJobs, there must be a way to create them.
-        // I'll use a generic createJob call if I added it, or I'll just keep the structure for now.
-        // Actually I'll use the Backend's existing createJob logic if available.
-        // I'll assume createJob endpoint is /jobs (POST)
-        
-        await api.assignJob(
-          'PENDING_ID', // Usually backend creates ID
-          _selectedTechId ?? '',
-        );
-        
-        debugPrint("Assigned to: $_selectedTechName at $finalLocation");
+      final locationInput = _locationLinkController.text.trim();
+      String finalLocation = locationInput;
+      if (RegExp(r'^-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?$').hasMatch(locationInput)) {
+        finalLocation = "https://www.google.com/maps?q=$locationInput";
+      }
+
+      final amount = double.parse(_amountController.text.trim());
+      final description = _descriptionController.text.trim().isEmpty
+          ? _titleController.text.trim()
+          : _descriptionController.text.trim();
+
+      final order = await api.createOrder(
+        amountInPaise: (amount * 100).round(),
+        description: description,
+        receipt: 'job_${DateTime.now().millisecondsSinceEpoch}',
+      );
+
+      await api.createJob({
+        'title': _titleController.text.trim(),
+        'description': description,
+        'location': _addressController.text.trim(),
+        'googleMapsLink': finalLocation,
+        'attachments': _selectedFiles.map((file) => file.name).toList(),
+        'customerName': _customerNameController.text.trim(),
+        'customerPhone': _customerPhoneController.text.trim(),
+        'scheduledTime': 'ASAP',
+        'assignedTechnician': _selectedTechId,
+        'amount': amount,
+        'price': amount,
+        'paymentStatus': 'pending',
+        'paymentDescription': description,
+        'orderId': order['orderId'],
+      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Task successfully assigned!"), backgroundColor: Color(0xFF10B981)),
+          SnackBar(
+            content: Text("Job created with payment order ${order['orderId']}"),
+            backgroundColor: const Color(0xFF10B981),
+          ),
         );
         Navigator.pop(context);
       }
@@ -125,6 +145,9 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
+    _customerNameController.dispose();
+    _customerPhoneController.dispose();
+    _amountController.dispose();
     _addressController.dispose();
     _locationLinkController.dispose();
     super.dispose();
@@ -148,9 +171,17 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
                     const SizedBox(height: 16),
                     _buildTextField("Task Title", Icons.settings_suggest_rounded, "e.g., CCTV Installation", _titleController, required: true),
                     const SizedBox(height: 16),
+                    _buildTextField("Customer Name", Icons.person_rounded, "Client / company contact", _customerNameController, required: true),
+                    const SizedBox(height: 16),
+                    _buildTextField("Customer Phone", Icons.phone_rounded, "10-digit contact number", _customerPhoneController, required: true, keyboardType: TextInputType.phone),
+                    const SizedBox(height: 16),
                     _buildTextField("Site Address", Icons.location_on_outlined, "Full location details", _addressController, required: true),
                     const SizedBox(height: 16),
                     _buildTextField("Description", Icons.description_outlined, "Describe the task...", _descriptionController, maxLines: 3),
+                    const SizedBox(height: 24),
+                    _buildSectionHeader("PAYMENT DETAILS"),
+                    const SizedBox(height: 16),
+                    _buildTextField("Amount (INR)", Icons.currency_rupee_rounded, "Enter amount to collect", _amountController, required: true, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
                     const SizedBox(height: 24),
                     const SizedBox(height: 24),
                     _buildSectionHeader("GOOGLE MAPS LOCATION"),

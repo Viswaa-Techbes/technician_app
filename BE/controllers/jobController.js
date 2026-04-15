@@ -66,6 +66,9 @@ async function createJob(req, res, next) {
   try {
     const jobData = { ...req.body, assignedManager: req.user.id };
     if (!jobData.title) return res.status(400).json({ success: false, message: 'Title is required' });
+    if (!Number.isFinite(Number(jobData.amount ?? jobData.price ?? 0)) || Number(jobData.amount ?? jobData.price ?? 0) <= 0) {
+      return res.status(400).json({ success: false, message: 'A valid amount is required' });
+    }
 
     const job = await jobService.createJob(jobData);
     return res.status(201).json({ success: true, data: job });

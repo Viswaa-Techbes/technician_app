@@ -5,6 +5,7 @@ enum PaymentStatus { pending, paid }
 class Job {
   final String id;
   final String serviceName;
+  final String description;
   final String customerName;
   final String customerPhone;
   final String address;
@@ -15,6 +16,8 @@ class Job {
   final String? assignedBy;
   final double price;
   final PaymentStatus paymentStatus;
+  final String? orderId;
+  final String? paymentId;
   final int? rating;
   final String? reviewComment;
   final Duration timerDuration;
@@ -30,6 +33,7 @@ class Job {
   const Job({
     required this.id,
     required this.serviceName,
+    this.description = '',
     required this.customerName,
     required this.customerPhone,
     required this.address,
@@ -40,6 +44,8 @@ class Job {
     this.assignedBy,
     this.price = 0.0,
     this.paymentStatus = PaymentStatus.pending,
+    this.orderId,
+    this.paymentId,
     this.rating,
     this.reviewComment,
     this.timerDuration = Duration.zero,
@@ -56,6 +62,7 @@ class Job {
   Job copyWith({
     String? id,
     String? serviceName,
+    String? description,
     String? customerName,
     String? customerPhone,
     String? address,
@@ -66,6 +73,8 @@ class Job {
     String? assignedBy,
     double? price,
     PaymentStatus? paymentStatus,
+    String? orderId,
+    String? paymentId,
     int? rating,
     String? reviewComment,
     Duration? timerDuration,
@@ -81,6 +90,7 @@ class Job {
     return Job(
       id: id ?? this.id,
       serviceName: serviceName ?? this.serviceName,
+      description: description ?? this.description,
       customerName: customerName ?? this.customerName,
       customerPhone: customerPhone ?? this.customerPhone,
       address: address ?? this.address,
@@ -91,6 +101,8 @@ class Job {
       assignedBy: assignedBy ?? this.assignedBy,
       price: price ?? this.price,
       paymentStatus: paymentStatus ?? this.paymentStatus,
+      orderId: orderId ?? this.orderId,
+      paymentId: paymentId ?? this.paymentId,
       rating: rating ?? this.rating,
       reviewComment: reviewComment ?? this.reviewComment,
       timerDuration: timerDuration ?? this.timerDuration,
@@ -112,23 +124,34 @@ class Job {
     if (s == 'pendingApproval' || s == 'pending') status = JobStatus.pendingApproval;
     if (s == 'completed' || s == 'done') status = JobStatus.completed;
 
+    PaymentStatus paymentStatus = PaymentStatus.pending;
+    final payment = data['paymentStatus'] as String?;
+    if (payment == 'paid') paymentStatus = PaymentStatus.paid;
+
+    final technician = data['assignedTechnician'];
+    final manager = data['assignedManager'];
+
     return Job(
       id: id,
-      serviceName: data['serviceName'] ?? 'Field Service',
+      serviceName: data['serviceName'] ?? data['title'] ?? 'Field Service',
+      description: data['description'] ?? data['paymentDescription'] ?? '',
       customerName: data['customerName'] ?? 'Client',
       customerPhone: data['customerPhone'] ?? 'N/A',
-      address: data['address'] ?? 'No Address',
-      time: data['time'] ?? 'ASAP',
+      address: data['address'] ?? data['location'] ?? 'No Address',
+      time: data['time'] ?? data['scheduledTime'] ?? 'ASAP',
       status: status,
-      technicianName: data['technicianName'],
-      technicianId: data['technicianId'],
-      assignedBy: data['assignedBy'],
-      price: (data['price'] ?? 0.0).toDouble(),
+      technicianName: data['technicianName'] ?? (technician is Map<String, dynamic> ? technician['name'] : null),
+      technicianId: data['technicianId'] ?? (technician is Map<String, dynamic> ? technician['_id'] ?? technician['id'] : null),
+      assignedBy: data['assignedBy'] ?? (manager is Map<String, dynamic> ? manager['name'] : null),
+      price: ((data['amount'] ?? data['price']) ?? 0.0).toDouble(),
+      paymentStatus: paymentStatus,
+      orderId: data['orderId'],
+      paymentId: data['paymentId'],
       notes: data['notes'] ?? '',
       latitude: (data['latitude'] ?? data['lat'] ?? 0.0).toDouble(),
       longitude: (data['longitude'] ?? data['lng'] ?? 0.0).toDouble(),
       googleMapsLink: data['googleMapsLink'],
-      fileAttachments: List<String>.from(data['fileAttachments'] ?? []),
+      fileAttachments: List<String>.from(data['fileAttachments'] ?? data['attachments'] ?? []),
     );
   }
 }
