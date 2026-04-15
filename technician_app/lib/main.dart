@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'login_screen.dart';
+import 'main_screen.dart';
+import 'manager_main_screen.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
+import 'core/security/rbac_constants.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,7 +54,26 @@ class TechbesApp extends StatelessWidget {
           titleTextStyle: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF0F172A), letterSpacing: 1),
         ),
       ),
-      home: const LoginScreen(),
+      home: const RootGate(),
     );
+  }
+}
+
+class RootGate extends ConsumerWidget {
+  const RootGate({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(authProvider);
+
+    if (session == null) {
+      return const LoginScreen();
+    }
+
+    if (session.role == Role.manager) {
+      return const ManagerMainScreen();
+    } else {
+      return const MainScreen();
+    }
   }
 }

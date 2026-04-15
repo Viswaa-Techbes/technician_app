@@ -5,7 +5,6 @@ import 'dart:async';
 import 'services/api_service.dart';
 import 'models.dart';
 import 'widgets.dart';
-import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/job_description/widgets/job_description_section.dart';
 import 'features/reviews/screens/submit_review_screen.dart';
 

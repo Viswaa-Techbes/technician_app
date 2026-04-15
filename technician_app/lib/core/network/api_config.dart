@@ -15,12 +15,8 @@ class ApiConfig {
       return 'http://localhost:5000';
     }
 
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.android:
-        return 'http://10.0.2.2:5000';
-      default:
-        return 'http://localhost:5000';
-    }
+    // New base URL provided by user
+    return 'http://10.246.194.196:5000';
   }
 }
 

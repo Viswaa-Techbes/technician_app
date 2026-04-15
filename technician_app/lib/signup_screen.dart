@@ -19,6 +19,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
 
   String selectedRole = 'Technician';
   bool _isSubmitting = false;
@@ -29,6 +30,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -101,6 +103,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 label: "Password",
                 icon: Icons.lock_outline_rounded,
                 hint: "Create a password",
+                isPassword: true,
+              ),
+              const SizedBox(height: 20),
+              _buildTextField(
+                controller: _confirmPasswordController,
+                label: "Confirm Password",
+                icon: Icons.lock_clock_outlined,
+                hint: "Repeat your password",
                 isPassword: true,
               ),
               const SizedBox(height: 40),
@@ -250,8 +260,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   }
 
   Widget _buildLoginLink() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
           "Already have an account? ",
@@ -280,9 +291,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     final name = _nameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
 
-    if (name.isEmpty || email.isEmpty || password.isEmpty) {
-      _showMessage('Please complete name, email, and password.');
+    if (name.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+      _showMessage('Please complete all fields.');
+      return;
+    }
+
+    if (password != confirmPassword) {
+      _showMessage('Passwords do not match.');
       return;
     }
 

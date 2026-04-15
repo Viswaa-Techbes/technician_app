@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models.dart';
 import '../features/auth/presentation/providers/auth_provider.dart';
 
+import '../core/network/api_config.dart';
+
 class ApiService {
-  final String baseUrl = "http://localhost:5000"; // Use 10.0.2.2 for Android Emulator
+  final String baseUrl = ApiConfig.baseUrl; 
   final String? _token;
 
   ApiService(this._token);
@@ -21,6 +23,15 @@ class ApiService {
       Uri.parse("$baseUrl/auth/login"),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({"email": email, "password": password}),
+    );
+    return jsonDecode(res.body);
+  }
+
+  Future<Map<String, dynamic>> register(Map<String, dynamic> data) async {
+    final res = await http.post(
+      Uri.parse("$baseUrl/auth/register"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode(data),
     );
     return jsonDecode(res.body);
   }
@@ -136,6 +147,16 @@ class ApiService {
         if (jobId != null) "jobId": jobId,
       }),
     );
+  }
+
+  // --- Notification Endpoints ---
+  Future<List<Map<String, dynamic>>> getNotifications() async {
+    final res = await http.get(Uri.parse("$baseUrl/notifications"), headers: _headers);
+    if (res.statusCode == 200) {
+      final json = jsonDecode(res.body);
+      return List<Map<String, dynamic>>.from(json['data'] ?? []);
+    }
+    return [];
   }
 }
 

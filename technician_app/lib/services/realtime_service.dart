@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../features/auth/presentation/providers/auth_provider.dart';
 
+import '../core/network/api_config.dart';
+
 class RealtimeService {
-  final String baseUrl = "http://localhost:5000"; 
-  IO.Socket? _socket;
+  final String baseUrl = ApiConfig.baseUrl; 
+  io.Socket? _socket;
   final Ref _ref;
 
   RealtimeService(this._ref);
@@ -14,7 +16,7 @@ class RealtimeService {
     final session = _ref.read(authProvider);
     if (session == null) return;
 
-    _socket = IO.io(baseUrl, IO.OptionBuilder()
+    _socket = io.io(baseUrl, io.OptionBuilder()
       .setTransports(['websocket'])
       .setExtraHeaders({'Authorization': 'Bearer ${session.token}'})
       .build());

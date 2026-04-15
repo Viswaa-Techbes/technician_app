@@ -12,7 +12,6 @@ class FieldMapScreen extends ConsumerStatefulWidget {
 }
 
 class _FieldMapScreenState extends ConsumerState<FieldMapScreen> {
-  GoogleMapController? _mapController;
   final Set<Marker> _markers = {};
 
   @override
@@ -61,7 +60,7 @@ class _FieldMapScreenState extends ConsumerState<FieldMapScreen> {
           zoom: 12,
         ),
         markers: _markers,
-        onMapCreated: (c) => _mapController = c,
+        onMapCreated: (c) {},
         myLocationButtonEnabled: true,
         zoomControlsEnabled: false,
       ),

@@ -5,7 +5,7 @@ import 'main_screen.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'manager_main_screen.dart';
 import 'widgets.dart';
-import 'core/security/rbac_constants.dart' as RoleEnum;
+import 'core/security/rbac_constants.dart' as role_enum;
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -91,8 +91,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   const SizedBox(height: 16),
                   _buildLoginButton(),
                   const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
                         "Don't have an account? ",
@@ -309,7 +310,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (!mounted) return;
 
-      final Widget nextScreen = session.role == RoleEnum.Role.manager
+      final Widget nextScreen = session.role == role_enum.Role.manager
               ? const ManagerMainScreen()
               : const MainScreen();
 
@@ -327,13 +328,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  RoleEnum.Role get _selectedAppRole {
+  role_enum.Role get _selectedAppRole {
     switch (selectedRole) {
       case 'Manager':
-        return RoleEnum.Role.manager;
+        return role_enum.Role.manager;
       case 'Technician':
       default:
-        return RoleEnum.Role.technician;
+        return role_enum.Role.technician;
     }
   }
 

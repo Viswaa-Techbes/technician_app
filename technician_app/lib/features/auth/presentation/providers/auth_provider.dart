@@ -1,58 +1,65 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
 import '../../../../core/security/rbac_constants.dart';
+import '../../../../core/network/api_config.dart';
 import '../../domain/entities/user_session.dart';
 
 class AuthNotifier extends StateNotifier<UserSession?> {
-  AuthNotifier() : super(null);
+  final _storage = const FlutterSecureStorage();
+  static const String _sessionKey = 'user_session';
+  final String _baseUrl = ApiConfig.baseUrl;
 
-  final _auth = FirebaseAuth.instance;
-  final _db = FirebaseFirestore.instance;
+  AuthNotifier() : super(null) {
+    _tryAutoLogin();
+  }
 
-  // Set this to true to reconnect to real Firebase later
-  static const bool _bypassAuth = true;
+  Future<void> _tryAutoLogin() async {
+    try {
+      final saved = await _storage.read(key: _sessionKey);
+      if (saved != null) {
+        final Map<String, dynamic> map = jsonDecode(saved);
+        state = UserSession.fromMap(map);
+      }
+    } catch (e) {
+      debugPrint("Auto-login error: $e");
+    }
+  }
 
   Future<UserSession> login({
     required String email,
     required String password,
   }) async {
-    if (_bypassAuth) {
-      final role = email.contains('admin') || email.contains('manager') 
-          ? Role.manager 
-          : Role.technician;
-      
-      final session = UserSession(
-        id: 'mock_user_id',
-        name: 'Guest User',
-        email: email,
-        role: role,
-        token: 'mock_token',
-      );
-      state = session;
-      return session;
-    }
-
-    final cred = await _auth.signInWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
+    final res = await http.post(
+      Uri.parse("$_baseUrl/auth/login"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"email": email, "password": password}),
     );
     
-    final doc = await _db.collection('users').doc(cred.user!.uid).get();
-    if (!doc.exists) {
-      throw Exception('User data not found in registration records.');
+    final apiResponse = jsonDecode(res.body);
+    
+    if (apiResponse['success'] != true) {
+      throw Exception(apiResponse['message'] ?? 'Login failed');
     }
     
+    final backendData = apiResponse['data'] ?? {};
+    final backendUser = backendData['user'] ?? {};
+    final token = backendData['token'] ?? '';
+
     final session = UserSession(
-      id: cred.user!.uid,
-      name: doc.data()?['name'] ?? 'Unknown',
-      email: cred.user!.email ?? '',
+      id: backendUser['id'] ?? backendUser['_id'] ?? '',
+      name: backendUser['name'] ?? 'User',
+      email: backendUser['email'] ?? email,
       role: Role.values.firstWhere(
-        (e) => e.name == (doc.data()?['role'] ?? 'technician'),
+        (e) => e.name == (backendUser['role'] ?? 'technician'),
         orElse: () => Role.technician,
       ),
-      token: '',
+      token: token,
     );
+
+    await _persistSession(session);
     state = session;
     return session;
   }
@@ -63,51 +70,46 @@ class AuthNotifier extends StateNotifier<UserSession?> {
     required String password,
     required Role role,
   }) async {
-    if (_bypassAuth) {
-      final session = UserSession(
-        id: 'mock_user_${DateTime.now().millisecondsSinceEpoch}',
-        name: name,
-        email: email,
-        role: role,
-        token: 'mock_token',
-      );
-      state = session;
-      return session;
-    }
-
-    final cred = await _auth.createUserWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
+    final res = await http.post(
+      Uri.parse("$_baseUrl/auth/register"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        'name': name.trim(),
+        'email': email.trim(),
+        'password': password,
+        'role': role.name,
+      }),
     );
 
-    await _db.collection('users').doc(cred.user!.uid).set({
-      'name': name.trim(),
-      'email': email.trim(),
-      'role': role.name,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    final apiResponse = jsonDecode(res.body);
+
+    if (apiResponse['success'] != true) {
+      throw Exception(apiResponse['message'] ?? 'Registration failed');
+    }
+
+    final backendData = apiResponse['data'] ?? {};
+    final backendUser = backendData['user'] ?? {};
+    final token = backendData['token'] ?? '';
 
     final session = UserSession(
-      id: cred.user!.uid,
+      id: backendUser['id'] ?? backendUser['_id'] ?? '',
       name: name.trim(),
       email: email.trim(),
       role: role,
-      token: '',
+      token: token,
     );
+
+    await _persistSession(session);
     state = session;
     return session;
   }
 
+  Future<void> _persistSession(UserSession session) async {
+    await _storage.write(key: _sessionKey, value: jsonEncode(session.toMap()));
+  }
+
   Future<void> logout() async {
-    if (!_bypassAuth) {
-      if (state?.role == Role.technician) {
-        await _db.collection('technicians').doc(_auth.currentUser?.uid).update({
-          'isOnline': false,
-          'lastActiveAt': FieldValue.serverTimestamp(),
-        });
-      }
-      await _auth.signOut();
-    }
+    await _storage.delete(key: _sessionKey);
     state = null;
   }
 }

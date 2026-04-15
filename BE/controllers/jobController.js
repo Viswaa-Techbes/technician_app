@@ -1,5 +1,6 @@
 const jobService = require('../services/jobService');
 const Job = require('../models/Job');
+const notificationService = require('../services/notificationService');
 
 async function listJobs(req, res, next) {
   try {
@@ -80,15 +81,14 @@ async function assignJob(req, res, next) {
 
     const job = await jobService.assignTechnician(jobId, technicianId, req.user.id);
     
-    // Real-time Notification
     const io = req.app.get('io');
-    if (io) {
-      io.to(technicianId).emit('notification', {
-        title: 'New Job Assigned',
-        message: `You have been assigned a new project: ${job.title}`,
-        jobId: job._id
-      });
-    }
+    await notificationService.createNotification(
+      technicianId,
+      'New Job Assigned',
+      `You have been assigned a new project: ${job.title}`,
+      'job_assigned',
+      io
+    );
 
     return res.json({ success: true, message: 'Technician assigned successfully', data: job });
   } catch (err) {
@@ -99,11 +99,18 @@ async function assignJob(req, res, next) {
 async function updateJobStatus(req, res, next) {
   try {
     const { id: jobId } = req.params;
-    const { status } = req.body;
+    let { status } = req.body;
     
+    // Map camelCase to snake_case for consistency
+    const statusMap = {
+      'inProgress': 'in_progress',
+      'pendingApproval': 'pending_approval',
+    };
+    if (statusMap[status]) status = statusMap[status];
+
     const allowedStatuses = ['pending', 'assigned', 'in_progress', 'pending_approval', 'completed'];
     if (!status || !allowedStatuses.includes(status)) {
-        return res.status(400).json({ success: false, message: 'Invalid status' });
+        return res.status(400).json({ success: false, message: `Invalid status: ${status}` });
     }
 
     const job = await Job.findById(jobId);
@@ -127,26 +134,25 @@ async function updateJobStatus(req, res, next) {
     job.status = status;
     await job.save();
 
-    // Real-time Notification
     const io = req.app.get('io');
-    if (io) {
-      if (req.user.role === 'technician') {
-        // Notify manager
-        io.to(job.assignedManager.toString()).emit('notification', {
-          title: 'Job Update',
-          message: `Technician updated job status to ${status}`,
-          jobId: job._id
-        });
-      } else {
-        // Notify technician
+    if (req.user.role === 'technician') {
+        await notificationService.createNotification(
+            job.assignedManager.toString(),
+            'Job Update',
+            `Technician updated job status to ${status}`,
+            'status_update',
+            io
+        );
+    } else {
         if (job.assignedTechnician) {
-          io.to(job.assignedTechnician.toString()).emit('notification', {
-            title: 'Job Update',
-            message: `Manager updated job status to ${status}`,
-            jobId: job._id
-          });
+            await notificationService.createNotification(
+                job.assignedTechnician.toString(),
+                'Job Update',
+                `Manager updated job status to ${status}`,
+                'status_update',
+                io
+            );
         }
-      }
     }
 
     return res.json({ success: true, message: `Job status updated to ${status}`, data: job });

@@ -15,25 +15,26 @@ class UserSession {
     required this.token,
   });
 
-  factory UserSession.fromApi(Map<String, dynamic> json) {
-    final user = json['user'] as Map<String, dynamic>? ?? <String, dynamic>{};
-
+  factory UserSession.fromMap(Map<String, dynamic> map) {
     return UserSession(
-      id: user['id']?.toString() ?? '',
-      name: user['name']?.toString() ?? 'User',
-      email: user['email']?.toString() ?? '',
-      role: _parseRole(user['role']?.toString()),
-      token: json['token']?.toString() ?? '',
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? 'User',
+      email: map['email']?.toString() ?? '',
+      role: Role.values.firstWhere(
+        (e) => e.name == map['role'],
+        orElse: () => Role.technician,
+      ),
+      token: map['token']?.toString() ?? '',
     );
   }
 
-  static Role _parseRole(String? value) {
-    switch (value?.toLowerCase()) {
-      case 'manager':
-        return Role.manager;
-      case 'technician':
-      default:
-        return Role.technician;
-    }
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'role': role.name,
+      'token': token,
+    };
   }
 }
