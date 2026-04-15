@@ -293,18 +293,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildProductionSummary() {
+  Widget _buildProductionSummary(int completed, int assigned, int pending) {
     return Column(
       children: [
         Row(
           children: [
-            Expanded(child: _buildProductionStatCard("COMPLETED", _completedCount.toString(), Icons.verified_user_rounded, const Color(0xFF10B981))),
+            Expanded(child: _buildProductionStatCard("COMPLETED", completed.toString(), Icons.verified_user_rounded, const Color(0xFF10B981))),
             const SizedBox(width: 16),
-            Expanded(child: _buildProductionStatCard("ASSIGNED", _assignedCount.toString(), Icons.assignment_rounded, const Color(0xFF2563EB))),
+            Expanded(child: _buildProductionStatCard("ASSIGNED", assigned.toString(), Icons.assignment_rounded, const Color(0xFF2563EB))),
           ],
         ),
         const SizedBox(height: 16),
-        _buildProductionStatCard("PENDING APPROVAL", _pendingCount.toString(), Icons.hourglass_empty_rounded, const Color(0xFFF59E0B), isFullWidth: true),
+        _buildProductionStatCard("PENDING APPROVAL", pending.toString(), Icons.hourglass_empty_rounded, const Color(0xFFF59E0B), isFullWidth: true),
       ],
     );
   }

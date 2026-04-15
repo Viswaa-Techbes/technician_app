@@ -25,7 +25,6 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
   
   List<Map<String, dynamic>> _technicians = [];
   String? _selectedTechId;
-  String? _selectedTechName;
   final _techNameController = TextEditingController();
   bool _isLoading = true;
   bool _isSubmitting = false;

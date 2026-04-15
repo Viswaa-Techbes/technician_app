@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'widgets.dart';
 import 'models.dart';
-import 'services/api_service.dart';
 import 'completion_requests_screen.dart';
 import 'assign_job_screen.dart';
 import 'project_detail_screen.dart';
@@ -10,6 +9,7 @@ import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/reviews/screens/manager_reviews_screen.dart';
 import 'field_map_screen.dart';
 import 'providers/live_technicians_provider.dart';
+import 'providers/job_providers.dart';
 
 class ManagerDashboardScreen extends ConsumerWidget {
   const ManagerDashboardScreen({super.key});
@@ -31,11 +31,13 @@ class ManagerDashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildContent(BuildContext context, String userName, List<Job> jobs, WidgetRef ref) {
-    final total = jobs.length;
-    final active = jobs.where((j) => j.status == JobStatus.inProgress).length;
-    final completed = jobs.where((j) => j.status == JobStatus.completed).length;
-    final pendingApproval = jobs.where((j) => j.status == JobStatus.pendingApproval).length;
-    final revenue = jobs.where((j) => j.status == JobStatus.completed).fold(0.0, (acc, j) => acc + (j.price ?? 0.0)).toStringAsFixed(0);
+    final summary = {
+      'total': jobs.length,
+      'active': jobs.where((j) => j.status == JobStatus.inProgress).length,
+      'completed': jobs.where((j) => j.status == JobStatus.completed).length,
+      'pendingApproval': jobs.where((j) => j.status == JobStatus.pendingApproval).length,
+      'revenue': jobs.where((j) => j.status == JobStatus.completed).fold(0.0, (acc, j) => acc + j.price).toStringAsFixed(0),
+    };
 
     return CustomScrollView(
       slivers: [
@@ -48,7 +50,12 @@ class ManagerDashboardScreen extends ConsumerWidget {
               children: [
                 _buildSectionHeader("OPERATIONAL OVERVIEW"),
                 const SizedBox(height: 16),
-                _buildOverviewGrid(total, active, completed, revenue),
+                _buildOverviewGrid(
+                  summary['total'] as int,
+                  summary['active'] as int,
+                  summary['completed'] as int,
+                  summary['revenue'] as String,
+                ),
                 const SizedBox(height: 32),
                 _buildSectionHeader("LIVE TRACKING"),
                 const SizedBox(height: 16),
@@ -61,7 +68,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
                     _buildActionCard(
                       context,
                       "Completion Requests",
-                      "$pendingApproval technicians waiting for approval",
+                      "${summary['pendingApproval']} technicians waiting for approval",
                       Icons.pending_actions_rounded,
                       const Color(0xFF8B5CF6),
                       () => Navigator.push(

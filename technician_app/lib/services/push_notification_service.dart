@@ -67,7 +67,6 @@ class PushNotificationService {
 
   void _showLocalNotification(RemoteMessage message) {
     RemoteNotification? notification = message.notification;
-    AndroidNotification? android = message.notification?.android;
 
     if (notification != null && !kIsWeb) {
       _localNotifications.show(
