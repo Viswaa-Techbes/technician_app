@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models.dart';
@@ -37,6 +38,17 @@ class ApiService {
   }
 
   // --- Dashboard Endpoints ---
+  Future<Map<String, dynamic>> getCurrentUserProfile() async {
+    debugPrint('[ApiService] GET $baseUrl/auth/me');
+    final res = await http.get(Uri.parse("$baseUrl/auth/me"), headers: _headers);
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    debugPrint('[ApiService] auth/me response (${res.statusCode}): $json');
+    if (res.statusCode < 200 || res.statusCode >= 300 || json['success'] != true) {
+      throw Exception(json['message'] ?? 'Failed to fetch current user profile');
+    }
+    return Map<String, dynamic>.from(json['data'] ?? <String, dynamic>{});
+  }
+
   Future<Map<String, dynamic>> getDashboard() async {
     final res = await http.get(Uri.parse("$baseUrl/admin/dashboard"), headers: _headers);
     if (res.statusCode == 200) return jsonDecode(res.body)['data'] ?? {};
@@ -139,7 +151,9 @@ class ApiService {
 
   // --- Technician Endpoints ---
   Future<List<Technician>> getTechnicians() async {
+    debugPrint('[ApiService] GET $baseUrl/technicians');
     final res = await http.get(Uri.parse("$baseUrl/technicians"), headers: _headers);
+    debugPrint('[ApiService] getTechnicians response (${res.statusCode}): ${res.body}');
     if (res.statusCode == 200) {
       final json = jsonDecode(res.body);
       final List data = json['data'] ?? [];
@@ -148,16 +162,54 @@ class ApiService {
     return [];
   }
 
+  Future<Map<String, dynamic>> updateTechnicianStatus({
+    required String userId,
+    required bool isOnline,
+    double? lat,
+    double? lng,
+  }) async {
+    final payload = <String, dynamic>{
+      'userId': userId,
+      'isOnline': isOnline,
+      if (lat != null) 'lat': lat,
+      if (lng != null) 'lng': lng,
+    };
+
+    debugPrint('[ApiService] POST $baseUrl/technician/update-status payload=$payload');
+    final res = await http.post(
+      Uri.parse("$baseUrl/technician/update-status"),
+      headers: _headers,
+      body: jsonEncode(payload),
+    );
+
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    debugPrint('[ApiService] updateTechnicianStatus response (${res.statusCode}): $json');
+
+    if (res.statusCode < 200 || res.statusCode >= 300 || json['success'] != true) {
+      throw Exception(json['message'] ?? 'Failed to update technician status');
+    }
+
+    return Map<String, dynamic>.from(json['data'] ?? <String, dynamic>{});
+  }
+
   Future<void> updateLocation(double lat, double lng, {bool? isOnline}) async {
-    await http.patch(
+    final payload = {
+      "lat": lat,
+      "lng": lng,
+      ...(isOnline != null ? {"isOnline": isOnline} : {}),
+    };
+    debugPrint('[ApiService] PATCH $baseUrl/technician/location payload=$payload');
+    final res = await http.patch(
       Uri.parse("$baseUrl/technician/location"),
       headers: _headers,
-      body: jsonEncode({
-        "lat": lat,
-        "lng": lng,
-        ... (isOnline != null ? {"isOnline": isOnline} : {}),
-      }),
+      body: jsonEncode(payload),
     );
+    debugPrint('[ApiService] updateLocation response (${res.statusCode}): ${res.body}');
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      final json = jsonDecode(res.body) as Map<String, dynamic>;
+      throw Exception(json['message'] ?? 'Failed to update location');
+    }
   }
 
   // --- Expense Endpoints ---

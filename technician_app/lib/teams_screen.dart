@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models.dart';
-import 'services/api_service.dart';
+import 'providers/live_technicians_provider.dart';
 import 'technician_detail_screen.dart';
 
 class TeamsScreen extends ConsumerWidget {
@@ -9,27 +9,31 @@ class TeamsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final api = ref.watch(apiServiceProvider);
+    final techniciansAsync = ref.watch(liveTechniciansProvider);
     
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(title: const Text("FIELD TEAMS")),
-      body: FutureBuilder<List<Technician>>(
-            future: api.getTechnicians(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-              final allTechs = snapshot.data ?? [];
-              if (allTechs.isEmpty) return const Center(child: Text("No technicians registered", style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.w700)));
-              return ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: allTechs.length,
-                itemBuilder: (context, index) {
-                  final tech = allTechs[index];
-                  return _buildTechnicianCard(context, tech);
-                },
-              );
-            },
-          ),
+      body: techniciansAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => Center(child: Text('Failed to load teams: $error')),
+        data: (allTechs) {
+          if (allTechs.isEmpty) {
+            return const Center(child: Text("No technicians registered", style: TextStyle(color: Color(0xFF94A3B8), fontWeight: FontWeight.w700)));
+          }
+          return RefreshIndicator(
+            onRefresh: () async => ref.invalidate(liveTechniciansProvider),
+            child: ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: allTechs.length,
+              itemBuilder: (context, index) {
+                final tech = allTechs[index];
+                return _buildTechnicianCard(context, tech);
+              },
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -49,7 +53,7 @@ class TeamsScreen extends ConsumerWidget {
         ),
         child: Row(
           children: [
-            _buildStatusAvatar(tech.status),
+            _buildStatusAvatar(tech),
             const SizedBox(width: 20),
             Expanded(
               child: Column(
@@ -75,10 +79,10 @@ class TeamsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatusAvatar(TechnicianStatus status) {
+  Widget _buildStatusAvatar(Technician tech) {
     Color color = Colors.grey;
-    if (status == TechnicianStatus.available) color = const Color(0xFF10B981);
-    if (status == TechnicianStatus.busy) color = const Color(0xFFEA580C);
+    if (tech.isOnline) color = const Color(0xFF10B981);
+    if (tech.status == TechnicianStatus.busy) color = const Color(0xFFEA580C);
 
     return Stack(
       children: [
@@ -108,12 +112,12 @@ class TeamsScreen extends ConsumerWidget {
     String text = "Offline";
     Color color = Colors.grey;
 
-    if (tech.status == TechnicianStatus.available) {
-      text = "Available for job";
-      color = const Color(0xFF10B981);
-    } else if (tech.status == TechnicianStatus.busy) {
+    if (tech.status == TechnicianStatus.busy) {
       text = "Working on #${tech.currentJobId}";
       color = const Color(0xFFEA580C);
+    } else if (tech.isOnline) {
+      text = "Available for job";
+      color = const Color(0xFF10B981);
     }
 
     return Text(

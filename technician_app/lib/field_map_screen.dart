@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'services/api_service.dart';
 import 'models.dart';
+import 'providers/live_technicians_provider.dart';
 
 class FieldMapScreen extends ConsumerStatefulWidget {
   const FieldMapScreen({super.key});
@@ -13,17 +13,29 @@ class FieldMapScreen extends ConsumerStatefulWidget {
 
 class _FieldMapScreenState extends ConsumerState<FieldMapScreen> {
   final Set<Marker> _markers = {};
+  ProviderSubscription<AsyncValue<List<Technician>>>? _techniciansSubscription;
 
   @override
   void initState() {
     super.initState();
-    _fetchAndMarkTechnicians();
+    _techniciansSubscription = ref.listenManual(liveTechniciansProvider, (previous, next) {
+      next.whenData(_applyTechnicians);
+    });
+    Future.microtask(() {
+      final technicians = ref.read(liveTechniciansProvider).valueOrNull;
+      if (technicians != null) {
+        _applyTechnicians(technicians);
+      }
+    });
   }
 
-  Future<void> _fetchAndMarkTechnicians() async {
-    final api = ref.read(apiServiceProvider);
-    final techs = await api.getTechnicians();
-    
+  @override
+  void dispose() {
+    _techniciansSubscription?.close();
+    super.dispose();
+  }
+
+  void _applyTechnicians(List<Technician> techs) {
     if (mounted) {
       setState(() {
         _markers.clear();
@@ -51,7 +63,10 @@ class _FieldMapScreenState extends ConsumerState<FieldMapScreen> {
       appBar: AppBar(
         title: const Text("FLEET TRACKER"),
         actions: [
-          IconButton(onPressed: _fetchAndMarkTechnicians, icon: const Icon(Icons.refresh_rounded)),
+          IconButton(
+            onPressed: () => ref.invalidate(liveTechniciansProvider),
+            icon: const Icon(Icons.refresh_rounded),
+          ),
         ],
       ),
       body: GoogleMap(

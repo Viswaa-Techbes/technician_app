@@ -21,6 +21,8 @@ async function listTechnicians(req, res, next) {
         phone: u.phone,
         status: u.status,
         isOnline: u.isOnline,
+        lat: u.lat,
+        lng: u.lng,
         specialty: u.specialty,
         assignedManager: u.assignedManager,
         createdAt: u.createdAt,
@@ -61,9 +63,19 @@ async function updateStatus(req, res, next) {
   try {
     const { id } = req.params;
     const { status, isOnline, lat, lng } = req.body;
+    console.log('[technician.updateStatus] request', {
+      actorId: req.user?.id,
+      actorRole: req.user?.role,
+      technicianId: id,
+      body: req.body,
+    });
     
     // Authorization: only the tech or admin/manager can update
     if (req.user.role === 'technician' && req.user.id !== id) {
+        console.warn('[technician.updateStatus] unauthorized update attempt', {
+          actorId: req.user.id,
+          technicianId: id,
+        });
         return res.status(403).json({ success: false, message: 'Not authorized to update other technicians status' });
     }
 
@@ -73,12 +85,27 @@ async function updateStatus(req, res, next) {
         if (!allowed.includes(status)) return res.status(400).json({ success: false, message: 'Invalid status' });
         update.status = status;
     }
-    if (isOnline !== undefined) update.isOnline = isOnline;
+    if (isOnline !== undefined) {
+      update.isOnline = isOnline;
+      if (isOnline === false) {
+        update.status = 'offline';
+      } else if (!status) {
+        update.status = 'available';
+      }
+    }
     if (lat !== undefined) update.lat = lat;
     if (lng !== undefined) update.lng = lng;
 
     const technician = await User.findByIdAndUpdate(id, update, { new: true });
     if (!technician) return res.status(404).json({ success: false, message: 'Technician not found' });
+
+    console.log('[technician.updateStatus] updated', {
+      technicianId: technician._id.toString(),
+      status: technician.status,
+      isOnline: technician.isOnline,
+      lat: technician.lat,
+      lng: technician.lng,
+    });
 
     return res.json({
       success: true,
@@ -87,9 +114,12 @@ async function updateStatus(req, res, next) {
         id: technician._id,
         status: technician.status,
         isOnline: technician.isOnline,
+        lat: technician.lat,
+        lng: technician.lng,
       },
     });
   } catch (err) {
+    console.error('[technician.updateStatus] failed', err);
     next(err);
   }
 }

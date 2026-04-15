@@ -9,6 +9,7 @@ import 'features/auth/presentation/providers/auth_provider.dart';
 import 'login_screen.dart';
 import 'dart:async';
 import 'package:geolocator/geolocator.dart';
+import 'providers/live_technicians_provider.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -51,16 +52,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final api = ref.read(apiServiceProvider);
     
     try {
+      final profile = await api.getCurrentUserProfile();
       final jobs = await api.getJobs();
       
       if (mounted) {
         setState(() {
+          _isOnDuty = profile['isOnline'] == true;
           _todaysJobs = jobs;
           _completedCount = jobs.where((j) => j.status == JobStatus.completed).length;
           _assignedCount = jobs.where((j) => j.status == JobStatus.assigned || j.status == JobStatus.inProgress).length;
           _pendingCount = jobs.where((j) => j.status == JobStatus.pendingApproval).length;
           _isLoading = false;
         });
+        if (_isOnDuty) {
+          _startTracking();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -75,8 +81,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (session == null) return;
 
     try {
-      await ref.read(apiServiceProvider).updateLocation(0, 0, isOnline: val);
+      debugPrint('[DashboardScreen] Toggle clicked userId=${session.id} isOnline=$val');
+      final response = await ref.read(apiServiceProvider).updateTechnicianStatus(
+            userId: session.id,
+            isOnline: val,
+          );
+      debugPrint('[DashboardScreen] Status update success: $response');
       setState(() => _isOnDuty = val);
+      ref.invalidate(liveTechniciansProvider);
       
       if (val) {
         _startTracking();
@@ -93,8 +105,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     _trackingTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
       try {
         final pos = await Geolocator.getCurrentPosition();
+        debugPrint('[DashboardScreen] Sending live location lat=${pos.latitude}, lng=${pos.longitude}');
         ref.read(realtimeServiceProvider).updateLocation(pos.latitude, pos.longitude);
         await ref.read(apiServiceProvider).updateLocation(pos.latitude, pos.longitude, isOnline: true);
+        ref.invalidate(liveTechniciansProvider);
       } catch (e) {
         debugPrint("Location update failed: $e");
       }
@@ -271,7 +285,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               Switch.adaptive(
                 value: _isOnDuty,
-                onChanged: (val) => setState(() => _isOnDuty = val),
+                onChanged: _toggleDuty,
                 activeTrackColor: const Color(0xFF10B981),
               ),
             ],

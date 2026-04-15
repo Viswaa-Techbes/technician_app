@@ -9,6 +9,7 @@ import 'project_detail_screen.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/reviews/screens/manager_reviews_screen.dart';
 import 'field_map_screen.dart';
+import 'providers/live_technicians_provider.dart';
 
 class ManagerDashboardScreen extends ConsumerWidget {
   const ManagerDashboardScreen({super.key});
@@ -233,11 +234,12 @@ class LiveLocationCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final api = ref.watch(apiServiceProvider);
-    return FutureBuilder<List<Technician>>(
-      future: api.getTechnicians(),
-      builder: (context, snapshot) {
-        final activeTechs = (snapshot.data ?? []).where((t) => t.isOnline).toList();
+    final techniciansAsync = ref.watch(liveTechniciansProvider);
+    return techniciansAsync.when(
+      loading: () => _buildContent(context, 0),
+      error: (_, __) => _buildContent(context, 0),
+      data: (technicians) {
+        final activeTechs = technicians.where((t) => t.isOnline).toList();
         return _buildContent(context, activeTechs.length);
       },
     );
@@ -284,4 +286,3 @@ class LiveLocationCard extends ConsumerWidget {
     );
   }
 }
-
