@@ -1,9 +1,3 @@
-rootProject.layout.buildDirectory.value(rootProject.layout.buildDirectory.dir("../../build").get())
-
-subprojects {
-    project.layout.buildDirectory.value(rootProject.layout.buildDirectory.dir(project.name).get())
-}
-
 subprojects {
     project.evaluationDependsOn(":app")
 }

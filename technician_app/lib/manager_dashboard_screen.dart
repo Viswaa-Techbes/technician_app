@@ -231,7 +231,7 @@ class LiveLocationCard extends ConsumerWidget {
     final techniciansAsync = ref.watch(liveTechniciansProvider);
     return techniciansAsync.when(
       loading: () => _buildContent(context, 0),
-      error: (_, __) => _buildContent(context, 0),
+      error: (e, st) => _buildContent(context, 0),
       data: (technicians) {
         final activeTechs = technicians.where((t) => t.isOnline).toList();
         return _buildContent(context, activeTechs.length);

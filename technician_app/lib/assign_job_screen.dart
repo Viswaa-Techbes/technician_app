@@ -70,7 +70,6 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
         
         if (_technicians.isNotEmpty) {
           _selectedTechId = _technicians.first['id'];
-          _selectedTechName = _technicians.first['name'];
         }
         _isLoading = false;
       });
@@ -233,7 +232,6 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
       onSelected: (Map<String, dynamic> selection) {
         setState(() {
           _selectedTechId = selection['id'];
-          _selectedTechName = selection['name'];
         });
       },
       fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
