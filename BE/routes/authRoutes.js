@@ -13,4 +13,7 @@ router.post('/register', authController.register);
 // GET /auth/me or /me
 router.get('/me', authenticate, authController.me);
 
+// POST /auth/fcm-token
+router.post('/fcm-token', authenticate, authController.updateFcmToken);
+
 module.exports = router;

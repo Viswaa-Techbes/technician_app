@@ -55,4 +55,23 @@ async function me(req, res) {
   });
 }
 
-module.exports = { login, register, me };
+async function updateFcmToken(req, res, next) {
+  try {
+    const { fcmToken } = req.body;
+    if (!fcmToken) {
+      return res.status(400).json({ success: false, message: 'fcmToken is required' });
+    }
+
+    req.authUser.fcmToken = fcmToken;
+    await req.authUser.save();
+
+    return res.json({
+      success: true,
+      message: 'FCM token updated successfully',
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { login, register, me, updateFcmToken };
