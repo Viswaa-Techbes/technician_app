@@ -274,6 +274,17 @@ class ApiService {
     }
     return [];
   }
+
+  Future<void> updateFcmToken(String fcmToken) async {
+    final res = await http.post(
+      Uri.parse("$baseUrl/auth/fcm-token"),
+      headers: _headers,
+      body: jsonEncode({"fcmToken": fcmToken}),
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw Exception('Failed to update FCM token');
+    }
+  }
 }
 
 final apiServiceProvider = Provider<ApiService>((ref) {

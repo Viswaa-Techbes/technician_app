@@ -7,15 +7,27 @@ import 'main_screen.dart';
 import 'manager_main_screen.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'core/security/rbac_constants.dart';
+import 'services/push_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  final container = ProviderContainer();
+  
+  // Initialize FCM if user is logged in
+  try {
+    await container.read(pushNotificationServiceProvider).initialize();
+  } catch (e) {
+    debugPrint('FCM init failed: $e');
+  }
+
   runApp(
-    const ProviderScope(
-      child: TechbesApp(),
+    UncontrolledProviderScope(
+      container: container,
+      child: const TechbesApp(),
     ),
   );
 }

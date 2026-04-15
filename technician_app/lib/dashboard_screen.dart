@@ -10,6 +10,7 @@ import 'login_screen.dart';
 import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 import 'providers/live_technicians_provider.dart';
+import 'providers/job_providers.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -20,59 +21,35 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _isOnDuty = false;
-  List<Job> _todaysJobs = [];
-  bool _isLoading = true;
   String _userName = "Technician";
-  int _completedCount = 0;
-  int _assignedCount = 0;
-  int _pendingCount = 0;
   Timer? _trackingTimer;
 
   @override
   void initState() {
     super.initState();
-    _fetchData();
+    _fetchProfile();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(realtimeServiceProvider).connect();
     });
   }
 
-  @override
-  void dispose() {
-    _trackingTimer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _fetchData() async {
+  Future<void> _fetchProfile() async {
     final session = ref.read(authProvider);
     if (session == null) return;
     
     _userName = session.name;
-
     final api = ref.read(apiServiceProvider);
     
     try {
       final profile = await api.getCurrentUserProfile();
-      final jobs = await api.getJobs();
-      
       if (mounted) {
         setState(() {
           _isOnDuty = profile['isOnline'] == true;
-          _todaysJobs = jobs;
-          _completedCount = jobs.where((j) => j.status == JobStatus.completed).length;
-          _assignedCount = jobs.where((j) => j.status == JobStatus.assigned || j.status == JobStatus.inProgress).length;
-          _pendingCount = jobs.where((j) => j.status == JobStatus.pendingApproval).length;
-          _isLoading = false;
         });
-        if (_isOnDuty) {
-          _startTracking();
-        }
+        if (_isOnDuty) _startTracking();
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoading = false);
-        _showMessage("Failed to load dashboard data: $e");
-      }
+      debugPrint('Error fetching profile: $e');
     }
   }
 
@@ -123,32 +100,46 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final jobsAsync = ref.watch(jobsProvider(null));
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          _buildProductionHeader(),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                   _buildAnimatedDutyToggle(),
-                  const SizedBox(height: 32),
-                  _buildProductionSummary(),
-                  const SizedBox(height: 48),
-                  _buildSectionHeader("ACTIVE PROJECTS"),
-                  const SizedBox(height: 16),
-                  _buildStaggeredHorizontalTasks(),
-                  const SizedBox(height: 40),
-                ],
-              ),
+      body: jobsAsync.when(
+        data: (jobs) => _buildContent(context, jobs),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, st) => Center(child: Text('Error: $e')),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, List<Job> jobs) {
+    final completedCount = jobs.where((j) => j.status == JobStatus.completed).length;
+    final assignedCount = jobs.where((j) => j.status == JobStatus.assigned || j.status == JobStatus.inProgress).length;
+    final pendingCount = jobs.where((j) => j.status == JobStatus.pendingApproval).length;
+
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        _buildProductionHeader(),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildAnimatedDutyToggle(),
+                const SizedBox(height: 32),
+                _buildProductionSummary(completedCount, assignedCount, pendingCount),
+                const SizedBox(height: 48),
+                _buildSectionHeader("ACTIVE PROJECTS"),
+                const SizedBox(height: 16),
+                _buildStaggeredHorizontalTasks(jobs),
+                const SizedBox(height: 40),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -361,11 +352,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildStaggeredHorizontalTasks() {
-    if (_isLoading) {
-      return const SizedBox(height: 280, child: Center(child: CircularProgressIndicator()));
-    }
-    if (_todaysJobs.isEmpty) {
+  Widget _buildStaggeredHorizontalTasks(List<Job> jobs) {
+    if (jobs.isEmpty) {
       return const SizedBox(
         height: 280, 
         child: Center(child: Text("No assigned projects for today.", style: TextStyle(color: Colors.grey, fontSize: 16))),
@@ -377,11 +365,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        itemCount: _todaysJobs.length,
+        itemCount: jobs.length,
         itemBuilder: (context, index) => JobCard(
           index: index,
           width: 330,
-          job: _todaysJobs[index],
+          job: jobs[index],
           onTap: () => Navigator.push(
             context,
             PageRouteBuilder(
@@ -389,12 +377,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               reverseTransitionDuration: const Duration(milliseconds: 500),
               pageBuilder: (context, animation, secondaryAnimation) => FadeTransition(
                 opacity: animation,
-                child: JobDetailScreen(job: _todaysJobs[index]),
+                child: JobDetailScreen(job: jobs[index]),
               ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _trackingTimer?.cancel();
+    super.dispose();
   }
 }

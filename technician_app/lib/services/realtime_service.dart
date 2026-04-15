@@ -4,6 +4,8 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../features/auth/presentation/providers/auth_provider.dart';
 
 import '../core/network/api_config.dart';
+import '../providers/job_providers.dart';
+import '../providers/live_technicians_provider.dart';
 
 class RealtimeService {
   final String baseUrl = ApiConfig.baseUrl; 
@@ -22,13 +24,23 @@ class RealtimeService {
       .build());
 
     _socket?.onConnect((_) {
-      debugPrint('Realtime Connected');
+      debugPrint('[RealtimeService] Connected');
       _socket?.emit('join', session.id);
     });
 
     _socket?.on('notification', (data) {
-      debugPrint('New Notification: $data');
-      // Potential to use a Notifier to update a list of notifications
+      debugPrint('[RealtimeService] New Notification: $data');
+    });
+
+    _socket?.on('refresh_data', (data) {
+      debugPrint('[RealtimeService] Refreshing data: $data');
+      final type = data['type'];
+      if (type == 'status_update' || type == 'job_assigned' || type == 'payment_completed') {
+        _ref.invalidate(jobsProvider);
+      }
+      if (type == 'location_update') {
+        _ref.invalidate(liveTechniciansProvider);
+      }
     });
 
     _socket?.connect();

@@ -2,6 +2,7 @@ const crypto = require('crypto');
 
 const Job = require('../models/Job');
 const { getRazorpayCredentials, getRazorpayInstance } = require('../config/razorpay');
+const notificationService = require('../services/notificationService');
 
 async function createOrder(req, res, next) {
   try {
@@ -81,6 +82,26 @@ async function verifyPayment(req, res, next) {
     job.paymentSignature = signature;
     job.paymentStatus = 'verification_pending';
     await job.save();
+
+    const io = req.app.get('io');
+    // Notify Manager
+    await notificationService.createNotification(
+      job.assignedManager.toString(),
+      'Payment Received',
+      `Payment received for job: ${job.title}. Pending verification.`,
+      'payment_completed',
+      io
+    );
+    // Notify Technician if assigned
+    if (job.assignedTechnician) {
+      await notificationService.createNotification(
+        job.assignedTechnician.toString(),
+        'Payment Updated',
+        `Payment was successful for job: ${job.title}`,
+        'payment_completed',
+        io
+      );
+    }
 
     return res.json({
       success: true,

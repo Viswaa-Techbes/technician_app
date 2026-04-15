@@ -18,97 +18,93 @@ class ManagerDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(authProvider);
     final userName = session?.name ?? "Manager";
-    final api = ref.watch(apiServiceProvider);
+    final jobsAsync = ref.watch(jobsProvider(null));
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: CustomScrollView(
-        slivers: [
-          _buildHeader(context, userName, ref),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSectionHeader("OPERATIONAL OVERVIEW"),
-                  const SizedBox(height: 16),
-                  FutureBuilder<Map<String, dynamic>>(
-                    future: api.getDashboard(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      final summary = snapshot.data?['summary'] ?? {};
-                      final total = summary['totalRequests'] ?? 0;
-                      final active = summary['inProgress'] ?? 0;
-                      final completed = summary['completedJobs'] ?? 0;
-                      final revenue = (summary['totalRevenue'] ?? 0).toString();
-                      return _buildOverviewGrid(total, active, completed, revenue);
-                    },
-                  ),
-                  const SizedBox(height: 32),
-                  _buildSectionHeader("LIVE TRACKING"),
-                  const SizedBox(height: 16),
-                  const LiveLocationCard(),
-                  const SizedBox(height: 32),
-                  _buildSectionHeader("CRITICAL ACTIONS"),
-                  FutureBuilder<Map<String, dynamic>>(
-                    future: api.getDashboard(),
-                    builder: (context, snapshot) {
-                      final pendingCount = snapshot.data?['summary']?['pendingRequests'] ?? 0;
-                      return Column(
-                        children: [
-                          _buildActionCard(
-                            context,
-                            "Completion Requests",
-                            "$pendingCount technicians waiting for approval",
-                            Icons.pending_actions_rounded,
-                            const Color(0xFF8B5CF6),
-                            () => Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const CompletionRequestsScreen()),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          _buildActionCard(
-                            context,
-                            "Assign New Project",
-                            "Create and dispatch a new project",
-                            Icons.add_task_rounded,
-                            const Color(0xFF1E3A8A),
-                            () => Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const AssignJobScreen()),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          _buildActionCard(
-                            context,
-                            "Technician Reviews",
-                            "Monitor performance and client feedback",
-                            Icons.star_rate_rounded,
-                            const Color(0xFFF59E0B),
-                            () => Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => const ManagerReviewsScreen()),
-                            ),
-                          ),
-                        ],
-                      );
-                    }
-                  ),
-                  const SizedBox(height: 32),
-                  _buildSectionHeader("RECENT ACTIVITY"),
-                  const SizedBox(height: 16),
-                  _buildRecentJobsList(context, api),
-                  const SizedBox(height: 100),
-                ],
-              ),
+      body: jobsAsync.when(
+        data: (jobs) => _buildContent(context, userName, jobs, ref),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, st) => Center(child: Text('Error: $e')),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, String userName, List<Job> jobs, WidgetRef ref) {
+    final total = jobs.length;
+    final active = jobs.where((j) => j.status == JobStatus.inProgress).length;
+    final completed = jobs.where((j) => j.status == JobStatus.completed).length;
+    final pendingApproval = jobs.where((j) => j.status == JobStatus.pendingApproval).length;
+    final revenue = jobs.where((j) => j.status == JobStatus.completed).fold(0.0, (acc, j) => acc + (j.price ?? 0.0)).toStringAsFixed(0);
+
+    return CustomScrollView(
+      slivers: [
+        _buildHeader(context, userName, ref),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSectionHeader("OPERATIONAL OVERVIEW"),
+                const SizedBox(height: 16),
+                _buildOverviewGrid(total, active, completed, revenue),
+                const SizedBox(height: 32),
+                _buildSectionHeader("LIVE TRACKING"),
+                const SizedBox(height: 16),
+                const LiveLocationCard(),
+                const SizedBox(height: 32),
+                _buildSectionHeader("CRITICAL ACTIONS"),
+                const SizedBox(height: 16),
+                Column(
+                  children: [
+                    _buildActionCard(
+                      context,
+                      "Completion Requests",
+                      "$pendingApproval technicians waiting for approval",
+                      Icons.pending_actions_rounded,
+                      const Color(0xFF8B5CF6),
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const CompletionRequestsScreen()),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildActionCard(
+                      context,
+                      "Assign New Project",
+                      "Create and dispatch a new project",
+                      Icons.add_task_rounded,
+                      const Color(0xFF1E3A8A),
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AssignJobScreen()),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildActionCard(
+                      context,
+                      "Technician Reviews",
+                      "Monitor performance and client feedback",
+                      Icons.star_rate_rounded,
+                      const Color(0xFFF59E0B),
+                      () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const ManagerReviewsScreen()),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+                _buildSectionHeader("RECENT ACTIVITY"),
+                const SizedBox(height: 16),
+                _buildRecentJobsList(context, jobs),
+                const SizedBox(height: 100),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -191,23 +187,14 @@ class ManagerDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecentJobsList(BuildContext context, ApiService api) {
-    return FutureBuilder<List<Job>>(
-      future: api.getJobs(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final allJobs = snapshot.data ?? [];
-        if (allJobs.isEmpty) return const Center(child: Text("No recent activity"));
-        
-        return Column(
-          children: allJobs.take(5).map((job) => JobCard(
-            job: job,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ProjectDetailScreen(job: job))),
-          )).toList(),
-        );
-      },
+  Widget _buildRecentJobsList(BuildContext context, List<Job> jobs) {
+    if (jobs.isEmpty) return const Center(child: Text("No recent activity"));
+    
+    return Column(
+      children: jobs.take(5).map((job) => JobCard(
+        job: job,
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ProjectDetailScreen(job: job))),
+      )).toList(),
     );
   }
 

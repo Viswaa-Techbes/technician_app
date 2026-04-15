@@ -1,4 +1,5 @@
 const Notification = require('../models/Notification');
+const { sendPushNotification } = require('../utils/notification');
 
 /**
  * Create and persist a notification
@@ -18,6 +19,7 @@ async function createNotification(userId, title, message, type = 'general', io =
     });
 
     if (io) {
+      // Send real-time socket event
       io.to(userId.toString()).emit('notification', {
         id: notification._id,
         title,
@@ -25,7 +27,13 @@ async function createNotification(userId, title, message, type = 'general', io =
         type,
         createdAt: notification.createdAt,
       });
+
+      // Trigger UI refresh
+      io.to(userId.toString()).emit('refresh_data', { type });
     }
+
+    // Send push notification via FCM
+    await sendPushNotification(userId.toString(), { title, body: message, data: { type } });
 
     return notification;
   } catch (err) {
