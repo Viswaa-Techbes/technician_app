@@ -5,6 +5,7 @@ try {
   const serviceAccount = require(path.join(__dirname, 'serviceAccountKey.json'));
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
+    storageBucket: 'techbes-app.firebasestorage.app',
   });
   console.log('Firebase Admin initialized successfully');
 } catch (error) {

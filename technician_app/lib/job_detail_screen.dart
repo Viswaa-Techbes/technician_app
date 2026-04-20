@@ -11,6 +11,7 @@ import 'features/job_description/widgets/job_description_section.dart';
 import 'features/reviews/screens/submit_review_screen.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'core/payments/razorpay_config.dart';
 
@@ -678,24 +679,47 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.image,
+        withData: true, // Required for web/certain platforms
       );
 
       if (result != null && result.files.isNotEmpty) {
-        // In a real app, you would upload these files to Firebase Storage or your server
-        // and get back URLs. For this demo, we'll send dummy URLs.
-        List<String> mockUrls = result.files.map((f) => "https://storage.example.com/proofs/${f.name}").toList();
+        setState(() => _isProcessingPayment = true); // Using existing loader flag for simplicity
         
-        await _updateStatus('work_uploaded', attachments: mockUrls);
-        setState(() => _currentStatus = JobStatus.workUploaded);
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Work proof uploaded successfully!")),
+        List<String> downloadUrls = [];
+        final storage = FirebaseStorage.instance;
+
+        for (var file in result.files) {
+          if (file.bytes == null) continue;
+          
+          final fileName = 'proofs/${widget.job.id}/${DateTime.now().millisecondsSinceEpoch}_${file.name}';
+          final ref = storage.ref().child(fileName);
+          
+          // Upload
+          final uploadTask = await ref.putData(
+            file.bytes!,
+            SettableMetadata(contentType: 'image/${file.extension ?? 'jpeg'}'),
           );
+          
+          final url = await uploadTask.ref.getDownloadURL();
+          downloadUrls.add(url);
+        }
+
+        if (downloadUrls.isNotEmpty) {
+          await _updateStatus('work_uploaded', attachments: downloadUrls);
+          setState(() => _currentStatus = JobStatus.workUploaded);
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Work proof uploaded successfully to cloud!")),
+            );
+          }
         }
       }
     } catch (e) {
+      debugPrint("Upload error: $e");
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Upload failed: $e")));
+    } finally {
+      if (mounted) setState(() => _isProcessingPayment = false);
     }
   }
 
