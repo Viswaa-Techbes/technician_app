@@ -48,6 +48,10 @@ dependencies:
   razorpay_flutter: ^1.4.0
   firebase_messaging: ^15.2.1
   flutter_local_notifications: ^18.0.1
+  dio: ^5.7.0
+  connectivity_plus: ^6.1.1
+  shared_preferences: ^2.3.5
+  logger: ^2.5.0
 
 dev_dependencies:
   flutter_test:

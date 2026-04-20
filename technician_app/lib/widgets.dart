@@ -214,76 +214,73 @@ class JobCard extends StatelessWidget {
           ),
         );
       },
-      child: Hero(
-        tag: 'job-card-${job.id}',
-        child: Container(
-          width: width,
-          margin: const EdgeInsets.only(bottom: 24, right: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
+      child: Container(
+        width: width,
+        margin: const EdgeInsets.only(bottom: 24, right: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
+            BoxShadow(
+              color: const Color(0xFF1E3A8A).withValues(alpha: 0.01),
+              blurRadius: 40,
+              offset: const Offset(0, 20),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
             borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-              BoxShadow(
-                color: const Color(0xFF1E3A8A).withValues(alpha: 0.01),
-                blurRadius: 40,
-                offset: const Offset(0, 20),
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(28),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            job.serviceName,
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0F172A), letterSpacing: -0.5),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          job.serviceName,
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0F172A), letterSpacing: -0.5),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        StatusChip(status: job.status),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    _buildProductionInfoRow(Icons.person_pin_circle_rounded, job.customerName, const Color(0xFF3B82F6)),
-                    const SizedBox(height: 12),
-                    _buildProductionInfoRow(Icons.manage_accounts_rounded, "Assigned by: ${job.assignedBy ?? 'System'}", const Color(0xFF6366F1)),
-                    const SizedBox(height: 12),
-                    _buildProductionInfoRow(Icons.access_time_filled_rounded, job.time, const Color(0xFFF59E0B)),
-                    const SizedBox(height: 12),
-                    _buildProductionInfoRow(Icons.location_on_rounded, job.address, const Color(0xFFF43F5E)),
-                    const SizedBox(height: 12),
-                    _buildProductionInfoRow(
-                      Icons.currency_rupee_rounded,
-                      'INR ${job.price.toStringAsFixed(2)} • ${job.paymentStatus.name.toUpperCase()}',
-                      job.paymentStatus == PaymentStatus.paid ? const Color(0xFF10B981) : const Color(0xFF0EA5E9),
-                    ),
-                    if (width == null) ...[
-                      const SizedBox(height: 24),
-                      CustomButton(
-                        label: 'PROJECT DETAILS',
-                        onPressed: onTap,
-                        color: const Color(0xFF1E3A8A),
                       ),
+                      StatusChip(status: job.status),
                     ],
+                  ),
+                  const SizedBox(height: 20),
+                  _buildProductionInfoRow(Icons.person_pin_circle_rounded, job.customerName, const Color(0xFF3B82F6)),
+                  const SizedBox(height: 12),
+                  _buildProductionInfoRow(Icons.manage_accounts_rounded, "Assigned by: ${job.assignedBy ?? 'System'}", const Color(0xFF6366F1)),
+                  const SizedBox(height: 12),
+                  _buildProductionInfoRow(Icons.access_time_filled_rounded, job.time, const Color(0xFFF59E0B)),
+                  const SizedBox(height: 12),
+                  _buildProductionInfoRow(Icons.location_on_rounded, job.address, const Color(0xFFF43F5E)),
+                  const SizedBox(height: 12),
+                  _buildProductionInfoRow(
+                    Icons.currency_rupee_rounded,
+                    'INR ${job.price.toStringAsFixed(2)} • ${job.paymentStatus.name.toUpperCase()}',
+                    job.paymentStatus == PaymentStatus.paid ? const Color(0xFF10B981) : const Color(0xFF0EA5E9),
+                  ),
+                  if (width == null) ...[
+                    const SizedBox(height: 24),
+                    CustomButton(
+                      label: 'PROJECT DETAILS',
+                      onPressed: onTap,
+                      color: const Color(0xFF1E3A8A),
+                    ),
                   ],
-                ),
+                ],
               ),
             ),
           ),

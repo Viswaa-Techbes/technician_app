@@ -62,6 +62,19 @@ class AuthNotifier extends StateNotifier<UserSession?> {
 
     await _persistSession(session);
     state = session;
+    
+    // Auto-mark attendance
+    try {
+      if (session.role == Role.technician) {
+        await http.post(
+          Uri.parse("$_baseUrl/attendance/mark-attendance"),
+          headers: {"Content-Type": "application/json", "Authorization": "Bearer $token"},
+        );
+      }
+    } catch (e) {
+      debugPrint("Failed to mark attendance on login: $e");
+    }
+    
     return session;
   }
 
@@ -111,6 +124,16 @@ class AuthNotifier extends StateNotifier<UserSession?> {
   }
 
   Future<void> logout() async {
+    try {
+      if (state != null && state!.role == Role.technician) {
+        await http.post(
+          Uri.parse("$_baseUrl/attendance/mark-logout"),
+          headers: {"Content-Type": "application/json", "Authorization": "Bearer ${state!.token}"},
+        );
+      }
+    } catch (e) {
+      debugPrint("Failed to mark logout: $e");
+    }
     await _storage.delete(key: _sessionKey);
     state = null;
   }

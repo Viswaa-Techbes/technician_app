@@ -11,6 +11,7 @@ const reviewRoutes = require('./routes/reviewRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const leadRoutes = require('./routes/leadRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const attendanceRoutes = require('./routes/attendanceRoutes');
 const errorHandler = require('./middlewares/errorHandler');
 
 const app = express();
@@ -35,6 +36,7 @@ app.use('/reviews', reviewRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/leads', leadRoutes);
 app.use('/', paymentRoutes);
+app.use('/attendance', attendanceRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });

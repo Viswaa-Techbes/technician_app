@@ -6,6 +6,7 @@ import '../features/auth/presentation/providers/auth_provider.dart';
 import '../core/network/api_config.dart';
 import '../providers/job_providers.dart';
 import '../providers/live_technicians_provider.dart';
+import '../features/attendance/presentation/providers/attendance_provider.dart';
 
 class RealtimeService {
   final String baseUrl = ApiConfig.baseUrl; 
@@ -41,6 +42,11 @@ class RealtimeService {
       if (type == 'location_update') {
         _ref.invalidate(liveTechniciansProvider);
       }
+    });
+
+    _socket?.on('attendance_updated', (data) {
+      debugPrint('[RealtimeService] Attendance updated: $data');
+      _ref.invalidate(attendanceProvider);
     });
 
     _socket?.connect();

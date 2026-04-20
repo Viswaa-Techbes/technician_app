@@ -58,7 +58,7 @@ class ApiService {
   // --- Job Endpoints ---
   Future<List<Job>> getJobs({String? status}) async {
     final uri = Uri.parse("$baseUrl/jobs").replace(queryParameters: {
-      if (status != null) 'status': status,
+      'status': ?status,
     });
     final res = await http.get(uri, headers: _headers);
     if (res.statusCode == 200) {
@@ -171,8 +171,8 @@ class ApiService {
     final payload = <String, dynamic>{
       'userId': userId,
       'isOnline': isOnline,
-      if (lat != null) 'lat': lat,
-      if (lng != null) 'lng': lng,
+      'lat': ?lat,
+      'lng': ?lng,
     };
 
     debugPrint('[ApiService] POST $baseUrl/technician/update-status payload=$payload');
@@ -196,7 +196,7 @@ class ApiService {
     final payload = {
       "lat": lat,
       "lng": lng,
-      ...(isOnline != null ? {"isOnline": isOnline} : {}),
+      "isOnline": ?isOnline,
     };
     debugPrint('[ApiService] PATCH $baseUrl/technician/location payload=$payload');
     final res = await http.patch(
@@ -229,7 +229,7 @@ class ApiService {
       body: jsonEncode({
         "amount": amount,
         "description": description,
-        if (jobId != null) "jobId": jobId,
+        "jobId": ?jobId,
       }),
     );
   }
@@ -260,7 +260,7 @@ class ApiService {
         "rating": rating,
         "comment": comment,
         "technicianId": technicianId,
-        if (jobId != null) "jobId": jobId,
+        "jobId": ?jobId,
       }),
     );
   }
@@ -284,6 +284,37 @@ class ApiService {
     if (res.statusCode < 200 || res.statusCode >= 300) {
       throw Exception('Failed to update FCM token');
     }
+  }
+  // --- Attendance Endpoints ---
+  Future<void> markAttendance() async {
+    debugPrint('[ApiService] POST $baseUrl/attendance/mark-attendance');
+    final res = await http.post(
+      Uri.parse("$baseUrl/attendance/mark-attendance"),
+      headers: _headers,
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      debugPrint('[ApiService] Failed to mark attendance: ${res.body}');
+    }
+  }
+
+  Future<void> markLogout() async {
+    debugPrint('[ApiService] POST $baseUrl/attendance/mark-logout');
+    final res = await http.post(
+      Uri.parse("$baseUrl/attendance/mark-logout"),
+      headers: _headers,
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      debugPrint('[ApiService] Failed to mark logout: ${res.body}');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAllAttendance() async {
+    final res = await http.get(Uri.parse("$baseUrl/attendance/all"), headers: _headers);
+    if (res.statusCode == 200) {
+      final json = jsonDecode(res.body);
+      return List<Map<String, dynamic>>.from(json['data'] ?? []);
+    }
+    return [];
   }
 }
 

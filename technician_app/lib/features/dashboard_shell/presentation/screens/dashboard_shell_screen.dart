@@ -7,6 +7,7 @@ import '../../../auth/domain/entities/user_session.dart';
 import '../../../../core/security/rbac_constants.dart';
 import '../../../../core/security/role_access_provider.dart';
 import '../../../technicians/presentation/screens/technicians_screen.dart';
+import '../../../attendance/presentation/screens/attendance_admin_screen.dart';
 
 
 class NavItem {
@@ -28,6 +29,7 @@ const allNavItems = [
   NavItem(id: 'customers', label: 'Customers', icon: Icons.group, requiredPermission: Permission.viewUsers),
   NavItem(id: 'technicians', label: 'Technicians', icon: Icons.engineering, requiredPermission: Permission.manageTechnicians),
   NavItem(id: 'jobs', label: 'Service Requests', icon: Icons.work, requiredPermission: Permission.assignTasks),
+  NavItem(id: 'attendance', label: 'Attendance', icon: Icons.access_time_filled_rounded, requiredPermission: Permission.viewUsers),
 ];
 
 class DashboardShellScreen extends ConsumerStatefulWidget {
@@ -216,6 +218,8 @@ class _DashboardShellScreenState extends ConsumerState<DashboardShellScreen> {
         return hasAccess(Permission.manageTechnicians) ? const TechniciansScreen() : const _UnauthorizedFeatureView();
       case 'jobs':
         return hasAccess(Permission.assignTasks) ? const JobsPage() : const _UnauthorizedFeatureView();
+      case 'attendance':
+        return hasAccess(Permission.viewUsers) ? const AttendanceAdminScreen() : const _UnauthorizedFeatureView();
       case 'dashboard':
       default:
         return hasAccess(Permission.viewDashboard) ? const DashboardPage() : const _UnauthorizedFeatureView();
