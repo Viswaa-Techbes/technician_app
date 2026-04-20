@@ -33,6 +33,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final token = await _storage.getToken();
       if (token != null) {
+        // Daily Session Reset Check
+        final today = DateTime.now().toIso8601String().split('T')[0];
+        final lastLoginDate = await _storage.getLoginDate();
+
+        if (lastLoginDate != today) {
+          await logout();
+          return;
+        }
+
         final user = await _repository.getCurrentUser();
         state = state.copyWith(user: user, isLoading: false);
       } else {
@@ -47,6 +56,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final user = await _repository.login(mobileNumber, password);
+      
+      // Save Today's Date
+      final today = DateTime.now().toIso8601String().split('T')[0];
+      await _storage.saveLoginDate(today);
+
       state = state.copyWith(user: user, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());

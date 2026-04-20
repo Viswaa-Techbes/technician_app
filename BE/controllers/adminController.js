@@ -88,7 +88,7 @@ async function dashboard(req, res, next) {
     }, {});
 
     const totalRevenue = recentJobs
-      .filter((job) => job.status === 'completed')
+      .filter((job) => job.status === 'completed' || job.status === 'payment_done')
       .reduce((sum, job) => sum + (Number(job.price) || 0), 0);
 
     return res.json({
@@ -102,14 +102,14 @@ async function dashboard(req, res, next) {
         pendingExpenses,
         summary: {
           totalRequests: Object.values(jobsByStatus).reduce((a, b) => a + b, 0),
-          pendingJobs: (jobsByStatus.assigned || 0) + (jobsByStatus.pending || 0),
-          inProgress: jobsByStatus.in_progress || 0,
+          pendingJobs: (jobsByStatus.assigned || 0) + (jobsByStatus.started || 0),
+          inProgress: (jobsByStatus.started || 0) + (jobsByStatus.work_uploaded || 0),
           completedJobs: jobsByStatus.completed || 0,
           activeTechnicians: liveTechnicians.length,
           totalTechnicians: usersByRole.technician || 0,
           totalManagers: usersByRole.manager || 0,
           totalRevenue,
-          pendingRequests: pendingRequests.length,
+          pendingRequests: (jobsByStatus.completion_requested || 0),
           paymentApprovals: paymentRequests.length,
         },
         recentJobs: recentJobs.map(formatJob),
@@ -232,12 +232,25 @@ async function updateCompletionRequest(req, res, next) {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
 
-    if (job.status !== 'pending_approval') {
+    if (job.status !== 'completion_requested' && job.status !== 'pending_approval') {
       return res.status(400).json({ success: false, message: 'Job is not awaiting admin approval' });
     }
 
-    job.status = action === 'approve' ? 'completed' : 'assigned';
+    job.status = action === 'approve' ? 'approved_by_manager' : 'assigned';
     await job.save();
+
+    // Notify Real-time
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('job_updated', { jobId: job._id, status: job.status });
+      if (job.assignedTechnician) {
+        io.to(job.assignedTechnician.toString()).emit('job_status_change', {
+          jobId: job._id,
+          status: job.status,
+          message: action === 'approve' ? 'Your completion request was approved!' : 'Completion request rejected.'
+        });
+      }
+    }
 
     const updated = await Job.findById(job._id)
       .populate('assignedTechnician', 'name email status isOnline specialty')
@@ -417,6 +430,7 @@ function formatJob(job) {
       : null,
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
+    attachments: job.attachments || [],
   };
 }
 
@@ -455,9 +469,13 @@ function formatReview(review) {
 
 function formatStatus(status) {
   const statusMap = {
-    pending: 'Pending',
     assigned: 'Assigned',
-    in_progress: 'In Progress',
+    started: 'Started',
+    work_uploaded: 'Work Uploaded',
+    completion_requested: 'Approval Pending',
+    approved_by_manager: 'Approved (Pending Payment)',
+    payment_pending: 'Payment Pending',
+    payment_done: 'Paid',
     completed: 'Completed',
   };
 
@@ -465,11 +483,7 @@ function formatStatus(status) {
 }
 
 function normalizeTechnicianStatus(user) {
-  if (user.isOnline && user.status === 'busy') {
-    return 'On Job';
-  }
-
-  if (user.isOnline) {
+  if (user.isOnline && user.sessionActive) {
     return 'Available';
   }
 

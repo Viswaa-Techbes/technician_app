@@ -10,6 +10,8 @@ import 'widgets.dart';
 import 'features/job_description/widgets/job_description_section.dart';
 import 'features/reviews/screens/submit_review_screen.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'core/payments/razorpay_config.dart';
 
 class JobDetailScreen extends ConsumerStatefulWidget {
@@ -661,17 +663,86 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
     );
   }
 
-  Future<void> _updateStatus(String newStatus) async {
+  Future<void> _updateStatus(String newStatus, {List<String>? attachments}) async {
     final api = ref.read(apiServiceProvider);
     try {
-      await api.updateJobStatus(widget.job.id, newStatus);
-      
-      // Feature: Trigger location/status update if needed
-      // Since this is for technician, the backend already handles role-based updates.
+      await api.updateJobStatus(widget.job.id, newStatus, attachments: attachments);
     } catch (e) {
       debugPrint("Failed to update status: $e");
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
+  }
+
+  Future<void> _uploadWork() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.image,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        // In a real app, you would upload these files to Firebase Storage or your server
+        // and get back URLs. For this demo, we'll send dummy URLs.
+        List<String> mockUrls = result.files.map((f) => "https://storage.example.com/proofs/${f.name}").toList();
+        
+        await _updateStatus('work_uploaded', attachments: mockUrls);
+        setState(() => _currentStatus = JobStatus.workUploaded);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Work proof uploaded successfully!")),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Upload failed: $e")));
+    }
+  }
+
+  void _showPaymentQR() {
+    // Generate a UPI payment link or use the Razorpay payment link
+    final String upiUrl = "upi://pay?pa=techbes@upi&pn=Techbes&am=${widget.job.price}&cu=INR&tn=Job_${widget.job.id}";
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        title: const Text('Customer Payment QR', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w900)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('AMOUNT: INR ${widget.job.price}', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1E3A8A))),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: QrImageView(
+                data: upiUrl,
+                version: QrVersions.auto,
+                size: 200.0,
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text('Scan this code to pay via any UPI app', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const SizedBox(height: 16),
+            CustomButton(
+              label: "OPEN RAZORPAY",
+              onPressed: () {
+                Navigator.pop(context);
+                _startPaymentCollection();
+              },
+              color: const Color(0xFF2563EB),
+              icon: Icons.payment_rounded,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _startPaymentCollection() async {
@@ -773,22 +844,71 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
 
   Widget _buildActionButtonForStatus() {
     switch (_currentStatus) {
-      case JobStatus.pendingApproval:
+      case JobStatus.assigned:
+        return CustomButton(
+          label: "START JOB",
+          onPressed: () async {
+            await _updateStatus('started');
+            setState(() => _currentStatus = JobStatus.started);
+            _startTimer();
+          },
+          color: const Color(0xFF2563EB),
+          icon: Icons.play_circle_rounded,
+        );
+      case JobStatus.started:
+        return Row(
+          children: [
+            Expanded(
+              child: _isRunning
+                  ? CustomButton(label: "PAUSE", onPressed: _pauseTimer, color: const Color(0xFFF59E0B), icon: Icons.pause_circle_rounded)
+                  : CustomButton(label: "START", onPressed: _startTimer, color: const Color(0xFF2563EB), icon: Icons.play_circle_rounded),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: CustomButton(
+                label: "UPLOAD WORK",
+                onPressed: _uploadWork,
+                color: const Color(0xFF8B5CF6),
+                icon: Icons.upload_file_rounded,
+              ),
+            ),
+          ],
+        );
+      case JobStatus.workUploaded:
+        return CustomButton(
+          label: "REQUEST COMPLETION",
+          onPressed: () async {
+            await _updateStatus('completion_requested');
+            setState(() => _currentStatus = JobStatus.completionRequested);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Completion request sent to manager.")),
+              );
+            }
+          },
+          color: const Color(0xFF8B5CF6),
+          icon: Icons.send_rounded,
+        );
+      case JobStatus.completionRequested:
         return CustomButton(
           label: "WAITING FOR APPROVAL",
           onPressed: () {},
-          color: const Color(0xFF8B5CF6),
+          color: const Color(0xFF64748B),
           icon: Icons.hourglass_bottom_rounded,
         );
-      case JobStatus.completed:
-        if (_currentPaymentStatus == PaymentStatus.pending) {
+      case JobStatus.approvedByManager:
+      case JobStatus.paymentPending:
+        if (_currentPaymentStatus != PaymentStatus.paid) {
           return CustomButton(
             label: _isProcessingPayment ? "PROCESSING PAYMENT" : "COLLECT PAYMENT",
-            onPressed: _isProcessingPayment ? () {} : _startPaymentCollection,
+            onPressed: _isProcessingPayment ? () {} : _showPaymentQR,
             color: const Color(0xFF10B981),
-            icon: Icons.currency_rupee_rounded,
+            icon: Icons.qr_code_scanner_rounded,
           );
         }
+        return const SizedBox();
+      case JobStatus.paymentDone:
+      case JobStatus.completed:
         return CustomButton(
           label: "COLLECT CLIENT REVIEW",
           onPressed: () {
@@ -806,47 +926,6 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
           },
           color: const Color(0xFFF59E0B),
           icon: Icons.star_rounded,
-        );
-      case JobStatus.inProgress:
-        return Row(
-          children: [
-            Expanded(
-              child: _isRunning
-                  ? CustomButton(label: "PAUSE", onPressed: _pauseTimer, color: const Color(0xFFF59E0B), icon: Icons.pause_circle_rounded)
-                  : CustomButton(label: "START", onPressed: _startTimer, color: const Color(0xFF2563EB), icon: Icons.play_circle_rounded),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: CustomButton(
-                label: "REQUEST COMPLETION",
-                onPressed: () async {
-                  _pauseTimer();
-                  await _updateStatus('pendingApproval');
-                  setState(() => _currentStatus = JobStatus.pendingApproval);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Completion request sent to manager.")),
-                    );
-                  }
-                },
-                color: const Color(0xFF8B5CF6),
-                icon: Icons.send_rounded,
-              ),
-            ),
-          ],
-        );
-      case JobStatus.assigned:
-        return CustomButton(
-          label: "START SESSION",
-          onPressed: () async {
-            await _updateStatus('inProgress');
-            setState(() {
-              _currentStatus = JobStatus.inProgress;
-            });
-            _startTimer();
-          },
-          color: const Color(0xFF2563EB),
-          icon: Icons.play_circle_rounded,
         );
     }
   }

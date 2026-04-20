@@ -14,6 +14,13 @@ async function loginUser(mobileNumber, password) {
   }
 
   const token = signToken(user._id, user.role);
+  
+  // Update status
+  user.isOnline = true;
+  user.sessionActive = true;
+  user.lastSeen = new Date();
+  await user.save();
+
   return { token, user: user.toSafeObject() };
 }
 
@@ -54,7 +61,17 @@ async function registerUser(userData) {
   return { token, user: user.toSafeObject() };
 }
 
+async function logoutUser(userId) {
+  const user = await User.findById(userId);
+  if (user) {
+    user.isOnline = false;
+    user.sessionActive = false;
+    await user.save();
+  }
+}
+
 module.exports = {
   loginUser,
   registerUser,
+  logoutUser,
 };

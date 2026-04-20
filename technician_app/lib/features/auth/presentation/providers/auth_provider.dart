@@ -20,6 +20,16 @@ class AuthNotifier extends StateNotifier<UserSession?> {
     try {
       final saved = await _storage.read(key: _sessionKey);
       if (saved != null) {
+        // Daily Session Reset Check
+        final today = DateTime.now().toIso8601String().split('T')[0];
+        final lastLoginDate = await _storage.read(key: 'last_login_date');
+        
+        if (lastLoginDate != today) {
+          debugPrint("Session expired (new day). Logging out.");
+          await logout();
+          return;
+        }
+
         final Map<String, dynamic> map = jsonDecode(saved);
         state = UserSession.fromMap(map);
       }
@@ -47,6 +57,10 @@ class AuthNotifier extends StateNotifier<UserSession?> {
     final backendData = apiResponse['data'] ?? {};
     final backendUser = backendData['user'] ?? {};
     final token = backendData['token'] ?? '';
+
+    // Save Today's Date
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    await _storage.write(key: 'last_login_date', value: today);
 
     final session = UserSession(
       id: backendUser['id'] ?? backendUser['_id'] ?? '',

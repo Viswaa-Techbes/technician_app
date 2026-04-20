@@ -74,4 +74,13 @@ async function updateFcmToken(req, res, next) {
   }
 }
 
-module.exports = { login, register, me, updateFcmToken };
+async function logout(req, res, next) {
+  try {
+    await authService.logoutUser(req.user.id);
+    return res.json({ success: true, message: 'Logged out successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { login, register, me, updateFcmToken, logout };

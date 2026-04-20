@@ -23,6 +23,14 @@ class SecureStorageService {
     return await _storage.read(key: _userRoleKey);
   }
 
+  Future<void> saveLoginDate(String date) async {
+    await _storage.write(key: 'last_login_date', value: date);
+  }
+
+  Future<String?> getLoginDate() async {
+    return await _storage.read(key: 'last_login_date');
+  }
+
   Future<void> clearAll() async {
     await _storage.deleteAll();
   }

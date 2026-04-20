@@ -1,6 +1,6 @@
-enum JobStatus { assigned, inProgress, pendingApproval, completed }
+enum JobStatus { assigned, started, workUploaded, completionRequested, approvedByManager, paymentPending, paymentDone, completed }
 
-enum PaymentStatus { pending, paid }
+enum PaymentStatus { pending, verificationPending, paid, rejected }
 
 class Job {
   final String id;
@@ -120,13 +120,20 @@ class Job {
   factory Job.fromFirestore(Map<String, dynamic> data, String id) {
     JobStatus status = JobStatus.assigned;
     final s = data['status'] as String?;
-    if (s == 'inProgress' || s == 'in_progress') status = JobStatus.inProgress;
-    if (s == 'pendingApproval' || s == 'pending') status = JobStatus.pendingApproval;
+    if (s == 'assigned') status = JobStatus.assigned;
+    if (s == 'started' || s == 'in_progress' || s == 'inProgress') status = JobStatus.started;
+    if (s == 'work_uploaded') status = JobStatus.workUploaded;
+    if (s == 'completion_requested') status = JobStatus.completionRequested;
+    if (s == 'approved_by_manager' || s == 'pending_approval' || s == 'pendingApproval') status = JobStatus.approvedByManager;
+    if (s == 'payment_pending') status = JobStatus.paymentPending;
+    if (s == 'payment_done') status = JobStatus.paymentDone;
     if (s == 'completed' || s == 'done') status = JobStatus.completed;
 
     PaymentStatus paymentStatus = PaymentStatus.pending;
     final payment = data['paymentStatus'] as String?;
     if (payment == 'paid') paymentStatus = PaymentStatus.paid;
+    if (payment == 'verification_pending') paymentStatus = PaymentStatus.verificationPending;
+    if (payment == 'rejected') paymentStatus = PaymentStatus.rejected;
 
     final technician = data['assignedTechnician'];
     final manager = data['assignedManager'];

@@ -16,4 +16,7 @@ router.get('/me', authenticate, authController.me);
 // POST /auth/fcm-token
 router.post('/fcm-token', authenticate, authController.updateFcmToken);
 
+// POST /auth/logout
+router.post('/logout', authenticate, authController.logout);
+
 module.exports = router;

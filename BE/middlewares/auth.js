@@ -33,6 +33,21 @@ async function authenticate(req, res, next) {
       role: user.role,
     };
     req.authUser = user;
+
+    // Daily Session Check
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const lastSeenStr = user.lastSeen ? user.lastSeen.toISOString().split('T')[0] : '';
+    
+    if (!user.sessionActive || (lastSeenStr !== todayStr)) {
+      user.sessionActive = false;
+      user.isOnline = false;
+      await user.save();
+      return res.status(401).json({ success: false, message: 'Session expired. Please login daily.' });
+    }
+
+    user.lastSeen = now;
+    await user.save();
     next();
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
