@@ -141,11 +141,11 @@ class ApiService {
     );
   }
 
-  Future<void> updateJobStatus(String jobId, String status, {String? notes}) async {
+  Future<void> updateJobStatus(String jobId, String status, {String? notes, List<String>? attachments}) async {
     await http.patch(
       Uri.parse("$baseUrl/technician/tasks/$jobId/status"),
       headers: _headers,
-      body: jsonEncode({"status": status, "notes": notes}),
+      body: jsonEncode({"status": status, "notes": notes, "attachments": attachments}),
     );
   }
 

@@ -1,6 +1,15 @@
 const mongoose = require('mongoose');
 
-const JOB_STATUSES = ['pending', 'assigned', 'in_progress', 'pending_approval', 'completed'];
+const JOB_STATUSES = [
+  'assigned',
+  'started',
+  'work_uploaded',
+  'completion_requested',
+  'approved_by_manager',
+  'payment_pending',
+  'payment_done',
+  'completed'
+];
 const PAYMENT_STATUSES = ['pending', 'verification_pending', 'paid', 'rejected'];
 
 const jobSchema = new mongoose.Schema(
@@ -18,7 +27,7 @@ const jobSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: JOB_STATUSES,
-      default: 'pending',
+      default: 'assigned',
     },
     assignedTechnician: {
       type: mongoose.Schema.Types.ObjectId,

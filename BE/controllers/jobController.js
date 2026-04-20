@@ -15,7 +15,11 @@ async function listJobs(req, res, next) {
     }
     
     if (status) {
-      query.status = status;
+      if (status === 'active') {
+        query.status = { $ne: 'completed' };
+      } else {
+        query.status = status;
+      }
     }
 
     const { jobs, total } = await jobService.listJobs(query, page, limit);
@@ -102,17 +106,19 @@ async function assignJob(req, res, next) {
 async function updateJobStatus(req, res, next) {
   try {
     const { id: jobId } = req.params;
-    let { status } = req.body;
+    let { status, attachments } = req.body;
     
-    // Map camelCase to snake_case for consistency
+    // Auto-map legacy statuses
     const statusMap = {
-      'inProgress': 'in_progress',
-      'pendingApproval': 'pending_approval',
+      'inProgress': 'started',
+      'in_progress': 'started',
+      'pendingApproval': 'completion_requested',
+      'pending_approval': 'completion_requested'
     };
     if (statusMap[status]) status = statusMap[status];
 
-    const allowedStatuses = ['pending', 'assigned', 'in_progress', 'pending_approval', 'completed'];
-    if (!status || !allowedStatuses.includes(status)) {
+    const { JOB_STATUSES } = require('../models/Job');
+    if (!status || !JOB_STATUSES.includes(status)) {
         return res.status(400).json({ success: false, message: `Invalid status: ${status}` });
     }
 
@@ -124,17 +130,35 @@ async function updateJobStatus(req, res, next) {
         if (job.assignedTechnician?.toString() !== req.user.id) {
             return res.status(403).json({ success: false, message: 'Not assigned to this job' });
         }
-        // Technician can only move to in_progress or pending_approval
-        if (!['in_progress', 'pending_approval'].includes(status)) {
+        
+        // Technician can only set specific statuses
+        const techAllowed = ['started', 'work_uploaded', 'completion_requested', 'payment_done'];
+        if (!techAllowed.includes(status)) {
             return res.status(403).json({ success: false, message: 'Technician cannot move job to this status' });
         }
+        
+        // Handling Work Upload
+        if (status === 'work_uploaded') {
+            if (attachments && Array.isArray(attachments)) {
+                job.attachments = attachments;
+            }
+        }
     } else if (req.user.role === 'manager' || req.user.role === 'admin') {
-        // Managers/Admins can approve or reject
+        // Manager can set to approved or payment pending
+        if (status === 'approved_by_manager') {
+            // Unlocks payment
+        }
     } else {
         return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
 
     job.status = status;
+    
+    // Auto complete if payment done
+    if (status === 'payment_done') {
+        job.status = 'completed';
+    }
+
     await job.save();
 
     const io = req.app.get('io');

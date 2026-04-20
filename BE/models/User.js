@@ -40,6 +40,14 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    sessionActive: {
+      type: Boolean,
+      default: false,
+    },
+    lastSeen: {
+      type: Date,
+      default: Date.now,
+    },
     status: {
       type: String,
       enum: ['available', 'busy', 'offline'],

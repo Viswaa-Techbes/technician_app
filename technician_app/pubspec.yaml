@@ -52,6 +52,7 @@ dependencies:
   connectivity_plus: ^6.1.1
   shared_preferences: ^2.3.5
   logger: ^2.5.0
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:

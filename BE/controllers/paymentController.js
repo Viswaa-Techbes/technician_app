@@ -80,7 +80,8 @@ async function verifyPayment(req, res, next) {
     job.orderId = orderId;
     job.paymentId = paymentId;
     job.paymentSignature = signature;
-    job.paymentStatus = 'verification_pending';
+    job.paymentStatus = 'paid';
+    job.status = 'completed'; // Move to completed after successful payment
     await job.save();
 
     const io = req.app.get('io');
