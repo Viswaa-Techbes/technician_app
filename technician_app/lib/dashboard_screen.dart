@@ -113,9 +113,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildContent(BuildContext context, List<Job> jobs) {
-    final completedCount = jobs.where((j) => j.status == JobStatus.completed).length;
-    final assignedCount = jobs.where((j) => j.status == JobStatus.assigned || j.status == JobStatus.inProgress).length;
-    final pendingCount = jobs.where((j) => j.status == JobStatus.pendingApproval).length;
+    final completedCount = jobs.where((j) => j.status == JobStatus.completed || j.status == JobStatus.paymentDone).length;
+    final assignedCount = jobs.where((j) => j.status == JobStatus.assigned).length;
+    final pendingCount = jobs.where((j) => j.status == JobStatus.completionRequested || j.status == JobStatus.workUploaded || j.status == JobStatus.approvedByManager || j.status == JobStatus.paymentPending).length;
 
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),

@@ -40,8 +40,14 @@ class ManagerJobsScreen extends ConsumerWidget {
             return TabBarView(
               children: [
                 _buildJobsList(allJobs, [JobStatus.assigned]),
-                _buildJobsList(allJobs, [JobStatus.inProgress]),
-                _buildJobsList(allJobs, [JobStatus.completed, JobStatus.pendingApproval]),
+                _buildJobsList(allJobs, [
+                  JobStatus.started,
+                  JobStatus.workUploaded,
+                  JobStatus.completionRequested,
+                  JobStatus.approvedByManager,
+                  JobStatus.paymentPending
+                ]),
+                _buildJobsList(allJobs, [JobStatus.paymentDone, JobStatus.completed]),
               ],
             );
           },

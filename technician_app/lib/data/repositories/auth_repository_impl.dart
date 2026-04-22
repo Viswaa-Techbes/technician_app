@@ -1,9 +1,10 @@
 import '../../core/network/api_config.dart';
 import '../../core/network/dio_client.dart';
-import '../../domain/entities/user.dart';
+import '../../models.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../services/secure_storage_service.dart';
 import '../models/user_model.dart';
+import '../../services/api_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
@@ -20,9 +21,9 @@ class AuthRepositoryImpl implements AuthRepository {
     });
     
     final userModel = UserModel.fromJson(response.data);
-    if (userModel.token != null) {
-      await _storage.saveToken(userModel.token!);
-      await _storage.saveRole(userModel.role);
+    if (userModel.token.isNotEmpty) {
+      await _storage.saveToken(userModel.token);
+      await _storage.saveRole(userModel.role.name);
     }
     return userModel;
   }

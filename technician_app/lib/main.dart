@@ -2,17 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'login_screen.dart'; // Maintain existing for now
+import 'login_screen.dart';
 import 'main_screen.dart';
 import 'manager_main_screen.dart';
-import 'presentation/providers/auth_provider.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
+import 'core/security/rbac_constants.dart';
+import 'models.dart';
 import 'core/error/error_handler.dart';
 import 'services/push_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Global Error Handling
   GlobalErrorHandler.initialize();
 
   await Firebase.initializeApp(
@@ -21,7 +22,6 @@ Future<void> main() async {
 
   final container = ProviderContainer();
   
-  // Initialize FCM
   try {
     await container.read(pushNotificationServiceProvider).initialize();
   } catch (e) {
@@ -62,17 +62,13 @@ class RootGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authState = ref.watch(authNotifierProvider);
+    final user = ref.watch(authProvider);
 
-    if (authState.isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    if (authState.user == null) {
+    if (user == null) {
       return const LoginScreen();
     }
 
-    if (authState.user!.role == 'manager') {
+    if (user.role == Role.manager) {
       return const ManagerMainScreen();
     } else {
       return const MainScreen();

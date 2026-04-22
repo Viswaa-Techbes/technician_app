@@ -1,3 +1,5 @@
+import 'core/security/rbac_constants.dart';
+
 enum JobStatus { assigned, started, workUploaded, completionRequested, approvedByManager, paymentPending, paymentDone, completed }
 
 enum PaymentStatus { pending, verificationPending, paid, rejected }
@@ -120,7 +122,7 @@ class Job {
   factory Job.fromFirestore(Map<String, dynamic> data, String id) {
     JobStatus status = JobStatus.assigned;
     final s = data['status'] as String?;
-    if (s == 'assigned') status = JobStatus.assigned;
+    if (s == 'assigned' || s == 'pending') status = JobStatus.assigned;
     if (s == 'started' || s == 'in_progress' || s == 'inProgress') status = JobStatus.started;
     if (s == 'work_uploaded') status = JobStatus.workUploaded;
     if (s == 'completion_requested') status = JobStatus.completionRequested;
@@ -240,3 +242,47 @@ class Expense {
     this.technicianId,
   });
 }
+
+class User {
+  final String id;
+  final String name;
+  final String mobileNumber;
+  final String email;
+  final Role role;
+  final String token;
+
+  const User({
+    required this.id,
+    required this.name,
+    required this.mobileNumber,
+    this.email = '',
+    required this.role,
+    required this.token,
+  });
+
+  factory User.fromMap(Map<String, dynamic> map) {
+    return User(
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? 'User',
+      mobileNumber: map['mobileNumber']?.toString() ?? '',
+      email: map['email']?.toString() ?? '',
+      role: Role.values.firstWhere(
+        (e) => e.name == map['role'],
+        orElse: () => Role.technician,
+      ),
+      token: map['token']?.toString() ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'mobileNumber': mobileNumber,
+      'email': email,
+      'role': role.name,
+      'token': token,
+    };
+  }
+}
+

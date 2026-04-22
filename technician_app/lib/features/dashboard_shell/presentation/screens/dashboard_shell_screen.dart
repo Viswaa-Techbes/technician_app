@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../admin_dashboard_screen.dart' show CustomersPage, JobsPage, DashboardPage;
 import '../../../../login_screen.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
-import '../../../auth/domain/entities/user_session.dart';
+import '../../../../models.dart';
 import '../../../../core/security/rbac_constants.dart';
 import '../../../../core/security/role_access_provider.dart';
 import '../../../technicians/presentation/screens/technicians_screen.dart';
@@ -111,7 +111,7 @@ class _DashboardShellScreenState extends ConsumerState<DashboardShellScreen> {
     );
   }
 
-  Widget _buildTopBar(BuildContext context, String pageTitle, bool showMenuIcon, UserSession? session) {
+  Widget _buildTopBar(BuildContext context, String pageTitle, bool showMenuIcon, User? session) {
     return Container(
       height: 70,
       padding: const EdgeInsets.symmetric(horizontal: 24),

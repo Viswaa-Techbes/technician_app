@@ -142,8 +142,8 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Color color = Colors.grey;
-    if (status == JobStatus.inProgress) color = Colors.orange;
-    if (status == JobStatus.completed) color = Colors.green;
+    if (status == JobStatus.started || status == JobStatus.workUploaded || status == JobStatus.completionRequested) color = Colors.orange;
+    if (status == JobStatus.completed || status == JobStatus.paymentDone) color = Colors.green;
     
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

@@ -33,10 +33,10 @@ class ManagerDashboardScreen extends ConsumerWidget {
   Widget _buildContent(BuildContext context, String userName, List<Job> jobs, WidgetRef ref) {
     final summary = {
       'total': jobs.length,
-      'active': jobs.where((j) => j.status == JobStatus.inProgress).length,
-      'completed': jobs.where((j) => j.status == JobStatus.completed).length,
-      'pendingApproval': jobs.where((j) => j.status == JobStatus.pendingApproval).length,
-      'revenue': jobs.where((j) => j.status == JobStatus.completed).fold(0.0, (acc, j) => acc + j.price).toStringAsFixed(0),
+      'active': jobs.where((j) => j.status == JobStatus.started || j.status == JobStatus.workUploaded || j.status == JobStatus.completionRequested || j.status == JobStatus.approvedByManager || j.status == JobStatus.paymentPending).length,
+      'completed': jobs.where((j) => j.status == JobStatus.completed || j.status == JobStatus.paymentDone).length,
+      'pendingApproval': jobs.where((j) => j.status == JobStatus.completionRequested || j.status == JobStatus.workUploaded).length,
+      'revenue': jobs.where((j) => j.status == JobStatus.completed || j.status == JobStatus.paymentDone).fold(0.0, (acc, j) => acc + j.price).toStringAsFixed(0),
     };
 
     return CustomScrollView(

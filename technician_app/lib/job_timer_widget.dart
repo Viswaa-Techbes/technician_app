@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'services/api_service.dart';
 
 enum TimerStatus { pending, inProgress, paused, completed }
 
@@ -33,13 +33,17 @@ class _JobTimerWidgetState extends ConsumerState<JobTimerWidget> {
     _elapsedSeconds = widget.initialDurationSeconds;
     
     switch (widget.initialStatus) {
+      case 'started':
       case 'in_progress':
+      case 'inProgress':
         _status = TimerStatus.inProgress;
         _startLocalTimer();
         break;
       case 'paused':
         _status = TimerStatus.paused;
         break;
+      case 'work_uploaded':
+      case 'completion_requested':
       case 'completed':
         _status = TimerStatus.completed;
         break;
@@ -71,16 +75,14 @@ class _JobTimerWidgetState extends ConsumerState<JobTimerWidget> {
     setState(() => _isLoading = true);
     try {
       final nextStatus = switch (action) {
-        'start' || 'resume' => 'inProgress',
+        'start' || 'resume' => 'started',
         'pause' => 'assigned',
-        'complete' => 'pendingApproval',
+        'complete' => 'work_uploaded',
         _ => throw Exception('Unsupported timer action.'),
       };
 
-      await FirebaseFirestore.instance.collection('projects').doc(widget.jobId).update({
-        'status': nextStatus,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      final api = ref.read(apiServiceProvider);
+      await api.updateJobStatus(widget.jobId, nextStatus);
       return true;
     } catch (e) {
       if (!mounted) return false;
@@ -179,7 +181,6 @@ class _JobTimerWidgetState extends ConsumerState<JobTimerWidget> {
       ),
       child: Column(
         children: [
-          // Header / Status Badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
@@ -197,22 +198,17 @@ class _JobTimerWidgetState extends ConsumerState<JobTimerWidget> {
             ),
           ),
           const SizedBox(height: 24),
-          
-          // Digital Timer
           Text(
             _formatDuration(_elapsedSeconds),
             style: const TextStyle(
               fontSize: 48,
               fontWeight: FontWeight.w900,
-              fontVariations: [FontVariation('tnum', 1)], // requires matching font or relies on system
+              fontVariations: [FontVariation('tnum', 1)],
               letterSpacing: 2,
               color: Color(0xFF1E293B),
             ),
           ),
-          
           const SizedBox(height: 32),
-          
-          // Controls
           if (_isLoading)
             const CircularProgressIndicator()
           else

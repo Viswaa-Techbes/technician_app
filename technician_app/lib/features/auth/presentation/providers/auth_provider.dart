@@ -5,9 +5,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import '../../../../core/security/rbac_constants.dart';
 import '../../../../core/network/api_config.dart';
-import '../../domain/entities/user_session.dart';
+import '../../../../models.dart';
 
-class AuthNotifier extends StateNotifier<UserSession?> {
+class AuthNotifier extends StateNotifier<User?> {
   final _storage = const FlutterSecureStorage();
   static const String _sessionKey = 'user_session';
   final String _baseUrl = ApiConfig.baseUrl;
@@ -31,14 +31,14 @@ class AuthNotifier extends StateNotifier<UserSession?> {
         }
 
         final Map<String, dynamic> map = jsonDecode(saved);
-        state = UserSession.fromMap(map);
+        state = User.fromMap(map);
       }
     } catch (e) {
       debugPrint("Auto-login error: $e");
     }
   }
 
-  Future<UserSession> login({
+  Future<User> login({
     required String mobileNumber,
     required String password,
   }) async {
@@ -62,7 +62,7 @@ class AuthNotifier extends StateNotifier<UserSession?> {
     final today = DateTime.now().toIso8601String().split('T')[0];
     await _storage.write(key: 'last_login_date', value: today);
 
-    final session = UserSession(
+    final session = User(
       id: backendUser['id'] ?? backendUser['_id'] ?? '',
       name: backendUser['name'] ?? 'User',
       mobileNumber: backendUser['mobileNumber'] ?? mobileNumber.trim(),
@@ -92,7 +92,7 @@ class AuthNotifier extends StateNotifier<UserSession?> {
     return session;
   }
 
-  Future<UserSession> register({
+  Future<User> register({
     String name = '',
     required String mobileNumber,
     required String password,
@@ -119,7 +119,7 @@ class AuthNotifier extends StateNotifier<UserSession?> {
     final backendUser = backendData['user'] ?? {};
     final token = backendData['token'] ?? '';
 
-    final session = UserSession(
+    final session = User(
       id: backendUser['id'] ?? backendUser['_id'] ?? '',
       name: (backendUser['name'] ?? name).toString(),
       mobileNumber: backendUser['mobileNumber'] ?? mobileNumber.trim(),
@@ -133,7 +133,7 @@ class AuthNotifier extends StateNotifier<UserSession?> {
     return session;
   }
 
-  Future<void> _persistSession(UserSession session) async {
+  Future<void> _persistSession(User session) async {
     await _storage.write(key: _sessionKey, value: jsonEncode(session.toMap()));
   }
 
@@ -153,6 +153,6 @@ class AuthNotifier extends StateNotifier<UserSession?> {
   }
 }
 
-final authProvider = StateNotifierProvider<AuthNotifier, UserSession?>((ref) {
+final authProvider = StateNotifierProvider<AuthNotifier, User?>((ref) {
   return AuthNotifier();
 });

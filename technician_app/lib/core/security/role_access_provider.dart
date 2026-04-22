@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../features/auth/domain/entities/user_session.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../../models.dart';
 import 'rbac_constants.dart';
 
 class UserRoleProfile {
@@ -75,7 +75,7 @@ class RoleAccessNotifier extends StateNotifier<RoleAccessState> {
     return state.rolePermissionMap[role] ?? <Permission>{};
   }
 
-  bool hasPermission(UserSession? session, Permission permission) {
+  bool hasPermission(User? session, Permission permission) {
     if (session == null) return false;
     return permissionsForRole(session.role).contains(permission);
   }

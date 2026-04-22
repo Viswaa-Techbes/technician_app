@@ -58,7 +58,7 @@ class ApiService {
   // --- Job Endpoints ---
   Future<List<Job>> getJobs({String? status}) async {
     final uri = Uri.parse("$baseUrl/jobs").replace(queryParameters: {
-      'status': ?status,
+      if (status != null) 'status': status,
     });
     final res = await http.get(uri, headers: _headers);
     if (res.statusCode == 200) {
@@ -171,8 +171,8 @@ class ApiService {
     final payload = <String, dynamic>{
       'userId': userId,
       'isOnline': isOnline,
-      'lat': ?lat,
-      'lng': ?lng,
+      if (lat != null) 'lat': lat,
+      if (lng != null) 'lng': lng,
     };
 
     debugPrint('[ApiService] POST $baseUrl/technician/update-status payload=$payload');
@@ -196,7 +196,7 @@ class ApiService {
     final payload = {
       "lat": lat,
       "lng": lng,
-      "isOnline": ?isOnline,
+      if (isOnline != null) "isOnline": isOnline,
     };
     debugPrint('[ApiService] PATCH $baseUrl/technician/location payload=$payload');
     final res = await http.patch(
@@ -229,7 +229,7 @@ class ApiService {
       body: jsonEncode({
         "amount": amount,
         "description": description,
-        "jobId": ?jobId,
+        if (jobId != null) "jobId": jobId,
       }),
     );
   }
@@ -260,7 +260,7 @@ class ApiService {
         "rating": rating,
         "comment": comment,
         "technicianId": technicianId,
-        "jobId": ?jobId,
+        if (jobId != null) "jobId": jobId,
       }),
     );
   }

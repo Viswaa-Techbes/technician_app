@@ -26,6 +26,13 @@ async function adminLogin(req, res, next) {
     }
 
     const token = signToken(user._id, user.role);
+    
+    // Activate session to bypass daily session check in middleware
+    user.sessionActive = true;
+    user.isOnline = true;
+    user.lastSeen = new Date();
+    await user.save({ validateBeforeSave: false }); // Bypass validation for missing mobileNumber if any
+
     user.password = undefined;
 
     return res.json({
@@ -206,7 +213,7 @@ async function createJob(req, res, next) {
 
 async function listCompletionRequests(req, res, next) {
   try {
-    const jobs = await Job.find({ status: 'pending_approval' })
+    const jobs = await Job.find({ status: { $in: ['completion_requested', 'pending_approval'] } })
       .sort({ updatedAt: -1 })
       .populate('assignedTechnician', 'name email status isOnline specialty')
       .populate('assignedManager', 'name email role')
@@ -300,6 +307,9 @@ async function updatePaymentRequest(req, res, next) {
     }
 
     job.paymentStatus = action === 'approve' ? 'paid' : 'rejected';
+    if (action === 'approve') {
+        job.status = 'completed';
+    }
     await job.save();
 
     const updated = await Job.findById(job._id)

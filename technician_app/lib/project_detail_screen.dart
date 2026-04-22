@@ -1,15 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'models.dart';
 import 'widgets.dart';
 import 'job_timer_widget.dart';
+import 'services/api_service.dart';
 import 'features/job_description/widgets/job_description_section.dart';
 import 'features/job_description/screens/add_job_description_screen.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'assign_job_screen.dart';
-import '../../core/security/rbac_constants.dart';
+import 'core/security/rbac_constants.dart';
 
 class ProjectDetailScreen extends ConsumerWidget {
   final Job job;
@@ -92,7 +92,7 @@ class ProjectDetailScreen extends ConsumerWidget {
                 icon: Icons.person_add_rounded,
               ),
             const SizedBox(height: 16),
-            if (job.status == JobStatus.pendingApproval && isManager)
+            if ((job.status == JobStatus.completionRequested || job.status == JobStatus.workUploaded) && isManager)
               CustomButton(
                 label: "REVIEW COMPLETION",
                 onPressed: () => _showReviewDialog(context, ref),
@@ -133,7 +133,7 @@ class ProjectDetailScreen extends ConsumerWidget {
               children: [
                 const Text("CURRENT STATUS", style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF94A3B8), fontSize: 11, letterSpacing: 1.5)),
                 const SizedBox(height: 8),
-                Text(job.status.name.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 24, color: Color(0xFF1E293B))),
+                Text(job.status.name.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18, color: Color(0xFF1E293B))),
               ],
             ),
           ),
@@ -186,8 +186,8 @@ class ProjectDetailScreen extends ConsumerWidget {
         const SizedBox(height: 16),
         _buildTimelineItem("Job Assigned", "09:00 AM", true),
         _buildTimelineItem("Technician Started", "09:15 AM", job.status != JobStatus.assigned),
-        _buildTimelineItem("Completion Requested", "11:30 AM", job.status == JobStatus.pendingApproval || job.status == JobStatus.completed),
-        _buildTimelineItem("Manager Approved", "11:45 AM", job.status == JobStatus.completed),
+        _buildTimelineItem("Completion Requested", "11:30 AM", job.status == JobStatus.completionRequested || job.status == JobStatus.workUploaded || job.status == JobStatus.approvedByManager || job.status == JobStatus.paymentPending || job.status == JobStatus.paymentDone || job.status == JobStatus.completed),
+        _buildTimelineItem("Manager Approved", "11:45 AM", job.status == JobStatus.approvedByManager || job.status == JobStatus.paymentPending || job.status == JobStatus.paymentDone || job.status == JobStatus.completed),
       ],
     );
   }
@@ -243,11 +243,11 @@ class ProjectDetailScreen extends ConsumerWidget {
         content: const Text("Approve or reject this completion request?"),
         actions: [
           TextButton(
-            onPressed: () => _handleStatusUpdate(context, 'assigned', "Job rejected and sent back to technician."),
+            onPressed: () => _handleStatusUpdate(context, ref, 'assigned', "Job rejected and sent back to technician."),
             child: const Text("REJECT", style: TextStyle(color: Color(0xFFF43F5E), fontWeight: FontWeight.w800)),
           ),
           ElevatedButton(
-            onPressed: () => _handleStatusUpdate(context, 'completed', "Job approved and marked as completed."),
+            onPressed: () => _handleStatusUpdate(context, ref, 'approved_by_manager', "Job approved. Waiting for technician to collect payment."),
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), foregroundColor: Colors.white),
             child: const Text("APPROVE", style: TextStyle(fontWeight: FontWeight.w800)),
           ),
@@ -256,12 +256,11 @@ class ProjectDetailScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _handleStatusUpdate(BuildContext context, String newStatus, String message) async {
+  Future<void> _handleStatusUpdate(BuildContext context, WidgetRef ref, String newStatus, String message) async {
     try {
-      await FirebaseFirestore.instance.collection('projects').doc(job.id).update({
-        'status': newStatus,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      final api = ref.read(apiServiceProvider);
+      await api.updateJobStatus(job.id, newStatus);
+      
       if (context.mounted) {
         Navigator.pop(context); // Close dialog
         Navigator.pop(context); // Go back to list

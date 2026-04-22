@@ -57,7 +57,7 @@ class _CompletionRequestsScreenState extends ConsumerState<CompletionRequestsScr
   Widget _buildJobsTab() {
      final api = ref.watch(apiServiceProvider);
      return FutureBuilder<List<Job>>(
-        future: api.getJobs(status: 'pending_approval'),
+        future: api.getJobs(status: 'completion_requested'),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
           final pendingJobs = snapshot.data ?? [];
@@ -203,7 +203,7 @@ class _CompletionRequestsScreenState extends ConsumerState<CompletionRequestsScr
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _handleAction(job.id, JobStatus.completed);
+              _handleAction(job.id, JobStatus.approvedByManager);
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
             child: const Text("CONFIRM APPROVAL", style: TextStyle(fontWeight: FontWeight.w900)),
@@ -256,7 +256,7 @@ class _CompletionRequestsScreenState extends ConsumerState<CompletionRequestsScr
     try {
       await ref.read(apiServiceProvider).updateJobStatus(jobId, newStatus.name);
       if (mounted) {
-        String msg = newStatus == JobStatus.completed ? "Job approved and marked as completed." : "Job rejected and sent back to technician.";
+        String msg = newStatus == JobStatus.approvedByManager ? "Job approved. Waiting for payment." : "Job rejected and sent back to technician.";
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
         setState(() {});
       }

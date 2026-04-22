@@ -44,7 +44,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
       ..on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess)
       ..on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError)
       ..on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
-    if (_currentStatus == JobStatus.inProgress) {
+    if (_currentStatus == JobStatus.started) {
       _startTimer();
     }
   }

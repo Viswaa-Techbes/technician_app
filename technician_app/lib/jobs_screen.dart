@@ -62,8 +62,14 @@ class _JobsScreenState extends ConsumerState<JobsScreen> with SingleTickerProvid
             physics: const BouncingScrollPhysics(),
             children: [
               _buildJobList(allJobs, [JobStatus.assigned]),
-              _buildJobList(allJobs, [JobStatus.inProgress, JobStatus.pendingApproval]),
-              _buildJobList(allJobs, [JobStatus.completed]),
+              _buildJobList(allJobs, [
+                JobStatus.started,
+                JobStatus.workUploaded,
+                JobStatus.completionRequested,
+                JobStatus.approvedByManager,
+                JobStatus.paymentPending
+              ]),
+              _buildJobList(allJobs, [JobStatus.paymentDone, JobStatus.completed]),
             ],
           );
         },

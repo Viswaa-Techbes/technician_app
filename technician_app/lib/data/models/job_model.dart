@@ -21,8 +21,12 @@ class JobModel extends JobEntity {
     // Map existing backend naming to model
     JobStatus status = JobStatus.assigned;
     final s = json['status'] as String?;
-    if (s == 'inProgress' || s == 'in_progress') status = JobStatus.inProgress;
-    if (s == 'pendingApproval' || s == 'pending') status = JobStatus.pendingApproval;
+    if (s == 'started' || s == 'in_progress' || s == 'inProgress') status = JobStatus.started;
+    if (s == 'work_uploaded') status = JobStatus.workUploaded;
+    if (s == 'completion_requested') status = JobStatus.completionRequested;
+    if (s == 'approved_by_manager' || s == 'pending_approval' || s == 'pendingApproval') status = JobStatus.approvedByManager;
+    if (s == 'payment_pending') status = JobStatus.paymentPending;
+    if (s == 'payment_done') status = JobStatus.paymentDone;
     if (s == 'completed' || s == 'done') status = JobStatus.completed;
 
     PaymentStatus paymentStatus = PaymentStatus.pending;

@@ -141,20 +141,40 @@ class StatusChip extends StatelessWidget {
         label = 'ASSIGNED';
         icon = Icons.calendar_today_rounded;
         break;
-      case JobStatus.inProgress:
-        color = const Color(0xFFEA580C);
-        label = 'ACTIVE';
-        icon = Icons.bolt_rounded;
+      case JobStatus.started:
+        color = const Color(0xFF3B82F6);
+        label = 'STARTED';
+        icon = Icons.play_arrow_rounded;
         break;
-      case JobStatus.pendingApproval:
+      case JobStatus.workUploaded:
         color = const Color(0xFF8B5CF6);
-        label = 'PENDING';
-        icon = Icons.hourglass_empty_rounded;
+        label = 'WORK UPLOADED';
+        icon = Icons.upload_file_rounded;
+        break;
+      case JobStatus.completionRequested:
+        color = const Color(0xFFF59E0B);
+        label = 'APPROVAL PENDING';
+        icon = Icons.hourglass_bottom_rounded;
+        break;
+      case JobStatus.approvedByManager:
+        color = const Color(0xFF10B981);
+        label = 'APPROVED';
+        icon = Icons.check_circle_outline_rounded;
+        break;
+      case JobStatus.paymentPending:
+        color = const Color(0xFF0EA5E9);
+        label = 'PAYMENT PENDING';
+        icon = Icons.payments_rounded;
+        break;
+      case JobStatus.paymentDone:
+        color = const Color(0xFF10B981);
+        label = 'PAID';
+        icon = Icons.verified_rounded;
         break;
       case JobStatus.completed:
-        color = const Color(0xFF10B981);
-        label = 'DONE';
-        icon = Icons.verified_rounded;
+        color = const Color(0xFF1E293B);
+        label = 'COMPLETED';
+        icon = Icons.task_alt_rounded;
         break;
     }
 
