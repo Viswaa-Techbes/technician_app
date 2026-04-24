@@ -105,6 +105,27 @@ const jobSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    useNewFlow: {
+      type: Boolean,
+      default: false,
+    },
+    v2Metadata: {
+      type: Map,
+      of: String,
+      default: {},
+    },
+    appId: {
+      type: String,
+      default: 'technician-v1',
+    },
+    client: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    acceptedAt: Date,
+    startedAt: Date,
+    completedAt: Date,
   },
   { timestamps: true }
 );

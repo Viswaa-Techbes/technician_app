@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const ROLES = ['admin', 'manager', 'technician'];
+const ROLES = ['admin', 'manager', 'technician', 'client'];
 
 const userSchema = new mongoose.Schema(
   {
@@ -78,6 +78,10 @@ const userSchema = new mongoose.Schema(
     resetTokenExpiry: {
       type: Date,
       select: false,
+    },
+    appId: {
+      type: String,
+      default: 'technician-v1',
     },
   },
   { timestamps: true }
