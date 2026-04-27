@@ -1,3 +1,5 @@
+console.log("Starting server...");
+
 const path = require('path');
 const dns = require('dns');
 
@@ -6,8 +8,17 @@ if (typeof dns.setDefaultResultOrder === 'function') {
   dns.setDefaultResultOrder('ipv4first');
 }
 
-// Load BE/.env regardless of current working directory (fixes nodemon run from repo root).
-// override: true ensures values in .env win over stale Windows/system MONGODB_URI (e.g. localhost).
+// Global Error Handlers for Stability on Render
+process.on('uncaughtException', err => {
+  console.error("CRITICAL: Uncaught Exception:", err.message);
+  console.error(err.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error("CRITICAL: Unhandled Rejection at:", promise, "reason:", reason);
+});
+
+// Load BE/.env
 require('dotenv').config({
   path: path.join(__dirname, '.env'),
   override: true,
@@ -18,7 +29,7 @@ const { Server } = require('socket.io');
 const connectDB = require('./config/db');
 const app = require('./app');
 
-const PORT = Number(process.env.PORT) || 5000;
+const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -31,7 +42,7 @@ const io = new Server(server, {
 app.set('io', io);
 
 io.on('connection', (socket) => {
-  console.log('New client connected:', socket.id);
+  console.log('Socket Client connected:', socket.id);
 
   socket.on('join', (userId) => {
     socket.join(userId);
@@ -39,23 +50,31 @@ io.on('connection', (socket) => {
   });
 
   socket.on('update_location', (data) => {
-    // data: { userId, lat, lng }
-    io.emit('location_updated', data); // Broadcast to all (ideally filter by manager)
+    io.emit('location_updated', data);
   });
 
   socket.on('disconnect', () => {
-    console.log('Client disconnected');
+    console.log('Socket Client disconnected');
   });
 });
 
 async function start() {
   try {
+    console.log("Connecting to Database...");
     await connectDB();
-    server.listen(PORT, () => {
-      console.log(`API + Realtime listening on http://localhost:${PORT}`);
+    console.log("Database connected successfully.");
+
+    // IMPORTANT: Listen on 0.0.0.0 for Render deployment
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`--------------------------------------------------`);
+      console.log(`SERVER IS LIVE`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`Local Address: http://localhost:${PORT}`);
+      console.log(`Network Address: 0.0.0.0:${PORT}`);
+      console.log(`--------------------------------------------------`);
     });
   } catch (err) {
-    console.error('Failed to start server:', err.message || err);
+    console.error('FATAL: Failed to start server:', err.message || err);
     process.exit(1);
   }
 }
