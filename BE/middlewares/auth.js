@@ -47,7 +47,7 @@ async function authenticate(req, res, next) {
     }
 
     user.lastSeen = now;
-    await user.save();
+    await user.save({ validateBeforeSave: false });
     next();
   } catch (err) {
     if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {

@@ -83,6 +83,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: 'technician-v1',
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

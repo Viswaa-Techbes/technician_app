@@ -1,4 +1,4 @@
-package com.example.technician_app
+package techbes.co.`in`.technicianapp
 
 import io.flutter.embedding.android.FlutterActivity
 

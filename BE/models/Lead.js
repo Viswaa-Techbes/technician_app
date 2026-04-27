@@ -50,6 +50,10 @@ const leadSchema = new mongoose.Schema(
       default: 'Active',
       trim: true,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

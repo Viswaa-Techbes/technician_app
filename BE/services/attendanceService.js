@@ -51,8 +51,27 @@ async function getAttendanceHistory(userId, startDate, endDate) {
   return await Attendance.find(query).sort({ date: -1 });
 }
 
+async function getAllAttendance({ date, month, year }) {
+  const query = {};
+  
+  if (date) {
+    query.date = date;
+  } else if (month && year) {
+    // Match YYYY-MM-DD where MM is the month
+    const monthStr = month.toString().padStart(2, '0');
+    query.date = new RegExp(`^${year}-${monthStr}-`);
+  } else if (year) {
+    query.date = new RegExp(`^${year}-`);
+  }
+
+  return await Attendance.find(query)
+    .populate('user', 'name mobileNumber role')
+    .sort({ date: -1, checkIn: -1 });
+}
+
 module.exports = {
   checkIn,
   checkOut,
   getAttendanceHistory,
+  getAllAttendance,
 };

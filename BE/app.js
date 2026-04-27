@@ -20,6 +20,7 @@ const attendanceRoutesV2 = require('./routes/v2/attendanceRoutesV2');
 const notificationRoutesV2 = require('./routes/v2/notificationRoutesV2');
 const bookingRoutesV2 = require('./routes/v2/bookingRoutesV2');
 const locationRoutesV2 = require('./routes/v2/locationRoutesV2');
+const adminRoutesV2 = require('./routes/v2/adminRoutesV2');
 
 const errorHandler = require('./middlewares/errorHandler');
 
@@ -54,6 +55,7 @@ app.use('/api/v2/attendance', attendanceRoutesV2);
 app.use('/api/v2/notifications', notificationRoutesV2);
 app.use('/api/v2/bookings', bookingRoutesV2);
 app.use('/api/v2/location', locationRoutesV2);
+app.use('/api/v2/admin', adminRoutesV2);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });

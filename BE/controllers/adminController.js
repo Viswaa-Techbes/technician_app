@@ -51,6 +51,7 @@ async function dashboard(req, res, next) {
   try {
     const [userCounts, jobCounts, recentJobs, liveTechnicians, pendingRequests, paymentRequests, reviews, leadsCount, pendingExpenses] = await Promise.all([
       User.aggregate([
+        { $match: { isDeleted: false } },
         { $group: { _id: '$role', count: { $sum: 1 } } },
       ]),
       Job.aggregate([
@@ -61,7 +62,7 @@ async function dashboard(req, res, next) {
         .limit(6)
         .populate('assignedTechnician', 'name email status isOnline specialty')
         .lean(),
-      User.find({ role: 'technician', isOnline: true })
+      User.find({ role: 'technician', isOnline: true, isDeleted: false })
         .sort({ updatedAt: -1 })
         .limit(8)
         .lean(),
@@ -80,7 +81,7 @@ async function dashboard(req, res, next) {
         .limit(8)
         .populate('technicianId', 'name email specialty')
         .lean(),
-      Lead.countDocuments(),
+      Lead.countDocuments({ isDeleted: false }),
       Expense.countDocuments({ status: 'pending' }),
     ]);
 
@@ -108,15 +109,16 @@ async function dashboard(req, res, next) {
         leadsCount,
         pendingExpenses,
         summary: {
-          totalRequests: Object.values(jobsByStatus).reduce((a, b) => a + b, 0),
+          totalLeads: leadsCount,
+          totalJobs: Object.values(jobsByStatus).reduce((a, b) => a + b, 0),
           pendingJobs: (jobsByStatus.assigned || 0) + (jobsByStatus.started || 0),
           inProgress: (jobsByStatus.started || 0) + (jobsByStatus.work_uploaded || 0),
-          completedJobs: jobsByStatus.completed || 0,
+          completedJobs: (jobsByStatus.completed || 0) + (jobsByStatus.payment_done || 0),
           activeTechnicians: liveTechnicians.length,
           totalTechnicians: usersByRole.technician || 0,
           totalManagers: usersByRole.manager || 0,
           totalRevenue,
-          pendingRequests: (jobsByStatus.completion_requested || 0),
+          pendingRequests: (jobsByStatus.completion_requested || 0) + (jobsByStatus.pending_approval || 0),
           paymentApprovals: paymentRequests.length,
         },
         recentJobs: recentJobs.map(formatJob),
