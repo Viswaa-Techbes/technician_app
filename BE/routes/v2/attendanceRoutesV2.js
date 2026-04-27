@@ -10,6 +10,7 @@ router.post('/logout', authenticate, attendanceControllerV2.handleLogoutAttendan
 
 // Admin reporting
 router.get('/today', authenticate, requireRoles('admin'), attendanceControllerV2.getTodayAttendance);
+router.get('/range', authenticate, requireRoles('admin'), attendanceControllerV2.getAttendanceRange);
 router.get('/month', authenticate, requireRoles('admin'), attendanceControllerV2.getMonthlyAttendance);
 
 // Legacy/Compatibility: GET base returns today's attendance for admin

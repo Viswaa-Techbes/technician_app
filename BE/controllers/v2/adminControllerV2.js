@@ -274,13 +274,29 @@ async function updateCompletionRequest(req, res, next) {
   try {
     const { id } = req.params;
     const { action } = req.body;
-    const status = action === 'approve' ? 'approved_by_manager' : 'assigned';
-    
+    console.log(`[V2] Update Completion Request - ID: ${id}, Action: ${action}`);
+
+    if (!action) return res.status(400).json({ success: false, message: "Action required (approve/reject)" });
+
+    let status = "";
+    if (action === "approve") {
+      status = "approved_by_manager";
+    } else if (action === "reject") {
+      status = "assigned"; // Return to assigned state for technician to fix
+    } else {
+      return res.status(400).json({ success: false, message: "Invalid action" });
+    }
+
     const job = await Job.findByIdAndUpdate(id, { status }, { new: true });
-    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+    if (!job) return res.status(404).json({ success: false, message: "Job not found" });
     
-    return res.json({ success: true, message: `Request ${action}d` });
+    return res.status(200).json({
+      success: true,
+      message: `Request ${action}d successfully`,
+      data: job
+    });
   } catch (err) {
+    console.error("[V2] Completion Update Error:", err);
     next(err);
   }
 }
@@ -312,15 +328,24 @@ async function updatePaymentRequest(req, res, next) {
   try {
     const { id } = req.params;
     const { action } = req.body;
+    console.log(`[V2] Update Payment Request - ID: ${id}, Action: ${action}`);
+
+    if (!action) return res.status(400).json({ success: false, message: "Action required (approve/reject)" });
+
     const paymentStatus = action === 'approve' ? 'paid' : 'rejected';
     const updates = { paymentStatus };
     if (action === 'approve') updates.status = 'completed';
     
     const job = await Job.findByIdAndUpdate(id, updates, { new: true });
-    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+    if (!job) return res.status(404).json({ success: false, message: "Job not found" });
     
-    return res.json({ success: true, message: `Payment ${action}d` });
+    return res.status(200).json({
+      success: true,
+      message: `Payment ${action}d successfully`,
+      data: job
+    });
   } catch (err) {
+    console.error("[V2] Payment Update Error:", err);
     next(err);
   }
 }

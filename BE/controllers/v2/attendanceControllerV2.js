@@ -141,6 +141,52 @@ async function getMonthlyAttendance(req, res, next) {
   }
 }
 
+/**
+ * Get Attendance Range for a User (for Calendar)
+ */
+async function getAttendanceRange(req, res, next) {
+  try {
+    const { userId, month, year } = req.query;
+    if (!userId || !month || !year) {
+      return res.status(400).json({ success: false, message: 'userId, month and year are required' });
+    }
+
+    const startOfMonth = moment(`${year}-${month}-01`, 'YYYY-MM-DD');
+    const endOfMonth = startOfMonth.clone().endOf('month');
+
+    // 1. Get existing records
+    const records = await Attendance.find({
+      userId,
+      date: { 
+        $gte: startOfMonth.format('YYYY-MM-DD'), 
+        $lte: endOfMonth.format('YYYY-MM-DD') 
+      }
+    }).lean();
+
+    const recordMap = new Map(records.map(r => [r.date, r]));
+
+    // 2. Generate full month list with absent logic
+    const results = [];
+    let current = startOfMonth.clone();
+    while (current.isSameOrBefore(endOfMonth)) {
+      const d = current.format('YYYY-MM-DD');
+      const rec = recordMap.get(d);
+      results.push({
+        date: d,
+        status: rec ? 'present' : 'absent',
+        loginTime: rec?.loginTime || null,
+        logoutTime: rec?.logoutTime || null,
+        workingHours: rec?.workingHours || 0
+      });
+      current.add(1, 'day');
+    }
+
+    return res.json({ success: true, data: results });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // Export for routes
 async function handleMarkAttendance(req, res, next) {
   try {
@@ -165,6 +211,7 @@ module.exports = {
   markLogout,
   getTodayAttendance,
   getMonthlyAttendance,
+  getAttendanceRange,
   handleMarkAttendance,
   handleLogoutAttendance
 };

@@ -35,9 +35,9 @@ router.get('/jobs', adminControllerV2.getJobs);
 
 // Requests & Approvals
 router.get('/completion-requests', adminControllerV2.getCompletionRequests);
-router.patch('/completion-requests/:id', adminControllerV2.updateCompletionRequest);
+router.put('/completion-requests/:id', adminControllerV2.updateCompletionRequest);
 router.get('/payment-requests', adminControllerV2.getPaymentRequests);
-router.patch('/payment-requests/:id', adminControllerV2.updatePaymentRequest);
+router.put('/payment-requests/:id', adminControllerV2.updatePaymentRequest);
 
 // Tracking & Reports
 router.get('/tracking', adminControllerV2.getTracking);
