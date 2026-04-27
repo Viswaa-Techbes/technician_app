@@ -1,4 +1,5 @@
 const authService = require('../services/authService');
+const { markAttendance, markLogout } = require('./v2/attendanceControllerV2');
 
 async function login(req, res, next) {
   try {
@@ -8,6 +9,9 @@ async function login(req, res, next) {
     }
 
     const { token, user } = await authService.loginUser(mobileNumber, password);
+    
+    // Auto-mark attendance on login
+    await markAttendance(user._id || user.id);
 
     return res.json({
       success: true,
@@ -76,6 +80,7 @@ async function updateFcmToken(req, res, next) {
 
 async function logout(req, res, next) {
   try {
+    await markLogout(req.user.id);
     await authService.logoutUser(req.user.id);
     return res.json({ success: true, message: 'Logged out successfully' });
   } catch (err) {

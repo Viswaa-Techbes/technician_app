@@ -4,11 +4,15 @@ const { authenticate, requireRoles } = require('../../middlewares/auth');
 
 const router = express.Router();
 
-router.post('/check-in', authenticate, attendanceControllerV2.checkIn);
-router.post('/check-out', authenticate, attendanceControllerV2.checkOut);
-router.get('/history', authenticate, attendanceControllerV2.getHistory);
+// Publicly mark attendance on login (handled internally or via endpoint)
+router.post('/mark', authenticate, attendanceControllerV2.handleMarkAttendance);
+router.post('/logout', authenticate, attendanceControllerV2.handleLogoutAttendance);
 
-// Admin reporting route
-router.get('/', authenticate, requireRoles('admin'), attendanceControllerV2.getAdminAttendance);
+// Admin reporting
+router.get('/today', authenticate, requireRoles('admin'), attendanceControllerV2.getTodayAttendance);
+router.get('/month', authenticate, requireRoles('admin'), attendanceControllerV2.getMonthlyAttendance);
+
+// Legacy/Compatibility: GET base returns today's attendance for admin
+router.get('/', authenticate, requireRoles('admin'), attendanceControllerV2.getTodayAttendance);
 
 module.exports = router;

@@ -4,6 +4,7 @@ const Review = require('../models/Review');
 const Expense = require('../models/Expense');
 const Lead = require('../models/Lead');
 const { signToken } = require('../utils/jwt');
+const { markAttendance } = require('./v2/attendanceControllerV2');
 
 /**
  * POST /admin/login — same as auth login but only succeeds if role is admin.
@@ -27,6 +28,9 @@ async function adminLogin(req, res, next) {
 
     const token = signToken(user._id, user.role);
     
+    // Auto-mark attendance for admin login
+    await markAttendance(user._id);
+
     // Activate session to bypass daily session check in middleware
     user.sessionActive = true;
     user.isOnline = true;

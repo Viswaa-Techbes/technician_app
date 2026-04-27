@@ -2,36 +2,38 @@ const mongoose = require('mongoose');
 
 const attendanceSchema = new mongoose.Schema(
   {
-    user: {
+    userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
     },
+    name: String, // Cached for easier reporting
+    role: String, // Cached for easier reporting
     date: {
       type: String, // YYYY-MM-DD
       required: true,
     },
-    checkIn: {
+    loginTime: {
       type: Date,
+      required: true,
     },
-    checkOut: {
+    logoutTime: {
       type: Date,
     },
     status: {
       type: String,
-      enum: ['present', 'absent', 'late', 'half-day'],
+      enum: ['present', 'absent'],
       default: 'present',
     },
-    location: {
-      lat: Number,
-      lng: Number,
-      address: String,
+    workingHours: {
+      type: Number,
+      default: 0, // in hours
     },
-    note: String,
   },
   { timestamps: true }
 );
 
-attendanceSchema.index({ user: 1, date: 1 }, { unique: true });
+// Ensure one record per user per day
+attendanceSchema.index({ userId: 1, date: 1 }, { unique: true });
 
 module.exports = mongoose.model('Attendance', attendanceSchema);
