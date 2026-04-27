@@ -21,5 +21,7 @@ router.get('/payment-requests', adminController.listPaymentRequests);
 router.patch('/payment-requests/:jobId', adminController.updatePaymentRequest);
 router.post('/managers', adminController.createManager);
 router.post('/technicians', adminController.createTechnician);
+router.get('/reviews', adminController.listReviews);
+router.get('/tracking', adminController.getTracking);
 
 module.exports = router;

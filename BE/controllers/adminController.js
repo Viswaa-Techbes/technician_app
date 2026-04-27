@@ -397,6 +397,40 @@ async function createTechnician(req, res, next) {
   }
 }
 
+async function listReviews(req, res, next) {
+  try {
+    const reviews = await Review.find()
+      .sort({ createdAt: -1 })
+      .populate('technicianId', 'name email specialty')
+      .populate('jobId', 'title customerName')
+      .lean();
+
+    return res.json({ success: true, data: reviews.map(formatReview) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getTracking(req, res, next) {
+  try {
+    const technicians = await User.find({ role: 'technician', isDeleted: false })
+      .select('name email specialty status isOnline lat lng updatedAt')
+      .lean();
+
+    return res.json({
+      success: true,
+      data: technicians.map((t) => ({
+        ...formatTechnician(t),
+        lat: t.lat || 0,
+        lng: t.lng || 0,
+        lastUpdate: t.updatedAt,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   adminLogin,
   dashboard,
@@ -410,6 +444,8 @@ module.exports = {
   updatePaymentRequest,
   createManager,
   createTechnician,
+  listReviews,
+  getTracking,
 };
 
 function formatJob(job) {

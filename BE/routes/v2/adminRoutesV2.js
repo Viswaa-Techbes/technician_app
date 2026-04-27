@@ -4,14 +4,38 @@ const { authenticate, requireRoles } = require('../../middlewares/auth');
 
 const router = express.Router();
 
-// All routes here require admin role
+// Middleware to log API hits as requested
+router.use((req, res, next) => {
+  console.log(`[API V2] HIT: ${req.method} ${req.originalUrl}`);
+  next();
+});
+
+// All routes require admin role
 router.use(authenticate, requireRoles('admin'));
 
-router.post('/create-user', adminControllerV2.createUser);
-router.put('/update-user/:id', adminControllerV2.updateUser);
-router.delete('/delete-user/:id', adminControllerV2.deleteUser);
+// Dashboard
+router.get('/dashboard', adminControllerV2.getDashboard);
 
+// Leads
+router.get('/leads', adminControllerV2.getLeads);
 router.put('/leads/:id', adminControllerV2.updateLead);
 router.delete('/leads/:id', adminControllerV2.deleteLead);
+
+// Users (Technicians & Managers)
+router.get('/users', adminControllerV2.getUsers);
+router.post('/users', adminControllerV2.createUser);
+router.put('/users/:id', adminControllerV2.updateUser);
+router.delete('/users/:id', adminControllerV2.deleteUser);
+
+// Legacy aliases or specific routes if needed
+router.post('/create-user', adminControllerV2.createUser); // Alias for compatibility
+
+// Jobs
+router.get('/jobs', adminControllerV2.getJobs);
+
+// Tracking & Reports
+router.get('/tracking', adminControllerV2.getTracking);
+router.get('/reviews', adminControllerV2.getReviews);
+router.get('/attendance', adminControllerV2.getAttendance);
 
 module.exports = router;
