@@ -247,6 +247,84 @@ async function getAttendance(req, res, next) {
   }
 }
 
+/**
+ * Requests & Approvals
+ */
+async function getCompletionRequests(req, res, next) {
+  try {
+    const jobs = await Job.find({ status: { $in: ['completion_requested', 'pending_approval'] } })
+      .populate('assignedTechnician', 'name')
+      .sort({ updatedAt: -1 });
+    return res.json({
+      success: true,
+      data: jobs.map(j => ({
+        id: j._id,
+        customerName: j.customerName,
+        serviceName: j.title,
+        technicianName: j.assignedTechnician?.name,
+        updatedAt: j.updatedAt
+      }))
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateCompletionRequest(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { action } = req.body;
+    const status = action === 'approve' ? 'approved_by_manager' : 'assigned';
+    
+    const job = await Job.findByIdAndUpdate(id, { status }, { new: true });
+    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+    
+    return res.json({ success: true, message: `Request ${action}d` });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getPaymentRequests(req, res, next) {
+  try {
+    const jobs = await Job.find({ paymentStatus: 'verification_pending' })
+      .populate('assignedTechnician', 'name')
+      .sort({ updatedAt: -1 });
+    return res.json({
+      success: true,
+      data: jobs.map(j => ({
+        id: j._id,
+        customerName: j.customerName,
+        customerPhone: j.customerPhone,
+        serviceName: j.title,
+        amount: j.amount,
+        technicianName: j.assignedTechnician?.name,
+        paymentId: j.paymentId,
+        paymentStatus: j.paymentStatus
+      }))
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updatePaymentRequest(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { action } = req.body;
+    const paymentStatus = action === 'approve' ? 'paid' : 'rejected';
+    const updates = { paymentStatus };
+    if (action === 'approve') updates.status = 'completed';
+    
+    const job = await Job.findByIdAndUpdate(id, updates, { new: true });
+    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+    
+    return res.json({ success: true, message: `Payment ${action}d` });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getDashboard,
   getLeads,
@@ -259,5 +337,9 @@ module.exports = {
   getJobs,
   getReviews,
   getTracking,
-  getAttendance
+  getAttendance,
+  getCompletionRequests,
+  updateCompletionRequest,
+  getPaymentRequests,
+  updatePaymentRequest
 };
