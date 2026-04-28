@@ -18,6 +18,7 @@ router.get('/dashboard', adminControllerV2.getDashboard);
 
 // Leads
 router.get('/leads', adminControllerV2.getLeads);
+router.post('/leads', adminControllerV2.createLead);
 router.put('/leads/:id', adminControllerV2.updateLead);
 router.delete('/leads/:id', adminControllerV2.deleteLead);
 
@@ -32,6 +33,7 @@ router.post('/create-user', adminControllerV2.createUser); // Alias for compatib
 
 // Jobs
 router.get('/jobs', adminControllerV2.getJobs);
+router.post('/jobs', adminControllerV2.createJob);
 
 // Bookings (v2 Service Requests)
 router.get('/bookings', adminControllerV2.getBookings);

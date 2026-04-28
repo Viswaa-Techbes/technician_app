@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
@@ -21,13 +22,21 @@ const notificationRoutesV2 = require('./routes/v2/notificationRoutesV2');
 const bookingRoutesV2 = require('./routes/v2/bookingRoutesV2');
 const locationRoutesV2 = require('./routes/v2/locationRoutesV2');
 const adminRoutesV2 = require('./routes/v2/adminRoutesV2');
+const uploadRoutesV2 = require('./routes/v2/uploadRoutesV2');
 
 const errorHandler = require('./middlewares/errorHandler');
 
 const app = express();
 
-app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+app.use(cors({
+  origin: '*',
+  credentials: true,
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/health', (req, res) => {
   res.json({ success: true, status: 'ok', timestamp: new Date().toISOString() });
@@ -56,6 +65,7 @@ app.use('/api/v2/notifications', notificationRoutesV2);
 app.use('/api/v2/bookings', bookingRoutesV2);
 app.use('/api/v2/location', locationRoutesV2);
 app.use('/api/v2/admin', adminRoutesV2);
+app.use('/api/v2/upload', uploadRoutesV2);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });

@@ -69,8 +69,31 @@ function requireRoles(...allowedRoles) {
   };
 }
 
+/**
+ * Like authenticate but never blocks – attaches req.user if token valid, otherwise req.user = null.
+ */
+async function optionalAuthenticate(req, res, next) {
+  try {
+    const token = getBearerToken(req);
+    if (!token) return next();
+    const secret = process.env.JWT_SECRET;
+    if (!secret) return next();
+    const decoded = jwt.verify(token, secret);
+    const user = await User.findById(decoded.sub).select('-password');
+    if (user) {
+      req.user = { id: user._id.toString(), role: user.role };
+      req.authUser = user;
+    }
+    next();
+  } catch {
+    // Invalid token – proceed as guest
+    next();
+  }
+}
+
 module.exports = {
   authenticate,
+  optionalAuthenticate,
   requireRoles,
   getBearerToken,
 };

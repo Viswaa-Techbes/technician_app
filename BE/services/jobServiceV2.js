@@ -15,6 +15,8 @@ async function createBookingV2(bookingData) {
     timeSlot,
     lat,
     lng,
+    customerName,
+    customerPhone,
   } = bookingData;
 
   const job = await Job.create({
@@ -22,6 +24,8 @@ async function createBookingV2(bookingData) {
     description,
     location: address,
     client: clientId,
+    customerName: customerName || '',
+    customerPhone: customerPhone || '',
     scheduledTime: scheduledTime || (date && timeSlot ? `${date} ${timeSlot}` : 'ASAP'),
     status: 'pending',
     useNewFlow: true,

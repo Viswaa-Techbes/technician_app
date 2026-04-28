@@ -158,6 +158,25 @@ async function deleteLead(req, res, next) {
   }
 }
 
+async function createLead(req, res, next) {
+  try {
+    const { name, email, phone, pincode, status, service, plan } = req.body;
+    if (!name) return res.status(400).json({ success: false, message: 'name is required' });
+    const lead = await Lead.create({
+      name: name.trim(),
+      email: email?.toLowerCase().trim() || undefined,
+      phone: phone?.trim() || '',
+      pincode: pincode ? String(pincode).trim() : undefined,
+      service: service?.trim() || undefined,
+      plan: plan?.trim() || undefined,
+      status: status || 'Active',
+    });
+    return res.status(201).json({ success: true, data: lead });
+  } catch (err) {
+    next(err);
+  }
+}
+
 /**
  * User Management
  */
@@ -209,6 +228,29 @@ async function getJobs(req, res, next) {
       .populate('assignedTechnician', 'name email specialty')
       .sort({ createdAt: -1 });
     return res.json({ success: true, data: jobs });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function createJob(req, res, next) {
+  try {
+    const { title, customerName, customerPhone, location, technicianId, price, description } = req.body;
+    if (!title) return res.status(400).json({ success: false, message: 'title is required' });
+    const job = await Job.create({
+      title: title.trim(),
+      description: description?.trim() || '',
+      customerName: customerName?.trim() || '',
+      customerPhone: customerPhone?.trim() || '',
+      location: location?.trim() || '',
+      price: Number(price) || 0,
+      amount: Number(price) || 0,
+      assignedTechnician: technicianId || null,
+      assignedManager: req.user.id,
+      status: technicianId ? 'assigned' : 'pending',
+    });
+    const populated = await Job.findById(job._id).populate('assignedTechnician', 'name email specialty').lean();
+    return res.status(201).json({ success: true, data: populated });
   } catch (err) {
     next(err);
   }
@@ -431,6 +473,7 @@ module.exports = {
   assignBooking,
   getDashboard,
   getLeads,
+  createLead,
   updateLead,
   deleteLead,
   getUsers,
@@ -438,6 +481,7 @@ module.exports = {
   updateUser,
   deleteUser,
   getJobs,
+  createJob,
   getReviews,
   getTracking,
   getAttendance,

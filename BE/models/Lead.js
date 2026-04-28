@@ -9,14 +9,16 @@ const leadSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      required: [true, 'Email is required'],
+      required: false,
       lowercase: true,
       trim: true,
+      default: null,
     },
     phone: {
       type: String,
-      required: [true, 'Phone number is required'],
+      required: false,
       trim: true,
+      default: '',
     },
     password: {
       type: String,

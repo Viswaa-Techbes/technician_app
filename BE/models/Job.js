@@ -39,7 +39,8 @@ const jobSchema = new mongoose.Schema(
     assignedManager: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'assignedManager is required'],
+      required: false,
+      default: null,
     },
     location: {
       type: String, // Acts as address

@@ -6,7 +6,7 @@ async function createBooking(req, res, next) {
   try {
     const job = await jobServiceV2.createBookingV2({
       ...req.body,
-      clientId: req.user.id,
+      clientId: req.user?.id || null, // null for guest bookings
     });
 
     const io = req.app.get('io');
