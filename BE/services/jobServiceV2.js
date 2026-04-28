@@ -6,22 +6,30 @@ async function createBookingV2(bookingData) {
   const {
     clientId,
     service,
+    serviceId,
+    serviceName,
     address,
     description,
     scheduledTime,
+    date,
+    timeSlot,
     lat,
     lng,
   } = bookingData;
 
   const job = await Job.create({
-    title: service,
+    title: serviceName || service || 'Service Request',
     description,
     location: address,
     client: clientId,
-    scheduledTime: scheduledTime || 'ASAP',
-    status: 'pending', // Swiggy style starts as pending
+    scheduledTime: scheduledTime || (date && timeSlot ? `${date} ${timeSlot}` : 'ASAP'),
+    status: 'pending',
     useNewFlow: true,
     appId: 'technician-v2',
+    bookingDate: date || '',
+    timeSlot: timeSlot || '',
+    serviceId: serviceId || service || '',
+    serviceName: serviceName || service || '',
     v2Metadata: {
       lat: String(lat || ''),
       lng: String(lng || ''),
@@ -50,7 +58,7 @@ async function acceptJobV2(jobId, technicianId) {
   const job = await Job.findOne({ _id: jobId, assignedTechnician: technicianId });
   if (!job) throw new Error('Job not found or not assigned to you');
 
-  job.status = 'started'; // Swiggy style: accepting starts the journey
+  job.status = 'in_progress';
   job.acceptedAt = new Date();
   await job.save();
 

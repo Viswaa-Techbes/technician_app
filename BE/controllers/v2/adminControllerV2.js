@@ -2,7 +2,45 @@ const User = require('../../models/User');
 const Lead = require('../../models/Lead');
 const Job = require('../../models/Job');
 const Review = require('../../models/Review');
-const Attendance = require('../../models/Attendance'); // Ensure this model exists
+const Attendance = require('../../models/Attendance');
+
+/**
+ * Bookings (v2 service requests)
+ */
+async function getBookings(req, res, next) {
+  try {
+    const { status } = req.query;
+    const query = { useNewFlow: true };
+    if (status && status !== 'all') query.status = status;
+
+    const bookings = await Job.find(query)
+      .sort({ createdAt: -1 })
+      .populate('client', 'name phone email')
+      .populate('assignedTechnician', 'name email specialty')
+      .lean();
+
+    return res.json({
+      success: true,
+      data: bookings.map(b => ({
+        id: b._id,
+        customerName: b.client?.name || b.customerName || 'Customer',
+        customerPhone: b.client?.phone || b.customerPhone || '',
+        customerEmail: b.client?.email || '',
+        serviceName: b.serviceName || b.title || 'Service',
+        serviceId: b.serviceId || '',
+        date: b.bookingDate || '',
+        timeSlot: b.timeSlot || '',
+        address: b.location || '',
+        status: b.status,
+        technicianName: b.assignedTechnician?.name || null,
+        technicianId: b.assignedTechnician?._id || null,
+        createdAt: b.createdAt,
+      }))
+    });
+  } catch (err) {
+    next(err);
+  }
+}
 
 /**
  * Dashboard Stats
@@ -350,7 +388,47 @@ async function updatePaymentRequest(req, res, next) {
   }
 }
 
+async function assignBooking(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { technicianId } = req.body;
+
+    if (!technicianId) {
+      return res.status(400).json({ success: false, message: 'technicianId is required' });
+    }
+
+    const job = await Job.findById(id);
+    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+
+    const technician = await User.findOne({ _id: technicianId, role: 'technician' });
+    if (!technician) return res.status(404).json({ success: false, message: 'Technician not found' });
+
+    job.assignedTechnician = technicianId;
+    job.assignedManager = req.user.id;
+    job.status = 'assigned';
+    await job.save();
+
+    // Notify technician
+    const notificationService = require('../../services/notificationService');
+    const io = req.app.get('io');
+    io.to(technicianId.toString()).emit('bookingAssigned', job);
+    await notificationService.createNotification(
+      technicianId,
+      'New Job Assigned',
+      `You have a new service request: ${job.serviceName || job.title}${job.bookingDate ? ' on ' + job.bookingDate : ''} at ${job.timeSlot || 'TBD'}`,
+      'job_assigned',
+      io
+    );
+
+    return res.json({ success: true, data: job });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
+  getBookings,
+  assignBooking,
   getDashboard,
   getLeads,
   updateLead,

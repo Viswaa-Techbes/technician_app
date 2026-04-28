@@ -33,6 +33,10 @@ router.post('/create-user', adminControllerV2.createUser); // Alias for compatib
 // Jobs
 router.get('/jobs', adminControllerV2.getJobs);
 
+// Bookings (v2 Service Requests)
+router.get('/bookings', adminControllerV2.getBookings);
+router.put('/bookings/:id/assign', adminControllerV2.assignBooking);
+
 // Requests & Approvals
 router.get('/completion-requests', adminControllerV2.getCompletionRequests);
 router.put('/completion-requests/:id', adminControllerV2.updateCompletionRequest);
