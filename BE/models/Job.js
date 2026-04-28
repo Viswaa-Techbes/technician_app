@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const JOB_STATUSES = [
   'pending',
   'assigned',
+  'in_progress',
   'started',
   'work_uploaded',
   'completion_requested',
@@ -122,6 +123,23 @@ const jobSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       default: null,
+    },
+    // Booking-flow specific fields
+    bookingDate: {
+      type: String,
+      default: '',
+    },
+    timeSlot: {
+      type: String,
+      default: '',
+    },
+    serviceId: {
+      type: String,
+      default: '',
+    },
+    serviceName: {
+      type: String,
+      default: '',
     },
     acceptedAt: Date,
     startedAt: Date,
