@@ -32,6 +32,7 @@ async function getBookings(req, res, next) {
         timeSlot: b.timeSlot || '',
         address: b.location || '',
         status: b.status,
+        description: b.description || '',
         technicianName: b.assignedTechnician?.name || null,
         technicianId: b.assignedTechnician?._id || null,
         createdAt: b.createdAt,
