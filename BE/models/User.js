@@ -54,6 +54,10 @@ const userSchema = new mongoose.Schema(
       default: 'offline',
     },
     specialty: String,
+    permissions: {
+      type: [String],
+      default: []
+    },
     assignedManager: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

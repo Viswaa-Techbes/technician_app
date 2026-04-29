@@ -12,6 +12,7 @@ router.post('/logout', authenticate, attendanceControllerV2.handleLogoutAttendan
 router.get('/today', authenticate, requireRoles('admin'), attendanceControllerV2.getTodayAttendance);
 router.get('/range', authenticate, requireRoles('admin'), attendanceControllerV2.getAttendanceRange);
 router.get('/month', authenticate, requireRoles('admin'), attendanceControllerV2.getMonthlyAttendance);
+router.patch('/:id', authenticate, requireRoles('admin'), attendanceControllerV2.updateAttendanceRecord);
 
 // Legacy/Compatibility: GET base returns today's attendance for admin
 router.get('/', authenticate, requireRoles('admin'), attendanceControllerV2.getTodayAttendance);

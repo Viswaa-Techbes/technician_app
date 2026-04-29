@@ -890,10 +890,10 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
             const SizedBox(width: 16),
             Expanded(
               child: CustomButton(
-                label: "UPLOAD WORK",
+                label: "SITE VISIT DONE",
                 onPressed: _uploadWork,
                 color: const Color(0xFF8B5CF6),
-                icon: Icons.upload_file_rounded,
+                icon: Icons.check_circle_outline,
               ),
             ),
           ],

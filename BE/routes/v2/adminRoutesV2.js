@@ -38,6 +38,8 @@ router.post('/jobs', adminControllerV2.createJob);
 // Bookings (v2 Service Requests)
 router.get('/bookings', adminControllerV2.getBookings);
 router.put('/bookings/:id/assign', adminControllerV2.assignBooking);
+router.patch('/service-requests/:id', adminControllerV2.updateServiceRequest);
+router.delete('/service-requests/:id', adminControllerV2.deleteServiceRequest);
 
 // Requests & Approvals
 router.get('/completion-requests', adminControllerV2.getCompletionRequests);

@@ -206,6 +206,42 @@ async function handleLogoutAttendance(req, res, next) {
   }
 }
 
+async function updateAttendanceRecord(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const today = moment().format('YYYY-MM-DD');
+
+    let userId = id;
+    if (id.startsWith('absent-')) {
+      userId = id.replace('absent-', '');
+    }
+
+    if (status === 'present') {
+      const user = await User.findById(userId);
+      if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+      await Attendance.findOneAndUpdate(
+        { userId, date: today },
+        { 
+          userId, 
+          name: user.name, 
+          role: user.role, 
+          date: today, 
+          status: 'present',
+          loginTime: new Date()
+        },
+        { upsert: true, new: true }
+      );
+    } else if (status === 'absent') {
+      await Attendance.findOneAndDelete({ userId, date: today });
+    }
+
+    return res.json({ success: true, message: 'Attendance updated' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   markAttendance,
   markLogout,
@@ -213,5 +249,6 @@ module.exports = {
   getMonthlyAttendance,
   getAttendanceRange,
   handleMarkAttendance,
-  handleLogoutAttendance
+  handleLogoutAttendance,
+  updateAttendanceRecord
 };

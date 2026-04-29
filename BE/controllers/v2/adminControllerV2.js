@@ -468,6 +468,26 @@ async function assignBooking(req, res, next) {
   }
 }
 
+async function updateServiceRequest(req, res, next) {
+  try {
+    const job = await Job.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (!job) return res.status(404).json({ success: false, message: 'Service request not found' });
+    return res.json({ success: true, data: job });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteServiceRequest(req, res, next) {
+  try {
+    const job = await Job.findByIdAndDelete(req.params.id);
+    if (!job) return res.status(404).json({ success: false, message: 'Service request not found' });
+    return res.json({ success: true, message: 'Service request deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getBookings,
   assignBooking,
@@ -488,5 +508,7 @@ module.exports = {
   getCompletionRequests,
   updateCompletionRequest,
   getPaymentRequests,
-  updatePaymentRequest
+  updatePaymentRequest,
+  updateServiceRequest,
+  deleteServiceRequest
 };

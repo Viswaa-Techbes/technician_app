@@ -4,6 +4,7 @@ import 'models.dart';
 import 'widgets.dart';
 import 'services/api_service.dart';
 import 'job_detail_screen.dart';
+import 'providers/job_providers.dart';
 
 class JobsScreen extends ConsumerStatefulWidget {
   const JobsScreen({super.key});
@@ -29,7 +30,7 @@ class _JobsScreenState extends ConsumerState<JobsScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    final api = ref.watch(apiServiceProvider);
+    final jobsAsync = ref.watch(jobsProvider(null));
     
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -50,13 +51,10 @@ class _JobsScreenState extends ConsumerState<JobsScreen> with SingleTickerProvid
           ],
         ),
       ),
-      body: FutureBuilder<List<Job>>(
-        future: api.getJobs(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final allJobs = snapshot.data ?? [];
+      body: jobsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, st) => Center(child: Text('Error: $e')),
+        data: (allJobs) {
           return TabBarView(
             controller: _tabController,
             physics: const BouncingScrollPhysics(),

@@ -60,6 +60,11 @@ const jobSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    serviceType: {
+      type: String,
+      enum: ['installation', 'repair', 'other'],
+      default: 'other',
+    },
     customerPhone: {
       type: String,
       default: '',
