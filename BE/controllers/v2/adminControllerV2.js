@@ -236,7 +236,7 @@ async function getJobs(req, res, next) {
 
 async function createJob(req, res, next) {
   try {
-    const { title, customerName, customerPhone, location, technicianId, price, description } = req.body;
+    const { title, customerName, customerPhone, location, technicianId, price, description, serviceType } = req.body;
     if (!title) return res.status(400).json({ success: false, message: 'title is required' });
     const job = await Job.create({
       title: title.trim(),
@@ -246,12 +246,64 @@ async function createJob(req, res, next) {
       location: location?.trim() || '',
       price: Number(price) || 0,
       amount: Number(price) || 0,
+      serviceType: serviceType || 'installation',
       assignedTechnician: technicianId || null,
       assignedManager: req.user.id,
       status: technicianId ? 'assigned' : 'pending',
     });
     const populated = await Job.findById(job._id).populate('assignedTechnician', 'name email specialty').lean();
     return res.status(201).json({ success: true, data: populated });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateJob(req, res, next) {
+  try {
+    const allowedUpdates = {};
+    const allowedFields = [
+      'title',
+      'description',
+      'customerName',
+      'customerPhone',
+      'location',
+      'assignedTechnician',
+      'status',
+      'price',
+      'amount',
+      'serviceType',
+    ];
+
+    for (const field of allowedFields) {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        allowedUpdates[field] = req.body[field];
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body, 'technicianId')) {
+      allowedUpdates.assignedTechnician = req.body.technicianId || null;
+      if (req.body.technicianId && !allowedUpdates.status) {
+        allowedUpdates.status = 'assigned';
+      }
+    }
+
+    const job = await Job.findByIdAndUpdate(req.params.id, allowedUpdates, {
+      new: true,
+      runValidators: true,
+    }).populate('assignedTechnician', 'name email specialty');
+
+    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+    return res.json({ success: true, data: job });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteJob(req, res, next) {
+  try {
+    const job = await Job.findByIdAndDelete(req.params.id);
+    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+    return res.json({ success: true, message: 'Job deleted successfully' });
   } catch (err) {
     next(err);
   }
@@ -503,6 +555,8 @@ module.exports = {
   deleteUser,
   getJobs,
   createJob,
+  updateJob,
+  deleteJob,
   getReviews,
   getTracking,
   getAttendance,

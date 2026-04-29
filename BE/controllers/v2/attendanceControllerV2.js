@@ -220,18 +220,32 @@ async function updateAttendanceRecord(req, res, next) {
     if (status === 'present') {
       const user = await User.findById(userId);
       if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-      await Attendance.findOneAndUpdate(
-        { userId, date: today },
-        { 
-          userId, 
-          name: user.name, 
-          role: user.role, 
-          date: today, 
-          status: 'present',
-          loginTime: new Date()
-        },
-        { upsert: true, new: true }
-      );
+
+      const existing = await Attendance.findOne({ userId, date: today });
+      if (existing) {
+        existing.status = 'present';
+        existing.loginTime = existing.loginTime || new Date();
+        existing.name = user.name;
+        existing.role = user.role;
+        await existing.save();
+      } else {
+        try {
+          await Attendance.create({
+            userId,
+            name: user.name,
+            role: user.role,
+            date: today,
+            status: 'present',
+            loginTime: new Date()
+          });
+        } catch (err) {
+          if (err.code !== 11000) throw err;
+          await Attendance.findOneAndUpdate(
+            { userId, date: today },
+            { status: 'present', name: user.name, role: user.role }
+          );
+        }
+      }
     } else if (status === 'absent') {
       await Attendance.findOneAndDelete({ userId, date: today });
     }

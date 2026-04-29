@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 
 const JOB_STATUSES = [
   'pending',
+  'not_visited',
+  'site_visited',
   'assigned',
   'in_progress',
   'started',
