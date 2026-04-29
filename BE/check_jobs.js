@@ -17,8 +17,11 @@ async function checkJobs() {
       console.log('Status:', job.status);
     }
 
-    console.log('Trying update...');
-    const updated = await Job.findByIdAndUpdate(jobId, { status: 'assigned' }, { new: true });
+    console.log('Trying update with populate and runValidators...');
+    const updated = await Job.findByIdAndUpdate(jobId, { status: 'assigned' }, {
+      new: true,
+      runValidators: true,
+    }).populate('assignedTechnician', 'name email specialty');
     console.log('Updated job:', !!updated);
     if (updated) {
       console.log('Updated status:', updated.status);
