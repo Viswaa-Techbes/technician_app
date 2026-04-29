@@ -260,6 +260,9 @@ async function createJob(req, res, next) {
 
 async function updateJob(req, res, next) {
   try {
+    console.log(`[updateJob] Updating job ID: ${req.params.id}`);
+    console.log(`[updateJob] Request body:`, req.body);
+
     const allowedUpdates = {};
     const allowedFields = [
       'title',
@@ -287,14 +290,20 @@ async function updateJob(req, res, next) {
       }
     }
 
+    console.log(`[updateJob] Allowed updates:`, allowedUpdates);
+
     const job = await Job.findByIdAndUpdate(req.params.id, allowedUpdates, {
       new: true,
       runValidators: true,
     }).populate('assignedTechnician', 'name email specialty');
 
+    console.log(`[updateJob] Job found:`, !!job);
+    if (job) console.log(`[updateJob] Updated job status:`, job.status);
+
     if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
     return res.json({ success: true, data: job });
   } catch (err) {
+    console.error(`[updateJob] Error:`, err.message);
     next(err);
   }
 }
