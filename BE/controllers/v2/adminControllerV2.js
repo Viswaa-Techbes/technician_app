@@ -404,7 +404,10 @@ async function getCompletionRequests(req, res, next) {
         customerName: j.customerName,
         serviceName: j.title,
         technicianName: j.assignedTechnician?.name,
-        updatedAt: j.updatedAt
+        updatedAt: j.updatedAt,
+        attachments: j.attachments || [],
+        price: j.price,
+        address: j.location
       }))
     });
   } catch (err) {
