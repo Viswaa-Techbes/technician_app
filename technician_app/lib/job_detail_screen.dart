@@ -4,14 +4,12 @@ import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 import 'services/api_service.dart';
-import 'services/payment_firestore_service.dart';
 import 'models.dart';
 import 'widgets.dart';
 import 'features/job_description/widgets/job_description_section.dart';
 import 'features/reviews/screens/submit_review_screen.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'core/payments/razorpay_config.dart';
 
@@ -32,14 +30,12 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   bool _isRunning = false;
   bool _isProcessingPayment = false;
   late final Razorpay _razorpay;
-  late final PaymentFirestoreService _paymentFirestoreService;
 
   @override
   void initState() {
     super.initState();
     _currentStatus = widget.job.status;
     _currentPaymentStatus = widget.job.paymentStatus;
-    _paymentFirestoreService = PaymentFirestoreService();
     _razorpay = Razorpay()
       ..on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess)
       ..on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError)
@@ -685,33 +681,24 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
       if (result != null && result.files.isNotEmpty) {
         setState(() => _isProcessingPayment = true); // Using existing loader flag for simplicity
         
-        List<String> downloadUrls = [];
-        final storage = FirebaseStorage.instance;
-
+        final api = ref.read(apiServiceProvider);
+        List<Map<String, dynamic>> filesData = [];
         for (var file in result.files) {
           if (file.bytes == null) continue;
-          
-          final fileName = 'proofs/${widget.job.id}/${DateTime.now().millisecondsSinceEpoch}_${file.name}';
-          final ref = storage.ref().child(fileName);
-          
-          // Upload
-          final uploadTask = await ref.putData(
-            file.bytes!,
-            SettableMetadata(contentType: 'image/${file.extension ?? 'jpeg'}'),
-          );
-          
-          final url = await uploadTask.ref.getDownloadURL();
-          downloadUrls.add(url);
+          filesData.add({'bytes': file.bytes!, 'name': file.name});
         }
 
-        if (downloadUrls.isNotEmpty) {
-          await _updateStatus('work_uploaded', attachments: downloadUrls);
-          setState(() => _currentStatus = JobStatus.workUploaded);
-          
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Work proof uploaded successfully to cloud!")),
-            );
+        if (filesData.isNotEmpty) {
+          final downloadUrls = await api.uploadFiles(filesData);
+          if (downloadUrls.isNotEmpty) {
+            await _updateStatus('work_uploaded', attachments: downloadUrls);
+            setState(() => _currentStatus = JobStatus.workUploaded);
+            
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Work proof uploaded successfully to server!")),
+              );
+            }
           }
         }
       }
@@ -797,6 +784,9 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
         },
       });
     } catch (e) {
+      if (e.toString().contains('resync')) {
+        return; // Ignore harmless resync error on web
+      }
       if (mounted) {
         setState(() => _isProcessingPayment = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Unable to open Razorpay checkout: $e')));
@@ -813,13 +803,6 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
         orderId: response.orderId ?? '',
         paymentId: response.paymentId ?? '',
         signature: response.signature ?? '',
-      );
-
-      await _paymentFirestoreService.markPaymentPaid(
-        jobId: widget.job.id,
-        orderId: response.orderId ?? '',
-        paymentId: response.paymentId ?? '',
-        amount: widget.job.price,
       );
 
       if (!mounted) return;

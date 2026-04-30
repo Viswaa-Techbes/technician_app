@@ -355,13 +355,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildStaggeredHorizontalTasks(List<Job> jobs) {
     if (jobs.isEmpty) {
       return const SizedBox(
-        height: 280, 
+        height: 330, 
         child: Center(child: Text("No assigned projects for today.", style: TextStyle(color: Colors.grey, fontSize: 16))),
       );
     }
 
     return SizedBox(
-      height: 280,
+      height: 330,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),

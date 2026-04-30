@@ -316,6 +316,33 @@ class ApiService {
     }
     return [];
   }
+
+  Future<List<String>> uploadFiles(List<Map<String, dynamic>> filesData) async {
+    final uri = Uri.parse("$baseUrl/api/v2/upload/multiple");
+    final request = http.MultipartRequest('POST', uri);
+    request.headers.addAll(_headers..remove('Content-Type'));
+
+    for (var fileData in filesData) {
+      if (fileData['bytes'] != null && fileData['name'] != null) {
+        request.files.add(http.MultipartFile.fromBytes(
+          'files',
+          fileData['bytes'],
+          filename: fileData['name'],
+        ));
+      }
+    }
+
+    final res = await request.send();
+    final resBody = await res.stream.bytesToString();
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      final json = jsonDecode(resBody);
+      if (json['success'] == true) {
+        final List uploaded = json['files'] ?? [];
+        return uploaded.map<String>((f) => f['fileUrl']).toList();
+      }
+    }
+    throw Exception('Failed to upload files');
+  }
 }
 
 final apiServiceProvider = Provider<ApiService>((ref) {
