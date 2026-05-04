@@ -151,8 +151,9 @@ async function getAttendanceRange(req, res, next) {
       return res.status(400).json({ success: false, message: 'userId, month and year are required' });
     }
 
-    const startOfMonth = moment(`${year}-${month}-01`, 'YYYY-MM-DD');
+    const startOfMonth = moment(`${year}-${month.toString().padStart(2, '0')}-01`, 'YYYY-MM-DD');
     const endOfMonth = startOfMonth.clone().endOf('month');
+    const today = moment().format('YYYY-MM-DD');
 
     // 1. Get existing records
     const records = await Attendance.find({
@@ -165,15 +166,23 @@ async function getAttendanceRange(req, res, next) {
 
     const recordMap = new Map(records.map(r => [r.date, r]));
 
-    // 2. Generate full month list with absent logic
+    // 2. Generate full month list
     const results = [];
     let current = startOfMonth.clone();
     while (current.isSameOrBefore(endOfMonth)) {
       const d = current.format('YYYY-MM-DD');
       const rec = recordMap.get(d);
+      
+      let status = 'none';
+      if (rec) {
+        status = 'present';
+      } else if (current.isSameOrBefore(moment(), 'day')) {
+        status = 'absent';
+      }
+
       results.push({
         date: d,
-        status: rec ? 'present' : 'absent',
+        status: status,
         loginTime: rec?.loginTime || null,
         logoutTime: rec?.logoutTime || null,
         workingHours: rec?.workingHours || 0
@@ -209,8 +218,10 @@ async function handleLogoutAttendance(req, res, next) {
 async function updateAttendanceRecord(req, res, next) {
   try {
     const { id } = req.params;
-    const { status } = req.body;
-    const today = moment().format('YYYY-MM-DD');
+    const { status, date } = req.body;
+    const targetDate = date || moment().format('YYYY-MM-DD');
+
+    console.log(`[Attendance] Updating record: id=${id}, status=${status}, date=${targetDate}`);
 
     let userId = id;
     if (id.startsWith('absent-')) {
@@ -221,7 +232,7 @@ async function updateAttendanceRecord(req, res, next) {
       const user = await User.findById(userId);
       if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-      const existing = await Attendance.findOne({ userId, date: today });
+      const existing = await Attendance.findOne({ userId, date: targetDate });
       if (existing) {
         existing.status = 'present';
         existing.loginTime = existing.loginTime || new Date();
@@ -234,24 +245,31 @@ async function updateAttendanceRecord(req, res, next) {
             userId,
             name: user.name,
             role: user.role,
-            date: today,
+            date: targetDate,
             status: 'present',
             loginTime: new Date()
           });
         } catch (err) {
           if (err.code !== 11000) throw err;
           await Attendance.findOneAndUpdate(
-            { userId, date: today },
+            { userId, date: targetDate },
             { status: 'present', name: user.name, role: user.role }
           );
         }
       }
     } else if (status === 'absent') {
-      await Attendance.findOneAndDelete({ userId, date: today });
+      // If we have an ID that is not an "absent-" prefix, it's a real record ID
+      if (!id.startsWith('absent-')) {
+        await Attendance.findByIdAndDelete(id);
+      } else {
+        // Fallback to searching by userId and date if it was an absent row
+        await Attendance.findOneAndDelete({ userId, date: targetDate });
+      }
     }
 
     return res.json({ success: true, message: 'Attendance updated' });
   } catch (err) {
+    console.error('[Attendance] Update Error:', err);
     next(err);
   }
 }
