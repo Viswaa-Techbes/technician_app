@@ -198,9 +198,9 @@ class ApiService {
       "lng": lng,
       if (isOnline != null) "isOnline": isOnline,
     };
-    debugPrint('[ApiService] PATCH $baseUrl/technician/location payload=$payload');
-    final res = await http.patch(
-      Uri.parse("$baseUrl/technician/location"),
+    debugPrint('[ApiService] POST $baseUrl/api/v2/location/update payload=$payload');
+    final res = await http.post(
+      Uri.parse("$baseUrl/api/v2/location/update"),
       headers: _headers,
       body: jsonEncode(payload),
     );

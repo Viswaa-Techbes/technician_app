@@ -50,7 +50,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('update_location', (data) => {
-    io.emit('location_updated', data);
+    io.emit('technicianLocationUpdate', {
+        technicianId: data.userId,
+        lat: data.lat,
+        lng: data.lng,
+        name: data.name,
+        isOnline: true
+    });
   });
 
   socket.on('disconnect', () => {
