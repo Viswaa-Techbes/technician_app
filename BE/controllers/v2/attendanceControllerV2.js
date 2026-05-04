@@ -68,7 +68,7 @@ async function getTodayAttendance(req, res, next) {
     const records = await Attendance.find({ date: today }).lean();
     const recordMap = new Map(records.map(r => [r.userId.toString(), r]));
 
-    // 3. Merge and identify absents
+    // 3. Merge and identify (Default: Present)
     const results = staff.map(u => {
       const record = recordMap.get(u._id.toString());
       if (record) {
@@ -78,19 +78,19 @@ async function getTodayAttendance(req, res, next) {
           name: u.name,
           role: u.role,
           date: today,
-          status: 'present',
+          status: record.status || 'present',
           loginTime: record.loginTime,
           logoutTime: record.logoutTime,
           workingHours: record.workingHours
         };
       } else {
         return {
-          id: `absent-${u._id}`,
+          id: `default-present-${u._id}`,
           userId: u._id,
           name: u.name,
           role: u.role,
           date: today,
-          status: 'absent',
+          status: 'present',
           loginTime: null,
           logoutTime: null,
           workingHours: 0
@@ -109,13 +109,27 @@ async function getTodayAttendance(req, res, next) {
  */
 async function getMonthlyAttendance(req, res, next) {
   try {
-    const { month, year } = req.query; // Expecting month (1-12) and year (YYYY)
+    const { month, year } = req.query; 
     if (!month || !year) {
       return res.status(400).json({ success: false, message: 'month and year are required' });
     }
 
-    const startOfMonth = moment(`${year}-${month}-01`, 'YYYY-MM-DD');
+    const startOfMonth = moment(`${year}-${month.toString().padStart(2, '0')}-01`, 'YYYY-MM-DD');
     const endOfMonth = startOfMonth.clone().endOf('month');
+    
+    // Calculate how many days to consider (don't count future days)
+    const now = moment();
+    let endDayToCount = endOfMonth.date();
+    if (now.isBefore(endOfMonth) && now.isAfter(startOfMonth)) {
+      endDayToCount = now.date();
+    } else if (now.isBefore(startOfMonth)) {
+      endDayToCount = 0;
+    }
+
+    const staff = await User.find({ 
+      role: { $in: ['technician', 'manager'] },
+      isDeleted: { $ne: true }
+    }).select('name role').lean();
 
     const records = await Attendance.find({
       date: { 
@@ -124,18 +138,31 @@ async function getMonthlyAttendance(req, res, next) {
       }
     }).lean();
 
-    // Group by user
-    const stats = records.reduce((acc, r) => {
+    const userRecords = records.reduce((acc, r) => {
       const uid = r.userId.toString();
-      if (!acc[uid]) {
-        acc[uid] = { name: r.name, role: r.role, presentDays: 0, totalHours: 0 };
-      }
-      acc[uid].presentDays += 1;
-      acc[uid].totalHours += r.workingHours || 0;
+      if (!acc[uid]) acc[uid] = [];
+      acc[uid].push(r);
       return acc;
     }, {});
 
-    return res.json({ success: true, data: Object.values(stats) });
+    const stats = staff.map(u => {
+      const uid = u._id.toString();
+      const recs = userRecords[uid] || [];
+      const absentDays = recs.filter(r => r.status === 'absent').length;
+      
+      // Default present means: Total days passed - days marked absent
+      const presentDays = Math.max(0, endDayToCount - absentDays);
+      const totalHours = recs.reduce((sum, r) => sum + (r.workingHours || 0), 0);
+
+      return {
+        name: u.name,
+        role: u.role,
+        presentDays,
+        totalHours
+      };
+    });
+
+    return res.json({ success: true, data: stats });
   } catch (err) {
     next(err);
   }
@@ -175,9 +202,9 @@ async function getAttendanceRange(req, res, next) {
       
       let status = 'none';
       if (rec) {
-        status = 'present';
+        status = rec.status;
       } else if (current.isSameOrBefore(moment(), 'day')) {
-        status = 'absent';
+        status = 'present'; // Default
       }
 
       results.push({
@@ -224,46 +251,46 @@ async function updateAttendanceRecord(req, res, next) {
     console.log(`[Attendance] Updating record: id=${id}, status=${status}, date=${targetDate}`);
 
     let userId = id;
-    if (id.startsWith('absent-')) {
-      userId = id.replace('absent-', '');
+    if (id.startsWith('absent-') || id.startsWith('default-present-')) {
+      userId = id.replace('absent-', '').replace('default-present-', '');
     }
 
-    if (status === 'present') {
-      const user = await User.findById(userId);
-      if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
+    if (status === 'present') {
       const existing = await Attendance.findOne({ userId, date: targetDate });
       if (existing) {
         existing.status = 'present';
-        existing.loginTime = existing.loginTime || new Date();
         existing.name = user.name;
         existing.role = user.role;
+        // If it was marked absent manually, it might not have loginTime
+        if (!existing.loginTime) existing.loginTime = new Date();
         await existing.save();
       } else {
-        try {
-          await Attendance.create({
-            userId,
-            name: user.name,
-            role: user.role,
-            date: targetDate,
-            status: 'present',
-            loginTime: new Date()
-          });
-        } catch (err) {
-          if (err.code !== 11000) throw err;
-          await Attendance.findOneAndUpdate(
-            { userId, date: targetDate },
-            { status: 'present', name: user.name, role: user.role }
-          );
-        }
+        await Attendance.create({
+          userId,
+          name: user.name,
+          role: user.role,
+          date: targetDate,
+          status: 'present',
+          loginTime: new Date()
+        });
       }
     } else if (status === 'absent') {
-      // If we have an ID that is not an "absent-" prefix, it's a real record ID
-      if (!id.startsWith('absent-')) {
-        await Attendance.findByIdAndDelete(id);
+      const existing = await Attendance.findOne({ userId, date: targetDate });
+      if (existing) {
+        existing.status = 'absent';
+        await existing.save();
       } else {
-        // Fallback to searching by userId and date if it was an absent row
-        await Attendance.findOneAndDelete({ userId, date: targetDate });
+        await Attendance.create({
+          userId,
+          name: user.name,
+          role: user.role,
+          date: targetDate,
+          status: 'absent',
+          loginTime: new Date() // Still needs a loginTime for the schema
+        });
       }
     }
 
