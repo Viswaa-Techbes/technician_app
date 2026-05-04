@@ -258,45 +258,31 @@ async function updateAttendanceRecord(req, res, next) {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    if (status === 'present') {
-      const existing = await Attendance.findOne({ userId, date: targetDate });
-      if (existing) {
-        existing.status = 'present';
-        existing.name = user.name;
-        existing.role = user.role;
-        // If it was marked absent manually, it might not have loginTime
-        if (!existing.loginTime) existing.loginTime = new Date();
-        await existing.save();
-      } else {
-        await Attendance.create({
-          userId,
-          name: user.name,
-          role: user.role,
-          date: targetDate,
-          status: 'present',
-          loginTime: new Date()
-        });
-      }
-    } else if (status === 'absent') {
-      const existing = await Attendance.findOne({ userId, date: targetDate });
-      if (existing) {
-        existing.status = 'absent';
-        await existing.save();
-      } else {
-        await Attendance.create({
-          userId,
-          name: user.name,
-          role: user.role,
-          date: targetDate,
-          status: 'absent',
-          loginTime: new Date() // Still needs a loginTime for the schema
-        });
-      }
-    }
+    // Use atomic findOneAndUpdate with upsert to prevent 11000 errors
+    const updateData = {
+      status,
+      name: user.name,
+      role: user.role
+    };
+
+    // If marking present, ensure loginTime is at least the current time if not already set
+    // But if we are just updating status, we don't want to overwrite an existing loginTime
+    
+    await Attendance.findOneAndUpdate(
+      { userId, date: targetDate },
+      { 
+        $set: updateData,
+        $setOnInsert: { loginTime: new Date() } 
+      },
+      { upsert: true, new: true }
+    );
 
     return res.json({ success: true, message: 'Attendance updated' });
   } catch (err) {
     console.error('[Attendance] Update Error:', err);
+    if (err.code === 11000) {
+      return res.status(409).json({ success: false, message: 'Attendance record already updated' });
+    }
     next(err);
   }
 }
