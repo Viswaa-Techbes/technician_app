@@ -161,6 +161,7 @@ class StatusChip extends StatelessWidget {
         label = 'APPROVED';
         icon = Icons.check_circle_outline_rounded;
         break;
+      case JobStatus.paymentRequested:
       case JobStatus.paymentPending:
         color = const Color(0xFF0EA5E9);
         label = 'PAYMENT PENDING';

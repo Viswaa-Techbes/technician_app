@@ -904,6 +904,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
           icon: Icons.hourglass_bottom_rounded,
         );
       case JobStatus.approvedByManager:
+      case JobStatus.paymentRequested:
       case JobStatus.paymentPending:
         if (_currentPaymentStatus != PaymentStatus.paid) {
           return CustomButton(
