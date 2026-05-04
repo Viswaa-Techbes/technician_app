@@ -244,44 +244,36 @@ async function handleLogoutAttendance(req, res, next) {
 
 async function updateAttendanceRecord(req, res, next) {
   try {
-    const { id } = req.params;
+    const { id: userId } = req.params; // Expecting User ID
     const { status, date } = req.body;
     const targetDate = date || moment().format('YYYY-MM-DD');
 
-    console.log(`[Attendance] Updating record: id=${id}, status=${status}, date=${targetDate}`);
-
-    let userId = id;
-    if (id.startsWith('absent-') || id.startsWith('default-present-')) {
-      userId = id.replace('absent-', '').replace('default-present-', '');
-    }
+    console.log(`[Attendance] Updating record: userId=${userId}, status=${status}, date=${targetDate}`);
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    // Use atomic findOneAndUpdate with upsert to prevent 11000 errors
+    // Atomic findOneAndUpdate with upsert
     const updateData = {
       status,
       name: user.name,
       role: user.role
     };
 
-    // If marking present, ensure loginTime is at least the current time if not already set
-    // But if we are just updating status, we don't want to overwrite an existing loginTime
-    
     await Attendance.findOneAndUpdate(
       { userId, date: targetDate },
       { 
         $set: updateData,
         $setOnInsert: { loginTime: new Date() } 
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true, runValidators: true }
     );
 
     return res.json({ success: true, message: 'Attendance updated' });
   } catch (err) {
     console.error('[Attendance] Update Error:', err);
     if (err.code === 11000) {
-      return res.status(409).json({ success: false, message: 'Attendance record already updated' });
+      return res.status(409).json({ success: false, message: 'Attendance record already exists/updated' });
     }
     next(err);
   }
