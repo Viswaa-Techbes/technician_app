@@ -10,11 +10,12 @@ const JOB_STATUSES = [
   'work_uploaded',
   'completion_requested',
   'approved_by_manager',
+  'payment_requested',
   'payment_pending',
   'payment_done',
   'completed'
 ];
-const PAYMENT_STATUSES = ['pending', 'verification_pending', 'paid', 'rejected'];
+const PAYMENT_STATUSES = ['pending', 'requested', 'pending_payment', 'verification_pending', 'paid', 'rejected'];
 
 const jobSchema = new mongoose.Schema(
   {

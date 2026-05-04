@@ -111,8 +111,71 @@ class ProjectDetailScreen extends ConsumerWidget {
               color: const Color(0xFF1E3A8A),
               icon: Icons.note_add_rounded,
             ),
+            const SizedBox(height: 16),
+            if (!isManager && job.status != JobStatus.completed && job.status != JobStatus.paymentPending && job.status != JobStatus.paymentRequested)
+              CustomButton(
+                label: "REQUEST PAYMENT",
+                onPressed: () => _showPaymentRequestDialog(context, ref),
+                color: const Color(0xFF10B981),
+                icon: Icons.payments_rounded,
+              ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showPaymentRequestDialog(BuildContext context, WidgetRef ref) {
+    final amountController = TextEditingController(text: job.price.toString());
+    final descController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Request Payment"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: amountController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: "Amount (INR)"),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: descController,
+              decoration: const InputDecoration(labelText: "Description (Optional)"),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL")),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                final amount = double.tryParse(amountController.text) ?? 0;
+                if (amount <= 0) throw "Enter a valid amount";
+
+                final api = ref.read(apiServiceProvider);
+                await api.requestPayment(
+                  jobId: job.id,
+                  amount: amount,
+                  description: descController.text,
+                );
+                
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  Navigator.pop(context); // Go back to list
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Payment requested successfully")));
+                }
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), foregroundColor: Colors.white),
+            child: const Text("SEND REQUEST"),
+          ),
+        ],
       ),
     );
   }

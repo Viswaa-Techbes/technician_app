@@ -46,7 +46,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         setState(() {
           _isOnDuty = profile['isOnline'] == true;
         });
-        if (_isOnDuty) _startTracking();
+        if (_isOnDuty) _checkPermissionAndStartTracking();
       }
     } catch (e) {
       debugPrint('Error fetching profile: $e');
@@ -68,7 +68,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       ref.invalidate(liveTechniciansProvider);
       
       if (val) {
-        _startTracking();
+        _checkPermissionAndStartTracking();
       } else {
         _trackingTimer?.cancel();
       }
@@ -77,19 +77,60 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
+  Future<void> _checkPermissionAndStartTracking() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      _showMessage("Location services are disabled.");
+      return;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        _showMessage("Location permissions are denied.");
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      _showMessage("Location permissions are permanently denied.");
+      return;
+    }
+
+    _startTracking();
+  }
+
   void _startTracking() {
     _trackingTimer?.cancel();
+    // Immediate first update
+    _performLocationUpdate();
+    
     _trackingTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
-      try {
-        final pos = await Geolocator.getCurrentPosition();
-        debugPrint('[DashboardScreen] Sending live location lat=${pos.latitude}, lng=${pos.longitude}');
-        ref.read(realtimeServiceProvider).updateLocation(pos.latitude, pos.longitude);
-        await ref.read(apiServiceProvider).updateLocation(pos.latitude, pos.longitude, isOnline: true);
-        ref.invalidate(liveTechniciansProvider);
-      } catch (e) {
-        debugPrint("Location update failed: $e");
-      }
+      _performLocationUpdate();
     });
+  }
+
+  Future<void> _performLocationUpdate() async {
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high)
+      );
+      debugPrint('[DashboardScreen] Sending live location lat=${pos.latitude}, lng=${pos.longitude}');
+      
+      // Update via Socket
+      ref.read(realtimeServiceProvider).updateLocation(pos.latitude, pos.longitude);
+      
+      // Update via REST API
+      await ref.read(apiServiceProvider).updateLocation(pos.latitude, pos.longitude, isOnline: true);
+      
+      ref.invalidate(liveTechniciansProvider);
+    } catch (e) {
+      debugPrint("Location update failed: $e");
+    }
   }
 
   void _showMessage(String message) {

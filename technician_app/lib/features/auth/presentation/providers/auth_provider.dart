@@ -81,7 +81,7 @@ class AuthNotifier extends StateNotifier<User?> {
     try {
       if (session.role == Role.technician) {
         await http.post(
-          Uri.parse("$_baseUrl/attendance/mark-attendance"),
+          Uri.parse("$_baseUrl/api/v2/attendance/mark-login"),
           headers: {"Content-Type": "application/json", "Authorization": "Bearer $token"},
         );
       }
@@ -141,7 +141,7 @@ class AuthNotifier extends StateNotifier<User?> {
     try {
       if (state != null && state!.role == Role.technician) {
         await http.post(
-          Uri.parse("$_baseUrl/attendance/mark-logout"),
+          Uri.parse("$_baseUrl/api/v2/attendance/mark-logout"),
           headers: {"Content-Type": "application/json", "Authorization": "Bearer ${state!.token}"},
         );
       }

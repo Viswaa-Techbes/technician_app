@@ -5,8 +5,8 @@ const { authenticate, requireRoles } = require('../../middlewares/auth');
 const router = express.Router();
 
 // Publicly mark attendance on login (handled internally or via endpoint)
-router.post('/mark', authenticate, attendanceControllerV2.handleMarkAttendance);
-router.post('/logout', authenticate, attendanceControllerV2.handleLogoutAttendance);
+router.post('/mark-login', authenticate, attendanceControllerV2.handleMarkAttendance);
+router.post('/mark-logout', authenticate, attendanceControllerV2.handleLogoutAttendance);
 
 // Admin reporting
 router.get('/today', authenticate, requireRoles('admin'), attendanceControllerV2.getTodayAttendance);

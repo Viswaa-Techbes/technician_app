@@ -133,6 +133,27 @@ class ApiService {
     return Map<String, dynamic>.from(json['data'] ?? <String, dynamic>{});
   }
 
+  Future<void> requestPayment({
+    required String jobId,
+    required double amount,
+    String? description,
+  }) async {
+    final res = await http.post(
+      Uri.parse("$baseUrl/api/v2/payment/request"),
+      headers: _headers,
+      body: jsonEncode({
+        'jobId': jobId,
+        'amount': amount,
+        if (description != null) 'description': description,
+      }),
+    );
+
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode < 200 || res.statusCode >= 300 || json['success'] != true) {
+      throw Exception(json['message'] ?? 'Failed to request payment');
+    }
+  }
+
   Future<void> assignJob(String jobId, String technicianId) async {
     await http.post(
       Uri.parse("$baseUrl/jobs/assign"),

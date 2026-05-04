@@ -1,8 +1,8 @@
 import 'core/security/rbac_constants.dart';
 
-enum JobStatus { assigned, started, workUploaded, completionRequested, approvedByManager, paymentPending, paymentDone, completed }
+enum JobStatus { assigned, started, workUploaded, completionRequested, approvedByManager, paymentRequested, paymentPending, paymentDone, completed }
 
-enum PaymentStatus { pending, verificationPending, paid, rejected }
+enum PaymentStatus { pending, requested, pendingPayment, verificationPending, paid, rejected }
 
 class Job {
   final String id;
@@ -127,12 +127,15 @@ class Job {
     if (s == 'work_uploaded') status = JobStatus.workUploaded;
     if (s == 'completion_requested') status = JobStatus.completionRequested;
     if (s == 'approved_by_manager' || s == 'pending_approval' || s == 'pendingApproval') status = JobStatus.approvedByManager;
+    if (s == 'payment_requested') status = JobStatus.paymentRequested;
     if (s == 'payment_pending') status = JobStatus.paymentPending;
     if (s == 'payment_done') status = JobStatus.paymentDone;
     if (s == 'completed' || s == 'done') status = JobStatus.completed;
 
     PaymentStatus paymentStatus = PaymentStatus.pending;
     final payment = data['paymentStatus'] as String?;
+    if (payment == 'requested') paymentStatus = PaymentStatus.requested;
+    if (payment == 'pending_payment' || payment == 'pendingPayment') paymentStatus = PaymentStatus.pendingPayment;
     if (payment == 'paid') paymentStatus = PaymentStatus.paid;
     if (payment == 'verification_pending') paymentStatus = PaymentStatus.verificationPending;
     if (payment == 'rejected') paymentStatus = PaymentStatus.rejected;
