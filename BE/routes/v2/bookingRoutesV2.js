@@ -17,8 +17,14 @@ router.put('/:id/assign', authenticate, requireRoles('manager', 'admin'), jobCon
 // Legacy assign via body
 router.post('/assign', authenticate, requireRoles('manager', 'admin'), jobControllerV2.assignBooking);
 
-// Technician accepts / starts job
+// Technician accepts job
 router.post('/:id/accept', authenticate, requireRoles('technician'), jobControllerV2.acceptJob);
+
+// Update job status — any authenticated user (controller enforces business rules)
+router.patch('/:id/status', authenticate, jobControllerV2.updateJobStatus);
+
+// Technician requests payment after job completion
+router.post('/:id/request-payment', authenticate, requireRoles('technician'), jobControllerV2.requestPayment);
 
 // Upload work proof
 router.post('/:id/upload', authenticate, jobControllerV2.uploadWork);

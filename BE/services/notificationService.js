@@ -1,16 +1,22 @@
 const Notification = require('../models/Notification');
+const User = require('../models/User');
 const { sendPushNotification } = require('../utils/notification');
+const channelService = require('./channelNotificationService');
 
 /**
- * Create and persist a notification
- * @param {string} userId - Recipient ID
+ * Create and persist a notification, then dispatch via all configured channels.
+ *
+ * @param {string} userId - Recipient user ID
  * @param {string} title - Notification title
- * @param {string} message - Notification content
- * @param {string} type - Notification type enum
- * @param {object} io - Socket.io instance (optional)
+ * @param {string} message - Notification body text
+ * @param {string} type - Notification type (maps to omnichannel templates)
+ * @param {object|null} io - Socket.io instance for real-time push
+ * @param {object} [extraData] - Additional data passed to omnichannel templates
+ * @param {string[]} [channels] - Override channels ['push','email','sms','whatsapp']
  */
-async function createNotification(userId, title, message, type = 'general', io = null) {
+async function createNotification(userId, title, message, type = 'general', io = null, extraData = {}, channels = null) {
   try {
+    // Persist to DB
     const notification = await Notification.create({
       userId,
       title,
@@ -18,8 +24,8 @@ async function createNotification(userId, title, message, type = 'general', io =
       type,
     });
 
+    // Real-time socket delivery
     if (io) {
-      // Send real-time socket event
       io.to(userId.toString()).emit('notification', {
         id: notification._id,
         title,
@@ -27,13 +33,31 @@ async function createNotification(userId, title, message, type = 'general', io =
         type,
         createdAt: notification.createdAt,
       });
-
-      // Trigger UI refresh
       io.to(userId.toString()).emit('refresh_data', { type });
     }
 
-    // Send push notification via FCM
-    await sendPushNotification(userId.toString(), { title, body: message, data: { type } });
+    // Omnichannel dispatch (non-blocking)
+    setImmediate(async () => {
+      try {
+        const user = await User.findById(userId).select('name email phone mobileNumber role').lean();
+        if (user) {
+          await channelService.dispatch({
+            type,
+            data: { ...extraData, customerName: user.name },
+            recipient: {
+              userId: userId.toString(),
+              name: user.name,
+              email: user.email,
+              phone: user.phone || user.mobileNumber,
+              role: user.role,
+            },
+            channels,
+          });
+        }
+      } catch (dispatchErr) {
+        console.error('[NotificationService] Omnichannel dispatch failed:', dispatchErr.message);
+      }
+    });
 
     return notification;
   } catch (err) {

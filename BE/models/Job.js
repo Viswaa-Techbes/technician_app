@@ -15,7 +15,7 @@ const JOB_STATUSES = [
   'payment_done',
   'completed'
 ];
-const PAYMENT_STATUSES = ['pending', 'requested', 'pending_payment', 'verification_pending', 'paid', 'rejected'];
+const PAYMENT_STATUSES = ['pending', 'advance_paid', 'requested', 'pending_payment', 'verification_pending', 'paid', 'rejected'];
 
 const jobSchema = new mongoose.Schema(
   {
@@ -153,6 +153,31 @@ const jobSchema = new mongoose.Schema(
     acceptedAt: Date,
     startedAt: Date,
     completedAt: Date,
+    // Advance payment tracking
+    advancePaid: {
+      type: Boolean,
+      default: false,
+    },
+    advancePaymentId: {
+      type: String,
+      default: '',
+    },
+    advanceAmount: {
+      type: Number,
+      default: 0,
+    },
+    // Business logic module routing
+    module: {
+      type: String,
+      enum: ['project', 'service_request', 'general'],
+      default: 'general',
+    },
+    // RBAC: which manager/admin created this
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
   },
   { timestamps: true }
 );
