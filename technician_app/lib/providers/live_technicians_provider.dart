@@ -7,10 +7,13 @@ import '../services/api_service.dart';
 
 final liveTechniciansProvider = StreamProvider.autoDispose<List<Technician>>((ref) async* {
   final api = ref.watch(apiServiceProvider);
+  final user = ref.watch(authProvider);
 
   Future<List<Technician>> fetch() async {
-    final technicians = await api.getTechnicians();
-    return technicians;
+    if (user?.role == Role.manager || user?.role == Role.admin) {
+      return await api.getTrackingData();
+    }
+    return await api.getTechnicians();
   }
 
   yield await fetch();

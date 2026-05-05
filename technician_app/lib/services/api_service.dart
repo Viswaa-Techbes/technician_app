@@ -183,6 +183,18 @@ class ApiService {
     return [];
   }
 
+  Future<List<Technician>> getTrackingData() async {
+    debugPrint('[ApiService] GET $baseUrl/api/v2/admin/tracking');
+    final res = await http.get(Uri.parse("$baseUrl/api/v2/admin/tracking"), headers: _headers);
+    debugPrint('[ApiService] getTrackingData response (${res.statusCode})');
+    if (res.statusCode == 200) {
+      final json = jsonDecode(res.body);
+      final List data = json['data'] ?? [];
+      return data.map((t) => Technician.fromFirestore(t, t['technicianId'] ?? t['id'] ?? t['_id'] ?? '')).toList();
+    }
+    return [];
+  }
+
   Future<Map<String, dynamic>> updateTechnicianStatus({
     required String userId,
     required bool isOnline,

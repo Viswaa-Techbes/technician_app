@@ -347,7 +347,7 @@ async function getReviews(req, res, next) {
 async function getTracking(req, res, next) {
   try {
     const techs = await User.find({ role: 'technician', isDeleted: { $ne: true } })
-      .select('name lat lng isOnline updatedAt specialty');
+      .select('name lat lng isOnline status updatedAt specialty');
     return res.json({
       success: true,
       data: techs.map(t => ({
@@ -356,6 +356,7 @@ async function getTracking(req, res, next) {
         lat: t.lat || 0,
         lng: t.lng || 0,
         isOnline: t.isOnline,
+        status: t.status,
         specialty: t.specialty,
         lastUpdate: t.updatedAt
       }))
