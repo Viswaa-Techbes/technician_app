@@ -553,6 +553,38 @@ async function deleteServiceRequest(req, res, next) {
   }
 }
 
+/**
+ * Change User Password (Admin action)
+ */
+async function changeUserPassword(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters',
+      });
+    }
+
+    const user = await User.findById(id).select('+password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    user.password = newPassword; // Will be hashed by pre-save hook
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: `Password changed successfully for ${user.name || 'user'}`,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getBookings,
   assignBooking,
@@ -577,5 +609,6 @@ module.exports = {
   getPaymentRequests,
   updatePaymentRequest,
   updateServiceRequest,
-  deleteServiceRequest
+  deleteServiceRequest,
+  changeUserPassword,
 };

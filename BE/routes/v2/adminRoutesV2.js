@@ -27,6 +27,7 @@ router.get('/users', adminControllerV2.getUsers);
 router.post('/users', adminControllerV2.createUser);
 router.put('/users/:id', adminControllerV2.updateUser);
 router.delete('/users/:id', adminControllerV2.deleteUser);
+router.put('/users/:id/password', adminControllerV2.changeUserPassword);
 
 // Legacy aliases or specific routes if needed
 router.post('/create-user', adminControllerV2.createUser); // Alias for compatibility
