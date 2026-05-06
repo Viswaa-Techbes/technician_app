@@ -278,6 +278,14 @@ export default function AdmissionPage() {
                         : 'border-transparent bg-white hover:border-[#0B4DBA]/20'
                       }`}
                     >
+                      <input 
+                        type="radio"
+                        name="plan"
+                        value={plan.id}
+                        checked={formData.plan === plan.id}
+                        onChange={handleChange}
+                        className="hidden"
+                      />
                       <div className="flex items-center gap-4">
                         <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${formData.plan === plan.id ? 'border-primary' : 'border-gray-300'}`}>
                           {formData.plan === plan.id && <div className="w-3 h-3 rounded-full bg-primary" />}

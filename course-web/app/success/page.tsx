@@ -8,78 +8,85 @@ import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
 import { useSearchParams } from 'next/navigation'
 
-export default function SuccessPage() {
+import { Suspense } from 'react'
+
+function SuccessContent() {
   const searchParams = useSearchParams()
   const id = searchParams?.get('id') || 'ENR-XXXXXX'
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
-    // Confetti effect could go here
   }, [])
 
   if (!mounted) return null
 
   return (
-    <main className="min-h-screen flex flex-col bg-[#F5F9FF]">
-      <Header />
+    <div className="flex-1 flex items-center justify-center pt-32 pb-20 px-4 relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(37,211,102,0.1),transparent_50%)]" />
       
-      <div className="flex-1 flex items-center justify-center pt-32 pb-20 px-4 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(37,211,102,0.1),transparent_50%)]" />
-        
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}
+        className="bg-white/80 backdrop-blur-xl border border-white shadow-[0_20px_80px_rgba(37,211,102,0.15)] rounded-[2rem] p-8 md:p-12 max-w-2xl w-full text-center relative z-10"
+      >
         <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}
-          className="bg-white/80 backdrop-blur-xl border border-white shadow-[0_20px_80px_rgba(37,211,102,0.15)] rounded-[2rem] p-8 md:p-12 max-w-2xl w-full text-center relative z-10"
+          initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 0.2 }}
+          className="w-24 h-24 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-500/30"
         >
-          <motion.div 
-            initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 0.2 }}
-            className="w-24 h-24 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-500/30"
-          >
-            <CheckCircle2 size={48} className="text-white" />
-          </motion.div>
+          <CheckCircle2 size={48} className="text-white" />
+        </motion.div>
 
-          <h1 className="text-4xl md:text-5xl font-black text-primary mb-4">Payment Successful!</h1>
-          <p className="text-lg text-foreground/60 mb-8">
-            Welcome to TECHBES. Your enrollment is confirmed and your tech journey starts now.
-          </p>
+        <h1 className="text-4xl md:text-5xl font-black text-primary mb-4">Payment Successful!</h1>
+        <p className="text-lg text-foreground/60 mb-8">
+          Welcome to TECHBES. Your enrollment is confirmed and your tech journey starts now.
+        </p>
 
-          <div className="bg-primary/5 rounded-2xl p-6 text-left mb-8 border border-primary/10">
-            <p className="text-xs font-bold text-accent uppercase tracking-widest mb-4">Enrollment Details</p>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-foreground/50 font-medium">Enrollment ID</p>
-                <p className="font-bold text-primary">{id}</p>
-              </div>
-              <div>
-                <p className="text-sm text-foreground/50 font-medium">Status</p>
-                <p className="font-bold text-green-600 flex items-center gap-1"><CheckCircle2 size={14}/> Confirmed</p>
-              </div>
-              <div className="col-span-2 mt-2">
-                <p className="text-sm text-foreground/50 font-medium">Course</p>
-                <p className="font-bold text-foreground">CCTV & IT Skill Development Program</p>
-              </div>
+        <div className="bg-primary/5 rounded-2xl p-6 text-left mb-8 border border-primary/10">
+          <p className="text-xs font-bold text-accent uppercase tracking-widest mb-4">Enrollment Details</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-foreground/50 font-medium">Enrollment ID</p>
+              <p className="font-bold text-primary">{id}</p>
+            </div>
+            <div>
+              <p className="text-sm text-foreground/50 font-medium">Status</p>
+              <p className="font-bold text-green-600 flex items-center gap-1"><CheckCircle2 size={14}/> Confirmed</p>
+            </div>
+            <div className="col-span-2 mt-2">
+              <p className="text-sm text-foreground/50 font-medium">Course</p>
+              <p className="font-bold text-foreground">CCTV & IT Skill Development Program</p>
             </div>
           </div>
+        </div>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/dashboard">
-              <motion.button 
-                whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                className="w-full sm:w-auto px-8 py-4 bg-primary text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_30px_rgba(11,77,186,0.3)]"
-              >
-                <Laptop size={20} /> Go to Dashboard
-              </motion.button>
-            </Link>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Link href="/dashboard">
             <motion.button 
               whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-              className="w-full sm:w-auto px-8 py-4 bg-white text-primary font-bold rounded-xl border-2 border-primary/20 flex items-center justify-center gap-2"
+              className="w-full sm:w-auto px-8 py-4 bg-primary text-white font-bold rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_30px_rgba(11,77,186,0.3)]"
             >
-              <Download size={20} /> Download Receipt
+              <Laptop size={20} /> Go to Dashboard
             </motion.button>
-          </div>
-        </motion.div>
-      </div>
-      
+          </Link>
+          <motion.button 
+            whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+            className="w-full sm:w-auto px-8 py-4 bg-white text-primary font-bold rounded-xl border-2 border-primary/20 flex items-center justify-center gap-2"
+          >
+            <Download size={20} /> Download Receipt
+          </motion.button>
+        </div>
+      </motion.div>
+    </div>
+  )
+}
+
+export default function SuccessPage() {
+  return (
+    <main className="min-h-screen flex flex-col bg-[#F5F9FF]">
+      <Header />
+      <Suspense fallback={<div className="flex-1 flex items-center justify-center pt-32 pb-20">Loading...</div>}>
+        <SuccessContent />
+      </Suspense>
       <Footer />
     </main>
   )
