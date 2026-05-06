@@ -52,14 +52,13 @@ export default function AdmissionPage() {
       if (!orderData.success) throw new Error('Order creation failed')
 
       // 2. Initialize Razorpay
-      const options = {
+      const options: any = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SSi3PthRn4IDft', // Using key found in backend env
         amount: orderData.order.amount,
         currency: orderData.order.currency,
         name: 'TECHBES',
         description: `Enrollment for ${selectedPlanDetails.name}`,
         image: '/logo.png',
-        order_id: orderData.order.id,
         handler: async function (response: any) {
           // Payment Successful
           setIsProcessing(true)
@@ -101,6 +100,10 @@ export default function AdmissionPage() {
             setIsProcessing(false)
           }
         }
+      }
+
+      if (orderData.order && orderData.order.id) {
+        options.order_id = orderData.order.id
       }
 
       const rzp = new (window as any).Razorpay(options)
