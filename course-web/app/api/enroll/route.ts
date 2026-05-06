@@ -1,33 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { backendJsonResponse } from '@/lib/backend-api'
+import { NextResponse } from 'next/server'
 
-export async function POST(request: NextRequest) {
+// Simple in-memory DB for demo purposes
+const globalAny = global as any
+if (!globalAny.enrollments) {
+  globalAny.enrollments = []
+}
+
+export async function POST(req: Request) {
   try {
-    const body = await request.json()
-    const { course_id, student_name, student_email, student_phone } = body
-
-    // Validate input
-    if (!course_id || !student_name || !student_email || !student_phone) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
+    const data = await req.json()
+    
+    const newEnrollment = {
+      id: `ENR-${Math.floor(100000 + Math.random() * 900000)}`,
+      txId: `TXN-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+      date: new Date().toISOString(),
+      status: 'Paid',
+      ...data
     }
-
-    return backendJsonResponse('/api/v2/course-enrollments', {
-      method: 'POST',
-      body: JSON.stringify({
-        course_id,
-        student_name,
-        student_email,
-        student_phone,
-      }),
-    })
-  } catch (error: any) {
-    console.error('Error creating enrollment:', error)
-    return NextResponse.json(
-      { error: error.message || 'Failed to process enrollment' },
-      { status: 500 }
-    )
+    
+    globalAny.enrollments.push(newEnrollment)
+    
+    return NextResponse.json({ success: true, enrollment: newEnrollment })
+  } catch (error) {
+    return NextResponse.json({ success: false, error: 'Failed to process enrollment' }, { status: 500 })
   }
+}
+
+export async function GET() {
+  return NextResponse.json({ enrollments: globalAny.enrollments || [] })
 }

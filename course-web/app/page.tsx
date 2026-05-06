@@ -73,7 +73,7 @@ function HeroSection() {
   const y = useTransform(scrollYProgress, [0, 1], ['0%', '30%'])
 
   return (
-    <section ref={ref} className="relative min-h-screen flex items-center overflow-hidden pt-28 pb-16" style={{ position: 'relative' }}>
+    <section ref={ref} className="relative min-h-screen flex items-center overflow-hidden pt-40 md:pt-48 pb-20" style={{ position: 'relative' }}>
       {/* Animated background */}
       <motion.div style={{ y }} className="absolute inset-0 pointer-events-none">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_50%,rgba(11,77,186,0.18),transparent_55%),radial-gradient(ellipse_at_80%_20%,rgba(255,107,0,0.12),transparent_45%),radial-gradient(ellipse_at_60%_80%,rgba(11,77,186,0.10),transparent_50%)]" />
@@ -276,7 +276,7 @@ function PricingSection() {
         </div>
       </Reveal>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12 items-center">
         {plans.map(({ name, price, popular, features: fs }, i) => (
           <Reveal key={name} delay={i * 0.15}>
             <motion.div
