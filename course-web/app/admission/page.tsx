@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
 import { ShieldCheck, CheckCircle2, ChevronRight, Briefcase, GraduationCap, Lock, Star, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import Script from 'next/script'
 
 const plans = [
   { id: 'basic', name: 'Basic Plan', price: 7999, originalPrice: 12000 },
@@ -17,7 +18,6 @@ export default function AdmissionPage() {
   const router = useRouter()
   const [focused, setFocused] = useState<string | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [showGateway, setShowGateway] = useState(false)
   
   const [formData, setFormData] = useState({
     name: '',
@@ -33,51 +33,93 @@ export default function AdmissionPage() {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
-  const handleProceedPayment = (e: React.FormEvent) => {
+  const handleProceedPayment = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsProcessing(true)
     
-    // Simulate gateway initialisation
-    setTimeout(() => {
-      setIsProcessing(false)
-      setShowGateway(true)
-    }, 1500)
-  }
+    const selectedPlanDetails = plans.find(p => p.id === formData.plan)
+    if (!selectedPlanDetails) return
 
-  const handleSimulatePayment = async (success: boolean) => {
-    if (!success) {
-      setShowGateway(false)
-      return
-    }
-
-    setIsProcessing(true)
-    // Save enrollment to API
     try {
-      const selectedPlanDetails = plans.find(p => p.id === formData.plan)
-      const res = await fetch('/api/enroll', {
+      // 1. Create Order
+      const res = await fetch('/api/razorpay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          amountPaid: selectedPlanDetails?.price
-        })
+        body: JSON.stringify({ amount: selectedPlanDetails.price })
       })
-      const data = await res.json()
-      
-      if (data.success) {
-        // Save to local storage for dashboard
-        localStorage.setItem('userEnrollment', JSON.stringify(data.enrollment))
-        router.push(`/success?id=${data.enrollment.id}`)
+      const orderData = await res.json()
+
+      if (!orderData.success) throw new Error('Order creation failed')
+
+      // 2. Initialize Razorpay
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SSi3PthRn4IDft', // Using key found in backend env
+        amount: orderData.order.amount,
+        currency: orderData.order.currency,
+        name: 'TECHBES',
+        description: `Enrollment for ${selectedPlanDetails.name}`,
+        image: '/logo.png',
+        order_id: orderData.order.id,
+        handler: async function (response: any) {
+          // Payment Successful
+          setIsProcessing(true)
+          
+          try {
+            // Save enrollment to API
+            const enrollRes = await fetch('/api/enroll', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ...formData,
+                amountPaid: selectedPlanDetails.price,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpayOrderId: response.razorpay_order_id,
+                razorpaySignature: response.razorpay_signature,
+              })
+            })
+            const enrollData = await enrollRes.json()
+            
+            if (enrollData.success) {
+              localStorage.setItem('userEnrollment', JSON.stringify(enrollData.enrollment))
+              router.push(`/success?id=${enrollData.enrollment.id}`)
+            }
+          } catch (err) {
+            console.error('Enrollment save failed', err)
+            setIsProcessing(false)
+          }
+        },
+        prefill: {
+          name: formData.name,
+          email: formData.email,
+          contact: formData.phone,
+        },
+        theme: {
+          color: '#0B4DBA',
+        },
+        modal: {
+          ondismiss: function() {
+            setIsProcessing(false)
+          }
+        }
       }
-    } catch (err) {
-      console.error(err)
+
+      const rzp = new (window as any).Razorpay(options)
+      rzp.on('payment.failed', function (response: any){
+        alert('Payment Failed! ' + response.error.description)
+        setIsProcessing(false)
+      })
+      rzp.open()
+
+    } catch (error) {
+      console.error('Payment initialization error:', error)
+      alert('Failed to initialize payment gateway. Please try again.')
       setIsProcessing(false)
-      setShowGateway(false)
     }
   }
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#F5F9FF]">
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
       <Header />
 
       <section className="relative pt-36 pb-20 px-4">
@@ -272,40 +314,6 @@ export default function AdmissionPage() {
           </div>
         </div>
       </section>
-
-      {/* FAKE RAZORPAY MODAL (Since we don't have real keys for demo) */}
-      <AnimatePresence>
-        {showGateway && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-              className="bg-white rounded-3xl overflow-hidden shadow-2xl w-full max-w-md"
-            >
-              <div className="bg-[#0B4DBA] text-white p-6 text-center">
-                <img src="/logo.png" alt="Logo" className="h-8 mx-auto mb-4 bg-white/10 p-1 rounded" />
-                <p className="text-sm opacity-80">Test Payment Gateway</p>
-                <h3 className="text-3xl font-black mt-2">₹{plans.find(p => p.id === formData.plan)?.price.toLocaleString()}</h3>
-              </div>
-              <div className="p-8 space-y-4">
-                <p className="text-center font-medium text-foreground/70 mb-6">Choose a payment method to complete your enrollment.</p>
-                
-                <button onClick={() => handleSimulatePayment(true)} className="w-full py-4 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold rounded-xl transition-colors">
-                  Pay via UPI
-                </button>
-                <button onClick={() => handleSimulatePayment(true)} className="w-full py-4 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-xl transition-colors">
-                  Pay via Credit / Debit Card
-                </button>
-                <button onClick={() => handleSimulatePayment(false)} className="w-full py-3 mt-4 text-red-500 font-bold hover:bg-red-50 rounded-xl transition-colors">
-                  Cancel Payment
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <Footer />
     </main>

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
-import { BookOpen, MapPin, CheckCircle2, Clock, Award, Shield, FileText, User } from 'lucide-react'
+import { BookOpen, MapPin, CheckCircle2, Clock, Award, Shield, FileText, User, Lock } from 'lucide-react'
 
 export default function UserDashboard() {
   const [userData, setUserData] = useState<any>(null)
