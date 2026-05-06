@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models.dart';
 import 'widgets.dart';
-import 'services/api_service.dart';
 import 'job_detail_screen.dart';
 import 'providers/job_providers.dart';
 

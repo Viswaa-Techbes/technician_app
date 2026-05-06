@@ -7,7 +7,6 @@ import 'main_screen.dart';
 import 'manager_main_screen.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'core/security/rbac_constants.dart';
-import 'models.dart';
 import 'core/error/error_handler.dart';
 import 'services/push_notification_service.dart';
 

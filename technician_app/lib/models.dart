@@ -1,4 +1,5 @@
 import 'core/security/rbac_constants.dart';
+export 'core/security/rbac_constants.dart';
 
 enum JobStatus { assigned, started, workUploaded, completionRequested, approvedByManager, paymentRequested, paymentPending, paymentDone, completed }
 

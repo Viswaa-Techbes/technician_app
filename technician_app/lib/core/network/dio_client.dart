@@ -46,10 +46,10 @@ final dioProvider = Provider<Dio>((ref) {
   return dio;
 });
 
-class ApiService {
+class DioClient {
   final Dio _dio;
 
-  ApiService(this._dio);
+  DioClient(this._dio);
 
   Future<Response> get(String path, {Map<String, dynamic>? queryParameters}) async {
     try {
@@ -92,4 +92,4 @@ class ApiService {
   }
 }
 
-final apiServiceProvider = Provider((ref) => ApiService(ref.watch(dioProvider)));
+final dioClientProvider = Provider((ref) => DioClient(ref.watch(dioProvider)));

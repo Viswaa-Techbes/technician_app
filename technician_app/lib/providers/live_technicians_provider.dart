@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models.dart';
 import '../services/api_service.dart';
+import '../features/auth/presentation/providers/auth_provider.dart';
 
 final liveTechniciansProvider = StreamProvider.autoDispose<List<Technician>>((ref) async* {
   final api = ref.watch(apiServiceProvider);

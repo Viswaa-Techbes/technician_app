@@ -4,11 +4,10 @@ import '../../models.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../services/secure_storage_service.dart';
 import '../models/user_model.dart';
-import '../../services/api_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
-  final ApiService _apiService;
+  final DioClient _apiService;
   final SecureStorageService _storage;
 
   AuthRepositoryImpl(this._apiService, this._storage);
@@ -53,7 +52,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepositoryImpl(
-    ref.watch(apiServiceProvider),
+    ref.watch(dioClientProvider),
     ref.watch(secureStorageProvider),
   );
 });
