@@ -43,17 +43,12 @@ export function Header() {
           }`}
         >
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
-            <motion.div
-              whileHover={{ rotate: 180 }}
-              transition={{ duration: 0.6 }}
-              className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20"
-            >
-              <span className="text-white font-black text-xl">T</span>
-            </motion.div>
-            <span className="text-2xl font-black tracking-tighter text-primary group-hover:text-primary-dark transition-colors">
-              TECHBES
-            </span>
+          <Link href="/" className="flex items-center group">
+            <img 
+              src="/logo.png" 
+              alt="TECHBES Logo" 
+              className="h-10 md:h-12 w-auto object-contain transition-transform duration-500 group-hover:scale-105" 
+            />
           </Link>
 
           {/* Desktop Nav */}

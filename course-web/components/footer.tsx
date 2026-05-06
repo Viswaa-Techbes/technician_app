@@ -16,10 +16,11 @@ export function Footer() {
           {/* Brand Info */}
           <div className="space-y-6">
             <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20">
-                <span className="text-2xl font-black">T</span>
-              </div>
-              <span className="text-3xl font-black tracking-tighter">TECHBES</span>
+              <img 
+                src="/logo.png" 
+                alt="TECHBES Logo" 
+                className="h-14 md:h-16 w-auto object-contain bg-white/90 p-2 rounded-xl" 
+              />
             </Link>
             <p className="text-lg font-medium text-white/70">
               Skills Today, Career Tomorrow. The leading institute for CCTV and IT skill development.
