@@ -1,337 +1,440 @@
 'use client'
 
+import { motion, useScroll, useTransform } from 'framer-motion'
+import { useRef, useState } from 'react'
+import Link from 'next/link'
 import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
-import { Button } from '@/components/ui/button'
-import { CheckCircle2 } from 'lucide-react'
-import Link from 'next/link'
+import { CinematicVideoFrame, GlassCard, Reveal, SectionShell } from '@/components/premium-ui'
+import {
+  Camera, Network, Cpu, Wrench, BriefcaseBusiness,
+  ShieldCheck, BadgeCheck, Sparkles, Award, Users,
+  ChevronRight, Star, CheckCircle2, Zap, TrendingUp, Globe
+} from 'lucide-react'
 
+/* ─────────────── DATA ─────────────── */
+const features = [
+  { icon: ShieldCheck, label: '100% Practical Training', color: '#0B4DBA' },
+  { icon: Sparkles, label: 'Real Project Internship', color: '#FF6B00' },
+  { icon: Zap, label: 'Job Assistance', color: '#0B4DBA' },
+  { icon: Users, label: 'Industry Expert Trainers', color: '#FF6B00' },
+  { icon: BadgeCheck, label: 'Certificate of Completion', color: '#0B4DBA' },
+]
+
+const modules = [
+  {
+    icon: Camera, color: '#0B4DBA', title: 'CCTV Technology',
+    topics: ['CCTV Basics', 'IP & Analog Cameras', 'Installation & Wiring', 'DVR/NVR Setup', 'Mobile Viewing', 'Troubleshooting'],
+  },
+  {
+    icon: Network, color: '#FF6B00', title: 'Networking',
+    topics: ['Networking Basics', 'IP Addressing', 'Router Configuration', 'LAN & WiFi Setup', 'Switch Configuration'],
+  },
+  {
+    icon: Cpu, color: '#0B4DBA', title: 'Computer Hardware',
+    topics: ['Desktop Assembling', 'Laptop Repair Basics', 'OS Installation', 'Software Installation', 'Virus Removal', 'System Maintenance'],
+  },
+  {
+    icon: Wrench, color: '#FF6B00', title: 'Practical Training',
+    topics: ['Real Site Installations', 'Configuration Practice', 'Fault Finding', 'Client Handling', 'Maintenance Work'],
+  },
+  {
+    icon: BriefcaseBusiness, color: '#0B4DBA', title: 'Business Skills',
+    topics: ['How to Get Clients', 'Pricing & Quotation', 'Sales & Communication', 'Freelancing Tips', 'Start Your Own Business'],
+  },
+]
+
+const careers = [
+  { icon: Camera, role: 'CCTV Technician', desc: 'Install & maintain surveillance systems', salary: '₹15K–₹30K/mo' },
+  { icon: Network, role: 'Network Technician', desc: 'Configure routers, switches & LAN', salary: '₹18K–₹35K/mo' },
+  { icon: Cpu, role: 'IT Support Executive', desc: 'Hardware & software troubleshooting', salary: '₹15K–₹28K/mo' },
+  { icon: Wrench, role: 'Field Service Engineer', desc: 'On-site installation & client service', salary: '₹20K–₹40K/mo' },
+]
+
+const plans = [
+  {
+    name: 'BASIC PLAN', price: '₹7,999', popular: false,
+    features: ['2 Months Classroom Training', 'CCTV Basics & Installation', 'Networking Basics', 'Computer Hardware Basics', 'Practical Lab Sessions', 'Course Completion Certificate', 'Trainer Support During Course', 'Study Materials (PDF)'],
+  },
+  {
+    name: 'JOB READY PLAN', price: '₹14,999', popular: true,
+    features: ['Everything in Basic Plan', '1 Month Real Project Internship', 'Advanced CCTV (IP Camera, NVR)', 'Advanced Networking (Router, Switch)', 'Troubleshooting & Maintenance', 'Mobile App Setup & Configuration', 'Soft Skills & Client Handling', 'Job Assistance & Guidance', 'Certificate + Internship Certificate'],
+  },
+  {
+    name: 'PREMIUM PLAN', price: '₹24,999', popular: false,
+    features: ['Everything in Job Ready Plan', '2 Months Extended Internship', 'Live Project Experience (On Site)', 'Business & Entrepreneurship Training', 'How to Start Your Own CCTV Business', 'Quotation, Pricing & Marketing', 'Placement Assistance', 'Interview Preparation', 'Premium Certificate', 'Lifetime Guidance & Support'],
+  },
+]
+
+/* ─────────────── HERO ─────────────── */
+function HeroSection() {
+  const ref = useRef<HTMLDivElement>(null)
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] })
+  const y = useTransform(scrollYProgress, [0, 1], ['0%', '30%'])
+
+  return (
+    <section ref={ref} className="relative min-h-screen flex items-center overflow-hidden pt-28 pb-16" style={{ position: 'relative' }}>
+      {/* Animated background */}
+      <motion.div style={{ y }} className="absolute inset-0 pointer-events-none">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_50%,rgba(11,77,186,0.18),transparent_55%),radial-gradient(ellipse_at_80%_20%,rgba(255,107,0,0.12),transparent_45%),radial-gradient(ellipse_at_60%_80%,rgba(11,77,186,0.10),transparent_50%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(11,77,186,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(11,77,186,0.04)_1px,transparent_1px)] bg-[size:60px_60px]" />
+        {/* Floating orbs */}
+        {[
+          { w: 500, h: 500, x: '-5%', y: '10%', c: 'rgba(11,77,186,0.08)', d: 8 },
+          { w: 350, h: 350, x: '70%', y: '-5%', c: 'rgba(255,107,0,0.07)', d: 12 },
+          { w: 250, h: 250, x: '85%', y: '55%', c: 'rgba(11,77,186,0.06)', d: 10 },
+        ].map((orb, i) => (
+          <motion.div
+            key={i}
+            animate={{ scale: [1, 1.15, 1], opacity: [0.7, 1, 0.7] }}
+            transition={{ duration: orb.d, repeat: Infinity, ease: 'easeInOut', delay: i * 2 }}
+            className="absolute rounded-full blur-3xl"
+            style={{ width: orb.w, height: orb.h, left: orb.x, top: orb.y, background: orb.c }}
+          />
+        ))}
+      </motion.div>
+
+      <div className="container mx-auto px-4 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          {/* Left */}
+          <div className="space-y-8">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20"
+            >
+              <motion.span animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 2, repeat: Infinity }} className="w-2 h-2 rounded-full bg-accent" />
+              <span className="text-sm font-bold text-primary">Admissions Open – Limited Seats</span>
+            </motion.div>
+
+            <motion.h1
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.1 }}
+              className="text-5xl md:text-6xl lg:text-7xl font-black leading-tight"
+            >
+              <span style={{ color: '#0B4DBA' }}>CCTV &</span>{' '}
+              <span className="relative inline-block">
+                <span style={{ color: '#FF6B00' }}>IT Skill</span>
+                <motion.span
+                  animate={{ scaleX: [0, 1] }}
+                  transition={{ duration: 0.8, delay: 0.9, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute -bottom-1 left-0 right-0 h-1 bg-accent origin-left rounded-full"
+                />
+              </span>
+              <br />
+              <span style={{ color: '#0B4DBA' }}>Development</span>
+              <br />
+              <span style={{ color: '#083B8A' }}>Program</span>
+            </motion.h1>
+
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}>
+              <p className="text-2xl font-bold text-accent">2 Months Training + 1 Month Internship</p>
+              <p className="mt-3 text-lg text-foreground/60 font-medium">
+                Get Job Ready &nbsp;|&nbsp; Work on Real Projects &nbsp;|&nbsp; Build Skills &nbsp;|&nbsp; Build Your Future
+              </p>
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.45 }} className="flex flex-wrap gap-4">
+              <Link href="/admission">
+                <motion.button
+                  whileHover={{ scale: 1.05, boxShadow: '0 0 40px rgba(255,107,0,0.5)' }}
+                  whileTap={{ scale: 0.97 }}
+                  className="px-8 py-4 rounded-2xl text-lg font-black text-white flex items-center gap-2"
+                  style={{ background: 'linear-gradient(135deg,#FF6B00,#e65c00)' }}
+                >
+                  Enroll Now <ChevronRight size={20} />
+                </motion.button>
+              </Link>
+              <Link href="/courses">
+                <motion.button
+                  whileHover={{ scale: 1.05, boxShadow: '0 0 30px rgba(11,77,186,0.3)' }}
+                  whileTap={{ scale: 0.97 }}
+                  className="px-8 py-4 rounded-2xl text-lg font-bold text-primary border-2 border-primary/30 glass-card flex items-center gap-2"
+                >
+                  Explore Courses <ChevronRight size={20} />
+                </motion.button>
+              </Link>
+            </motion.div>
+
+            {/* Feature badges */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.7, delay: 0.6 }} className="flex flex-wrap gap-3 pt-2">
+              {features.map(({ icon: Icon, label, color }, i) => (
+                <motion.div
+                  key={label}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.65 + i * 0.08 }}
+                  whileHover={{ y: -4, boxShadow: `0 8px 30px ${color}25` }}
+                  className="glass-card flex items-center gap-2 px-4 py-2 rounded-xl cursor-default"
+                >
+                  <Icon size={16} style={{ color }} />
+                  <span className="text-sm font-semibold text-foreground/80">{label}</span>
+                </motion.div>
+              ))}
+            </motion.div>
+          </div>
+
+          {/* Right – Video */}
+          <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.9, delay: 0.2 }}>
+            <CinematicVideoFrame />
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ─────────────── COURSE MODULES ─────────────── */
+function CoursesSection() {
+  return (
+    <SectionShell>
+      <Reveal>
+        <div className="text-center mb-16">
+          <p className="text-accent font-bold tracking-widest text-sm uppercase mb-3">What You Will Learn</p>
+          <h2 className="text-4xl md:text-5xl font-black text-primary">Course Modules</h2>
+          <p className="mt-4 text-lg text-foreground/60 max-w-2xl mx-auto">5 comprehensive modules covering every aspect of CCTV installation and IT skills</p>
+        </div>
+      </Reveal>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+        {modules.map(({ icon: Icon, color, title, topics }, i) => (
+          <GlassCard key={title} delay={i * 0.1}>
+            <div className="p-6 space-y-4">
+              <motion.div
+                whileHover={{ rotate: 15 }}
+                className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                style={{ background: `${color}15`, border: `1.5px solid ${color}30` }}
+              >
+                <Icon size={26} style={{ color }} />
+              </motion.div>
+              <h3 className="text-lg font-black text-primary">{title}</h3>
+              <ul className="space-y-2">
+                {topics.map((t) => (
+                  <li key={t} className="flex items-center gap-2 text-sm text-foreground/70">
+                    <CheckCircle2 size={13} style={{ color, flexShrink: 0 }} />
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {/* Glow border on hover */}
+            <div
+              className="absolute inset-0 rounded-[inherit] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+              style={{ boxShadow: `inset 0 0 0 1.5px ${color}50, 0 0 30px ${color}15` }}
+            />
+          </GlassCard>
+        ))}
+      </div>
+    </SectionShell>
+  )
+}
+
+/* ─────────────── CAREER ─────────────── */
+function CareerSection() {
+  return (
+    <SectionShell className="bg-[linear-gradient(135deg,#061f4f,#0B4DBA)]">
+      <Reveal>
+        <div className="text-center mb-16">
+          <p className="text-accent font-bold tracking-widest text-sm uppercase mb-3">After Training</p>
+          <h2 className="text-4xl md:text-5xl font-black text-white">Build a Secure Career</h2>
+          <p className="mt-4 text-xl font-bold text-accent">High Demand | Good Salary | Bright Future</p>
+        </div>
+      </Reveal>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {careers.map(({ icon: Icon, role, desc, salary }, i) => (
+          <GlassCard key={role} delay={i * 0.12}>
+            <div className="p-6 space-y-4 bg-white/5 backdrop-blur-xl rounded-2xl border border-white/15">
+              <div className="w-14 h-14 rounded-2xl bg-accent/20 flex items-center justify-center border border-accent/30">
+                <Icon size={26} className="text-accent" />
+              </div>
+              <h3 className="text-xl font-black text-white">{role}</h3>
+              <p className="text-white/60 text-sm">{desc}</p>
+              <div className="flex items-center gap-2 pt-2">
+                <TrendingUp size={16} className="text-green-400" />
+                <span className="text-green-400 font-bold text-sm">{salary}</span>
+              </div>
+            </div>
+          </GlassCard>
+        ))}
+      </div>
+    </SectionShell>
+  )
+}
+
+/* ─────────────── PRICING ─────────────── */
+function PricingSection() {
+  return (
+    <SectionShell>
+      <Reveal>
+        <div className="text-center mb-16">
+          <p className="text-accent font-bold tracking-widest text-sm uppercase mb-3">Transparent Pricing</p>
+          <h2 className="text-4xl md:text-5xl font-black text-primary">Choose Your Plan</h2>
+          <p className="mt-4 text-lg text-foreground/60">Invest in your future with the right plan</p>
+        </div>
+      </Reveal>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+        {plans.map(({ name, price, popular, features: fs }, i) => (
+          <Reveal key={name} delay={i * 0.15}>
+            <motion.div
+              whileHover={{ y: -12 }}
+              transition={{ type: 'spring', stiffness: 220, damping: 20 }}
+              className={`relative rounded-3xl p-8 flex flex-col gap-6 overflow-hidden ${
+                popular
+                  ? 'bg-gradient-to-b from-[#0B4DBA] to-[#083B8A] text-white shadow-[0_0_60px_rgba(255,107,0,0.35)]'
+                  : 'glass-card'
+              } ${popular ? 'scale-105 md:scale-110 z-10' : ''}`}
+            >
+              {popular && (
+                <>
+                  {/* Pulse border */}
+                  <motion.div
+                    animate={{ opacity: [0.5, 1, 0.5] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="absolute inset-0 rounded-3xl border-2 border-accent pointer-events-none"
+                  />
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="absolute top-4 right-4 bg-accent text-white text-xs font-black px-3 py-1 rounded-full flex items-center gap-1"
+                  >
+                    <Star size={11} fill="white" /> Most Popular
+                  </motion.div>
+                </>
+              )}
+              <div>
+                <p className={`text-sm font-black tracking-widest uppercase mb-2 ${popular ? 'text-accent' : 'text-foreground/50'}`}>{name}</p>
+                <p className={`text-5xl font-black ${popular ? 'text-white' : 'text-primary'}`}>{price}</p>
+              </div>
+              <ul className="space-y-3 flex-1">
+                {fs.map((f) => (
+                  <li key={f} className="flex items-start gap-3 text-sm">
+                    <CheckCircle2 size={16} className={`mt-0.5 flex-shrink-0 ${popular ? 'text-accent' : 'text-primary'}`} />
+                    <span className={popular ? 'text-white/85' : 'text-foreground/70'}>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link href="/admission" className="mt-2">
+                <motion.button
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.97 }}
+                  className={`w-full py-4 rounded-2xl font-black text-base transition-all duration-300 ${
+                    popular
+                      ? 'bg-accent text-white shadow-[0_0_30px_rgba(255,107,0,0.4)] hover:shadow-[0_0_50px_rgba(255,107,0,0.6)]'
+                      : 'bg-primary text-white hover:shadow-[0_8px_30px_rgba(11,77,186,0.35)]'
+                  }`}
+                >
+                  Get Started
+                </motion.button>
+              </Link>
+            </motion.div>
+          </Reveal>
+        ))}
+      </div>
+    </SectionShell>
+  )
+}
+
+/* ─────────────── ADMISSION FORM ─────────────── */
+function AdmissionForm() {
+  const [focused, setFocused] = useState<string | null>(null)
+  const [submitted, setSubmitted] = useState(false)
+
+  const fields = [
+    { id: 'name', label: 'Full Name', type: 'text', placeholder: 'Your full name' },
+    { id: 'phone', label: 'Phone Number', type: 'tel', placeholder: '10-digit mobile number' },
+    { id: 'email', label: 'Email Address', type: 'email', placeholder: 'your@email.com' },
+  ]
+
+  return (
+    <SectionShell>
+      <div className="max-w-2xl mx-auto">
+        <Reveal>
+          <div className="text-center mb-12">
+            <p className="text-accent font-bold tracking-widest text-sm uppercase mb-3">Secure Your Seat</p>
+            <h2 className="text-4xl md:text-5xl font-black text-primary">Apply for Admission</h2>
+            <p className="mt-4 text-lg text-foreground/60">Fill in your details and our team will contact you within 24 hours.</p>
+          </div>
+        </Reveal>
+
+        <Reveal delay={0.15}>
+          <motion.form
+            onSubmit={(e) => { e.preventDefault(); setSubmitted(true) }}
+            className="glass-form rounded-3xl p-8 md:p-12 space-y-6"
+          >
+            {fields.map(({ id, label, type, placeholder }) => (
+              <div key={id} className="relative">
+                <motion.label
+                  animate={focused === id ? { y: -28, scale: 0.8, color: '#0B4DBA' } : { y: 0, scale: 1, color: '#083B8A99' }}
+                  className="absolute left-4 top-4 font-semibold pointer-events-none origin-left z-10 transition-all"
+                >
+                  {label}
+                </motion.label>
+                <input
+                  id={id} type={type} placeholder={focused === id ? placeholder : ''}
+                  onFocus={() => setFocused(id)} onBlur={() => setFocused(null)}
+                  className="w-full px-4 pt-8 pb-3 rounded-2xl bg-white/60 border-2 border-transparent text-foreground font-medium outline-none transition-all duration-300 focus:border-primary focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,77,186,0.1)]"
+                />
+              </div>
+            ))}
+
+            <div className="relative">
+              <label className="block text-sm font-bold text-foreground/60 mb-2">Course Interest</label>
+              <select className="w-full px-4 py-4 rounded-2xl bg-white/60 border-2 border-transparent text-foreground font-medium outline-none transition-all duration-300 focus:border-primary focus:bg-white">
+                <option value="">Select a course</option>
+                <option>CCTV Technology</option>
+                <option>Networking</option>
+                <option>Computer Hardware</option>
+                <option>Full Program (All Modules)</option>
+              </select>
+            </div>
+
+            <div className="relative">
+              <label className="block text-sm font-bold text-foreground/60 mb-2">Preferred Plan</label>
+              <select className="w-full px-4 py-4 rounded-2xl bg-white/60 border-2 border-transparent text-foreground font-medium outline-none transition-all duration-300 focus:border-primary focus:bg-white">
+                <option value="">Select a plan</option>
+                <option>Basic Plan – ₹7,999</option>
+                <option>Job Ready Plan – ₹14,999</option>
+                <option>Premium Plan – ₹24,999</option>
+              </select>
+            </div>
+
+            {submitted ? (
+              <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center py-6">
+                <div className="text-5xl mb-3">🎉</div>
+                <p className="text-xl font-black text-primary">Thank you! We'll contact you shortly.</p>
+              </motion.div>
+            ) : (
+              <motion.button
+                type="submit"
+                whileHover={{ scale: 1.03, boxShadow: '0 0 50px rgba(255,107,0,0.45)' }}
+                whileTap={{ scale: 0.97 }}
+                className="w-full py-5 rounded-2xl text-white text-lg font-black"
+                style={{ background: 'linear-gradient(135deg,#FF6B00,#e65c00)' }}
+              >
+                Submit Application →
+              </motion.button>
+            )}
+          </motion.form>
+        </Reveal>
+      </div>
+    </SectionShell>
+  )
+}
+
+/* ─────────────── PAGE ─────────────── */
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen overflow-x-hidden" style={{ background: '#F5F9FF' }}>
       <Header />
-
-      {/* Hero Section */}
-      <section className="py-16 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            {/* Left Content */}
-            <div className="space-y-6">
-              <div>
-                <h1 className="text-4xl md:text-5xl font-bold mb-4" style={{ color: '#0B4DBA' }}>
-                  CCTV & IT Skill Development Program
-                </h1>
-                <p className="text-2xl font-semibold mb-2" style={{ color: '#FF6B00' }}>
-                  2 Months Training + 1 Month Internship
-                </p>
-                <p className="text-gray-600 text-lg">
-                  Get Job Ready | Work on Real Projects | Build Skills | Build Your Future
-                </p>
-              </div>
-
-              {/* Features List */}
-              <div className="space-y-3 pt-4">
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 size={24} style={{ color: '#FF6B00' }} className="flex-shrink-0 mt-1" />
-                  <span className="text-gray-700 font-medium">100% Practical Training</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 size={24} style={{ color: '#FF6B00' }} className="flex-shrink-0 mt-1" />
-                  <span className="text-gray-700 font-medium">Real Project Internship</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 size={24} style={{ color: '#FF6B00' }} className="flex-shrink-0 mt-1" />
-                  <span className="text-gray-700 font-medium">Job Assistance</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 size={24} style={{ color: '#FF6B00' }} className="flex-shrink-0 mt-1" />
-                  <span className="text-gray-700 font-medium">Industry Expert Trainers</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <CheckCircle2 size={24} style={{ color: '#FF6B00' }} className="flex-shrink-0 mt-1" />
-                  <span className="text-gray-700 font-medium">Certificate of Completion</span>
-                </div>
-              </div>
-
-              {/* CTA Button */}
-              <Link href="/admission">
-                <Button
-                  className="mt-8 px-8 py-3 text-lg font-semibold text-white"
-                  style={{ backgroundColor: '#FF6B00' }}
-                >
-                  Enroll Now
-                </Button>
-              </Link>
-            </div>
-
-            {/* Right Image */}
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-8 h-96 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-6xl mb-4">📹</div>
-                <p className="text-gray-600 font-medium">CCTV & IT Training</p>
-                <p className="text-sm text-gray-500 mt-2">Advanced Hardware Setup</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Course Modules Section */}
-      <section className="py-16" style={{ backgroundColor: '#F5F9FF' }}>
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12" style={{ color: '#0B4DBA' }}>
-            Course Modules
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-            {/* Module 1 */}
-            <div className="bg-white rounded-lg p-6 shadow-sm">
-              <div className="text-4xl mb-4 text-center">🎥</div>
-              <h3 className="text-xl font-bold mb-3" style={{ color: '#0B4DBA' }}>CCTV Technology</h3>
-              <ul className="text-sm text-gray-700 space-y-2">
-                <li>• CCTV Basics</li>
-                <li>• IP & Analog Cameras</li>
-                <li>• Installation & Wiring</li>
-                <li>• DVR/NVR Setup</li>
-                <li>• Mobile Viewing</li>
-                <li>• Troubleshooting</li>
-              </ul>
-            </div>
-
-            {/* Module 2 */}
-            <div className="bg-white rounded-lg p-6 shadow-sm">
-              <div className="text-4xl mb-4 text-center">🌐</div>
-              <h3 className="text-xl font-bold mb-3" style={{ color: '#0B4DBA' }}>Networking</h3>
-              <ul className="text-sm text-gray-700 space-y-2">
-                <li>• Networking Basics</li>
-                <li>• IP Addressing</li>
-                <li>• Router Configuration</li>
-                <li>• LAN & WiFi Setup</li>
-                <li>• Switch Configuration</li>
-              </ul>
-            </div>
-
-            {/* Module 3 */}
-            <div className="bg-white rounded-lg p-6 shadow-sm">
-              <div className="text-4xl mb-4 text-center">💻</div>
-              <h3 className="text-xl font-bold mb-3" style={{ color: '#0B4DBA' }}>Computer Hardware</h3>
-              <ul className="text-sm text-gray-700 space-y-2">
-                <li>• Desktop Assembling</li>
-                <li>• Laptop Repair Basics</li>
-                <li>• OS Installation</li>
-                <li>• Software Installation</li>
-                <li>• Virus Removal</li>
-                <li>• System Maintenance</li>
-              </ul>
-            </div>
-
-            {/* Module 4 */}
-            <div className="bg-white rounded-lg p-6 shadow-sm">
-              <div className="text-4xl mb-4 text-center">🔧</div>
-              <h3 className="text-xl font-bold mb-3" style={{ color: '#0B4DBA' }}>Practical Training</h3>
-              <ul className="text-sm text-gray-700 space-y-2">
-                <li>• Real Site Installations</li>
-                <li>• Configuration Practice</li>
-                <li>• Fault Finding</li>
-                <li>• Client Handling</li>
-                <li>• Maintenance Work</li>
-              </ul>
-            </div>
-
-            {/* Module 5 */}
-            <div className="bg-white rounded-lg p-6 shadow-sm">
-              <div className="text-4xl mb-4 text-center">💼</div>
-              <h3 className="text-xl font-bold mb-3" style={{ color: '#0B4DBA' }}>Business Skills</h3>
-              <ul className="text-sm text-gray-700 space-y-2">
-                <li>• How to Get Clients</li>
-                <li>• Pricing & Quotation</li>
-                <li>• Sales & Communication</li>
-                <li>• Freelancing Tips</li>
-                <li>• Start Your Own Business</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Who Can Join Section */}
-      <section className="py-16 bg-white">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12" style={{ color: '#0B4DBA' }}>
-            Who Can Join
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-            {['10th / 12th Pass Students', 'Diploma / ITI Students', 'Job Seekers', 'Career Switchers', 'Technicians & Electricians'].map((item) => (
-              <div
-                key={item}
-                className="p-6 rounded-lg text-center font-semibold"
-                style={{ backgroundColor: '#F5F9FF', color: '#0B4DBA' }}
-              >
-                {item}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Career Section */}
-      <section className="py-16" style={{ backgroundColor: '#F5F9FF' }}>
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4" style={{ color: '#0B4DBA' }}>
-            Build a Secure Career
-          </h2>
-          <p className="text-center text-lg font-semibold mb-12" style={{ color: '#FF6B00' }}>
-            High Demand | Good Salary | Bright Future
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {['CCTV Technician', 'Network Technician', 'IT Support Executive', 'Field Service Engineer'].map((role) => (
-              <div
-                key={role}
-                className="bg-white rounded-lg p-6 text-center shadow-sm border-l-4"
-                style={{ borderLeftColor: '#FF6B00' }}
-              >
-                <p className="font-bold" style={{ color: '#0B4DBA' }}>
-                  {role}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing Section */}
-      <section className="py-16 bg-white">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12" style={{ color: '#0B4DBA' }}>
-            Course Fees
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-            {/* Basic Plan */}
-            <div className="bg-white border-2 border-gray-200 rounded-lg p-8">
-              <h3 className="text-xl font-bold mb-2" style={{ color: '#0B4DBA' }}>
-                BASIC PLAN
-              </h3>
-              <p className="text-3xl font-bold mb-6" style={{ color: '#FF6B00' }}>
-                ₹7,999
-              </p>
-              <ul className="text-sm text-gray-700 space-y-2 mb-8">
-                <li>✓ 2 Months Classroom Training</li>
-                <li>✓ CCTV Basics & Installation</li>
-                <li>✓ Networking Basics</li>
-                <li>✓ Computer Hardware Basics</li>
-                <li>✓ Practical Lab Sessions</li>
-                <li>✓ Course Completion Certificate</li>
-                <li>✓ Trainer Support During Course</li>
-                <li>✓ Study Materials (PDF)</li>
-              </ul>
-              <Link href="/admission">
-                <Button className="w-full text-white" style={{ backgroundColor: '#0B4DBA' }}>
-                  Select Plan
-                </Button>
-              </Link>
-            </div>
-
-            {/* Job Ready Plan - Featured */}
-            <div className="bg-white border-2 rounded-lg p-8 md:scale-105" style={{ borderColor: '#FF6B00' }}>
-              <div
-                className="text-center text-white font-bold py-1 px-3 rounded mb-4 inline-block w-full"
-                style={{ backgroundColor: '#FF6B00' }}
-              >
-                Most Popular
-              </div>
-              <h3 className="text-xl font-bold mb-2" style={{ color: '#0B4DBA' }}>
-                JOB READY PLAN
-              </h3>
-              <p className="text-3xl font-bold mb-6" style={{ color: '#FF6B00' }}>
-                ₹14,999
-              </p>
-              <ul className="text-sm text-gray-700 space-y-2 mb-8">
-                <li>✓ Everything in Basic Plan</li>
-                <li>✓ 1 Month Real Project Internship</li>
-                <li>✓ Advanced CCTV (IP Camera, NVR)</li>
-                <li>✓ Advanced Networking (Router, Switch)</li>
-                <li>✓ Troubleshooting & Maintenance</li>
-                <li>✓ Mobile App Setup & Configuration</li>
-                <li>✓ Soft Skills & Client Handling</li>
-                <li>✓ Job Assistance & Guidance</li>
-                <li>✓ Certificate + Internship Certificate</li>
-              </ul>
-              <Link href="/admission">
-                <Button className="w-full text-white" style={{ backgroundColor: '#FF6B00' }}>
-                  Select Plan
-                </Button>
-              </Link>
-            </div>
-
-            {/* Premium Plan */}
-            <div className="bg-white border-2 border-gray-200 rounded-lg p-8">
-              <h3 className="text-xl font-bold mb-2" style={{ color: '#0B4DBA' }}>
-                PREMIUM PLAN
-              </h3>
-              <p className="text-3xl font-bold mb-6" style={{ color: '#FF6B00' }}>
-                ₹24,999
-              </p>
-              <ul className="text-sm text-gray-700 space-y-2 mb-8">
-                <li>✓ Everything in Job Ready Plan</li>
-                <li>✓ 2 Months Extended Internship</li>
-                <li>✓ Live Project Experience (On Site)</li>
-                <li>✓ Business & Entrepreneurship Training</li>
-                <li>✓ How to Start Your Own CCTV Business</li>
-                <li>✓ Quotation, Pricing & Marketing</li>
-                <li>✓ Placement Assistance</li>
-                <li>✓ Interview Preparation</li>
-                <li>✓ Premium Certificate</li>
-                <li>✓ Lifetime Guidance & Support</li>
-              </ul>
-              <Link href="/admission">
-                <Button className="w-full text-white" style={{ backgroundColor: '#0B4DBA' }}>
-                  Select Plan
-                </Button>
-              </Link>
-            </div>
-          </div>
-
-          {/* Why Choose Us */}
-          <div className="bg-gray-50 rounded-lg p-8 text-center">
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-              <div>
-                <div className="text-3xl mb-2">✓</div>
-                <p className="font-semibold" style={{ color: '#0B4DBA' }}>
-                  100% Practical Training
-                </p>
-              </div>
-              <div>
-                <div className="text-3xl mb-2">✓</div>
-                <p className="font-semibold" style={{ color: '#0B4DBA' }}>
-                  Small Batch Size
-                </p>
-              </div>
-              <div>
-                <div className="text-3xl mb-2">✓</div>
-                <p className="font-semibold" style={{ color: '#0B4DBA' }}>
-                  Hands-on Lab Practice
-                </p>
-              </div>
-              <div>
-                <div className="text-3xl mb-2">✓</div>
-                <p className="font-semibold" style={{ color: '#0B4DBA' }}>
-                  Certificate of Completion
-                </p>
-              </div>
-              <div>
-                <div className="text-3xl mb-2">✓</div>
-                <p className="font-semibold" style={{ color: '#0B4DBA' }}>
-                  Lifetime Mentor Support
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
+      <HeroSection />
+      <CoursesSection />
+      <CareerSection />
+      <PricingSection />
+      <AdmissionForm />
       <Footer />
     </main>
   )

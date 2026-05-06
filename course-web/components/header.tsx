@@ -1,102 +1,123 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
-import { Button } from '@/components/ui/button'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Menu, X } from 'lucide-react'
-import { useState } from 'react'
+import { Button } from '@/components/ui/button'
+
+const navLinks = [
+  { name: 'Home', href: '/' },
+  { name: 'Courses', href: '/courses' },
+  { name: 'Admission', href: '/admission' },
+  { name: 'Internship', href: '/internship' },
+  { name: 'Enquiry', href: '/enquiry' },
+  { name: 'Contact', href: '/contact' },
+]
 
 export function Header() {
+  const [isScrolled, setIsScrolled] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
 
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20)
+    }
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
   return (
-    <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        {/* Logo */}
-        <Link href="/" className="flex items-center">
-          <Image
-            src="/logo.png"
-            alt="TECHBES Logo"
-            width={140}
-            height={50}
-            className="h-12 w-auto"
-            priority
-          />
-        </Link>
-
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-8">
-          <Link href="/" className="text-sm font-medium" style={{ color: '#0B4DBA' }}>
-            Home
-          </Link>
-          <Link href="/courses" className="text-sm font-medium" style={{ color: '#0B4DBA' }}>
-            Courses
-          </Link>
-          <Link href="/admission" className="text-sm font-medium" style={{ color: '#0B4DBA' }}>
-            Admission
-          </Link>
-          <Link href="/internship" className="text-sm font-medium" style={{ color: '#0B4DBA' }}>
-            Internship
-          </Link>
-          <Link href="/enquiry" className="text-sm font-medium" style={{ color: '#0B4DBA' }}>
-            Enquiry
-          </Link>
-          <Link href="/contact" className="text-sm font-medium" style={{ color: '#0B4DBA' }}>
-            Contact
-          </Link>
-        </nav>
-
-        {/* CTA Button */}
-        <div className="hidden md:block">
-          <Button
-            className="font-medium text-white"
-            style={{ backgroundColor: '#FF6B00' }}
-          >
-            Admissions Open
-          </Button>
-        </div>
-
-        {/* Mobile Menu Button */}
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="md:hidden"
-          style={{ color: '#0B4DBA' }}
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
+        isScrolled ? 'py-3' : 'py-6'
+      }`}
+    >
+      <div className="container mx-auto px-4">
+        <motion.nav
+          initial={{ y: -100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+          className={`relative flex items-center justify-between px-6 py-3 rounded-2xl transition-all duration-500 ${
+            isScrolled ? 'glass-nav shadow-lg' : 'bg-transparent'
+          }`}
         >
-          {isOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2 group">
+            <motion.div
+              whileHover={{ rotate: 180 }}
+              transition={{ duration: 0.6 }}
+              className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20"
+            >
+              <span className="text-white font-black text-xl">T</span>
+            </motion.div>
+            <span className="text-2xl font-black tracking-tighter text-primary group-hover:text-primary-dark transition-colors">
+              TECHBES
+            </span>
+          </Link>
+
+          {/* Desktop Nav */}
+          <div className="hidden md:flex items-center gap-8">
+            {navLinks.map((link) => (
+              <Link
+                key={link.name}
+                href={link.href}
+                className="relative text-sm font-semibold text-foreground/80 hover:text-primary transition-colors group"
+              >
+                {link.name}
+                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-300 group-hover:w-full" />
+              </Link>
+            ))}
+          </div>
+
+          {/* Right Side */}
+          <div className="hidden md:flex items-center gap-4">
+            <Link href="/admission">
+              <Button className="glow-button bg-accent hover:bg-accent/90 text-white font-bold px-6 py-2 rounded-xl border-none">
+                Admissions Open
+              </Button>
+            </Link>
+          </div>
+
+          {/* Mobile Menu Toggle */}
+          <button
+            className="md:hidden text-primary p-2"
+            onClick={() => setIsOpen(!isOpen)}
+          >
+            {isOpen ? <X size={28} /> : <Menu size={28} />}
+          </button>
+        </motion.nav>
       </div>
 
-      {/* Mobile Navigation */}
-      {isOpen && (
-        <nav className="md:hidden bg-white border-t border-gray-200">
-          <div className="container mx-auto px-4 py-4 space-y-3">
-            <Link href="/" className="block text-sm font-medium" style={{ color: '#0B4DBA' }}>
-              Home
-            </Link>
-            <Link href="/courses" className="block text-sm font-medium" style={{ color: '#0B4DBA' }}>
-              Courses
-            </Link>
-            <Link href="/admission" className="block text-sm font-medium" style={{ color: '#0B4DBA' }}>
-              Admission
-            </Link>
-            <Link href="/internship" className="block text-sm font-medium" style={{ color: '#0B4DBA' }}>
-              Internship
-            </Link>
-            <Link href="/enquiry" className="block text-sm font-medium" style={{ color: '#0B4DBA' }}>
-              Enquiry
-            </Link>
-            <Link href="/contact" className="block text-sm font-medium" style={{ color: '#0B4DBA' }}>
-              Contact
-            </Link>
-            <Button
-              className="w-full font-medium text-white"
-              style={{ backgroundColor: '#FF6B00' }}
-            >
-              Admissions Open
-            </Button>
-          </div>
-        </nav>
-      )}
+      {/* Mobile Menu */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="md:hidden glass-nav overflow-hidden mx-4 mt-2 rounded-2xl border border-white/20 shadow-xl"
+          >
+            <div className="flex flex-col gap-4 p-6">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.name}
+                  href={link.href}
+                  className="text-lg font-bold text-foreground hover:text-primary"
+                  onClick={() => setIsOpen(false)}
+                >
+                  {link.name}
+                </Link>
+              ))}
+              <Link href="/admission" onClick={() => setIsOpen(false)}>
+                <Button className="w-full bg-accent text-white font-bold py-4">
+                  Admissions Open
+                </Button>
+              </Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   )
 }

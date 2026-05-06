@@ -1,5 +1,4 @@
 import { Resend } from 'resend'
-import { createClient } from '@/lib/supabase/server'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -37,16 +36,6 @@ export async function sendEnrollmentConfirmation(
       html: htmlContent,
     })
 
-    // Log the email
-    const supabase = await createClient()
-    await supabase.from('email_logs').insert({
-      recipient_email: studentEmail,
-      template_type: 'enrollment_confirmation',
-      subject: `Enrollment Confirmation - ${courseTitle}`,
-      status: result.error ? 'failed' : 'sent',
-      error_message: result.error?.message || null,
-    })
-
     return result
   } catch (error) {
     console.error('Error sending enrollment confirmation:', error)
@@ -78,16 +67,6 @@ export async function sendInquiryResponse(
       to: inquirerEmail,
       subject: 'Response to Your Inquiry - TECHBES',
       html: htmlContent,
-    })
-
-    // Log the email
-    const supabase = await createClient()
-    await supabase.from('email_logs').insert({
-      recipient_email: inquirerEmail,
-      template_type: 'inquiry_response',
-      subject: 'Response to Your Inquiry - TECHBES',
-      status: result.error ? 'failed' : 'sent',
-      error_message: result.error?.message || null,
     })
 
     return result
@@ -123,16 +102,6 @@ export async function sendWelcomeEmail(email: string, name: string) {
       to: email,
       subject: 'Welcome to TECHBES!',
       html: htmlContent,
-    })
-
-    // Log the email
-    const supabase = await createClient()
-    await supabase.from('email_logs').insert({
-      recipient_email: email,
-      template_type: 'welcome',
-      subject: 'Welcome to TECHBES!',
-      status: result.error ? 'failed' : 'sent',
-      error_message: result.error?.message || null,
     })
 
     return result

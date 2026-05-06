@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { backendJsonResponse } from '@/lib/backend-api'
 
 export async function GET() {
   try {
-    const supabase = await createClient()
-
-    const { data, error } = await supabase
-      .from('inquiries')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (error) throw error
-
-    return NextResponse.json({ inquiries: data || [] })
+    return backendJsonResponse('/api/v2/course-inquiries')
   } catch (error: any) {
     console.error('Error fetching inquiries:', error)
     return NextResponse.json(
@@ -24,7 +15,6 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
     const body = await request.json()
 
     const { name, email, phone, message, course_interest } = body
@@ -36,21 +26,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data, error } = await supabase
-      .from('inquiries')
-      .insert({
+    return backendJsonResponse('/api/v2/course-inquiries', {
+      method: 'POST',
+      body: JSON.stringify({
         name,
         email,
         phone,
         message,
         course_interest: course_interest || null,
-      })
-      .select()
-      .single()
-
-    if (error) throw error
-
-    return NextResponse.json({ inquiry: data })
+      }),
+    })
   } catch (error: any) {
     console.error('Error creating inquiry:', error)
     return NextResponse.json(

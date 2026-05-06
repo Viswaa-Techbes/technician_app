@@ -1,23 +1,17 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
 @import 'tailwindcss';
 
 @theme inline {
-  --font-sans: 'Poppins', 'Poppins Fallback';
-  --font-mono: 'Poppins', 'Poppins Fallback';
-  --color-border: #e5e5e5;
-  --color-ring: #0B4DBA;
-  --color-background: #ffffff;
-  --color-foreground: #083B8A;
+  --font-sans: 'Poppins', Arial, Helvetica, sans-serif;
+  --font-mono: 'Courier New', monospace;
+  
   --color-primary: #0B4DBA;
-  --color-primary-foreground: #ffffff;
-  --color-secondary: #FF6B00;
-  --color-secondary-foreground: #ffffff;
+  --color-primary-dark: #083B8A;
   --color-accent: #FF6B00;
-  --color-accent-foreground: #ffffff;
-  --color-card: #ffffff;
-  --color-card-foreground: #0B4DBA;
-  --color-muted: #f5f5f5;
-  --color-muted-foreground: #666666;
+  --color-background: #F5F9FF;
+  --color-foreground: #083B8A;
+  
+  --color-border: rgba(11, 77, 186, 0.12);
+  --color-ring: #0B4DBA;
 }
 
 @layer base {
@@ -25,6 +19,47 @@
     @apply border-[color:var(--color-border)] outline-[color:var(--color-ring)];
   }
   body {
-    @apply bg-[color:var(--color-background)] text-[color:var(--color-foreground)];
+    @apply bg-background text-foreground overflow-x-hidden selection:bg-accent selection:text-white;
   }
+}
+
+@layer utilities {
+  .glass-nav {
+    @apply bg-white/65 backdrop-blur-2xl border-b border-white/45;
+  }
+  
+  .glass-card {
+    @apply bg-white/45 backdrop-blur-xl border border-white/55 shadow-[0_12px_45px_rgba(11,77,186,0.06)];
+  }
+  
+  .glass-form {
+    @apply bg-white/75 backdrop-blur-2xl border border-white/65 shadow-[0_22px_75px_rgba(11,77,186,0.12)];
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
+  }
+  
+  .glow-button {
+    @apply relative overflow-hidden shadow-[0_0_20px_rgba(255,107,0,0.38)] hover:shadow-[0_0_35px_rgba(255,107,0,0.52)] transition-all duration-300;
+  }
+
+  .glow-border {
+    @apply relative before:absolute before:inset-0 before:p-[1px] before:bg-gradient-to-r before:from-primary/50 before:to-accent/50 before:rounded-[inherit] before:content-[''] before:pointer-events-none before:z-[1];
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #0B4DBA;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #083B8A;
 }

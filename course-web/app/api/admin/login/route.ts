@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { loginAdmin } from '@/lib/admin-auth'
+import { backendJsonResponse } from '@/lib/backend-api'
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,18 +12,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = await loginAdmin(email, password)
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error },
-        { status: 401 }
-      )
-    }
-
-    return NextResponse.json({
-      success: true,
-      admin: result.admin,
+    return backendJsonResponse('/api/v2/course-admin/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
     })
   } catch (error) {
     console.error('Login error:', error)

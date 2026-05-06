@@ -6,7 +6,6 @@ import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { createClient } from '@/lib/supabase/client'
 import { Calendar, Users, BookOpen, CheckCircle, AlertCircle } from 'lucide-react'
 
 interface Course {
@@ -40,16 +39,11 @@ export default function CourseDetailsPage() {
   useEffect(() => {
     const fetchCourse = async () => {
       try {
-        const supabase = createClient()
-        const { data, error } = await supabase
-          .from('courses')
-          .select('*')
-          .eq('id', courseId)
-          .eq('status', 'published')
-          .single()
+        const response = await fetch(`/api/courses/${courseId}?status=published`)
+        const data = await response.json()
 
-        if (error) throw error
-        setCourse(data)
+        if (!response.ok) throw new Error(data.error || 'Failed to fetch course')
+        setCourse(data.course)
       } catch (error) {
         console.error('Error fetching course:', error)
       } finally {

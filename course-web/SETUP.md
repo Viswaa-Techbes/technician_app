@@ -1,46 +1,31 @@
 # TECHBES Training Institute - Setup Guide
 
-## Database Setup
+## Backend Setup
 
-The database schema and sample courses have already been created in Supabase. The following tables are available:
+The course web now uses the shared Node/Mongo backend instead of Supabase. The backend exposes these Render-backed APIs:
 
-- **courses** - Course catalog with pricing, duration, and instructor info
-- **enrollments** - Student enrollments with payment tracking
-- **inquiries** - Contact form submissions
-- **email_logs** - Email delivery tracking
-- **admins** - Admin user credentials
+- `GET/POST /api/v2/courses`
+- `GET/DELETE /api/v2/courses/:id`
+- `GET/POST /api/v2/course-enrollments`
+- `PATCH /api/v2/course-enrollments/:id`
+- `GET/POST /api/v2/course-inquiries`
+- `PATCH /api/v2/course-inquiries/:id`
+- `POST /api/v2/course-admin/login`
 
 ## Initial Admin Setup
 
-To access the admin dashboard, you need to create an admin user:
+To access the course admin dashboard, configure these variables on the backend Render service:
 
-1. Go to your Supabase dashboard
-2. In the SQL editor, run the following command to create your first admin:
-
-```sql
-INSERT INTO public.admins (email, password_hash, name, is_active) VALUES
-('admin@techbes.com', '$2b$10$...[your hashed password]...', 'Admin User', true);
-```
-
-**Important**: The password hash is a bcrypt hash. For testing, you can use an online bcrypt generator or create a script.
-
-### Quick Admin Creation
-
-For development, you can use Node.js to hash a password:
-
-```bash
-node -e "require('bcryptjs').hash('your-password', 10, (e, h) => console.log(h))"
-```
-
-Then insert it into the admins table.
+- `COURSE_ADMIN_EMAIL`
+- `COURSE_ADMIN_PASSWORD`
+- `COURSE_ADMIN_NAME` optional
 
 ## Environment Variables
 
-All required environment variables are automatically set up by Supabase integration:
+Set the backend URL in the course web environment:
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `BACKEND_API_URL=https://technician-app.onrender.com`
+- `NEXT_PUBLIC_BACKEND_API_URL=https://technician-app.onrender.com`
 
 For email functionality with Resend, add:
 - `RESEND_API_KEY` - Your Resend API key from https://resend.com

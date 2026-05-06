@@ -1,25 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { backendJsonResponse } from '@/lib/backend-api'
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient()
     const body = await request.json()
-    const { id } = params
-
-    const { data, error } = await supabase
-      .from('inquiries')
-      .update(body)
-      .eq('id', id)
-      .select()
-      .single()
-
-    if (error) throw error
-
-    return NextResponse.json({ inquiry: data })
+    const { id } = await params
+    return backendJsonResponse(`/api/v2/course-inquiries/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
   } catch (error: any) {
     console.error('Error updating inquiry:', error)
     return NextResponse.json(

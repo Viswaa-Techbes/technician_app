@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { backendJsonResponse } from '@/lib/backend-api'
 
 export async function GET() {
   try {
-    const supabase = await createClient()
-
-    const { data, error } = await supabase
-      .from('enrollments')
-      .select('*')
-      .order('enrollment_date', { ascending: false })
-
-    if (error) throw error
-
-    return NextResponse.json({ enrollments: data || [] })
+    return backendJsonResponse('/api/v2/course-enrollments')
   } catch (error: any) {
     console.error('Error fetching enrollments:', error)
     return NextResponse.json(
@@ -24,7 +15,6 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
     const body = await request.json()
 
     const { course_id, student_name, student_email, student_phone } = body
@@ -36,20 +26,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data, error } = await supabase
-      .from('enrollments')
-      .insert({
+    return backendJsonResponse('/api/v2/course-enrollments', {
+      method: 'POST',
+      body: JSON.stringify({
         course_id,
         student_name,
         student_email,
         student_phone,
-      })
-      .select()
-      .single()
-
-    if (error) throw error
-
-    return NextResponse.json({ enrollment: data })
+      }),
+    })
   } catch (error: any) {
     console.error('Error creating enrollment:', error)
     return NextResponse.json(

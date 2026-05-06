@@ -1,5 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
 import crypto from 'crypto'
+import { backendRequest } from '@/lib/backend-api'
 
 export async function hashPassword(password: string): Promise<string> {
   return crypto.createHash('sha256').update(password).digest('hex')
@@ -14,34 +14,17 @@ export async function verifyPassword(
 }
 
 export async function loginAdmin(email: string, password: string) {
-  const supabase = await createClient()
+  const response = await backendRequest('/api/v2/course-admin/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  })
+  const data = await response.json().catch(() => ({}))
 
-  // Query admins table directly
-  const { data: admin, error } = await supabase
-    .from('admins')
-    .select('*')
-    .eq('email', email)
-    .eq('is_active', true)
-    .single()
-
-  if (error || !admin) {
-    return { success: false, error: 'Invalid credentials' }
+  if (!response.ok) {
+    return { success: false, error: data.message || 'Invalid credentials' }
   }
 
-  // Verify password
-  const passwordMatch = await verifyPassword(password, admin.password_hash)
-  if (!passwordMatch) {
-    return { success: false, error: 'Invalid credentials' }
-  }
-
-  // Create session in cookies
-  const sessionData = {
-    admin_id: admin.id,
-    email: admin.email,
-    name: admin.name,
-  }
-
-  return { success: true, admin: sessionData }
+  return { success: true, admin: data.admin }
 }
 
 export async function createAdminUser(
@@ -49,22 +32,9 @@ export async function createAdminUser(
   password: string,
   name: string
 ) {
-  const supabase = await createClient()
   const passwordHash = await hashPassword(password)
-
-  const { data, error } = await supabase
-    .from('admins')
-    .insert({
-      email,
-      password_hash: passwordHash,
-      name,
-    })
-    .select()
-    .single()
-
-  if (error) {
-    return { success: false, error: error.message }
+  return {
+    success: false,
+    error: `Create admin users in the backend environment. Suggested values: COURSE_ADMIN_EMAIL=${email}, COURSE_ADMIN_NAME=${name}, COURSE_ADMIN_PASSWORD=<password>. Local hash: ${passwordHash}`,
   }
-
-  return { success: true, admin: data }
 }
