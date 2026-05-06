@@ -25,7 +25,7 @@ async function loginUser(mobileNumber, password) {
 }
 
 async function registerUser(userData) {
-  const { name, mobileNumber, email, password, role = 'technician', phone, specialty, assignedManager } = userData;
+  const { name, mobileNumber, email, password, role = 'technician', phone, specialty, assignedManager, userType } = userData;
 
   if (!mobileNumber || !password) {
     throw new Error('mobileNumber and password are required');
@@ -55,6 +55,7 @@ async function registerUser(userData) {
     phone: phone ?? normalizedMobile,
     specialty,
     assignedManager,
+    userType,
   });
 
   const token = signToken(user._id, user.role);

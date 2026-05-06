@@ -26,7 +26,7 @@ async function login(req, res, next) {
 
 async function register(req, res, next) {
   try {
-    const { token, user } = await authService.registerUser(req.body);
+    const { token, user } = await authService.registerUser({ ...req.body, userType: 'web_user' });
 
     return res.status(201).json({
       success: true,

@@ -91,6 +91,11 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    userType: {
+      type: String,
+      enum: ['member', 'web_user'],
+      default: 'member',
+    },
   },
   { timestamps: true }
 );

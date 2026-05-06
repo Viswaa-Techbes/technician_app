@@ -3,6 +3,7 @@ const Lead = require('../../models/Lead');
 const Job = require('../../models/Job');
 const Review = require('../../models/Review');
 const Attendance = require('../../models/Attendance');
+const Career = require('../../models/Career');
 
 /**
  * Bookings (v2 service requests)
@@ -192,7 +193,7 @@ async function getUsers(req, res, next) {
 
 async function createUser(req, res, next) {
   try {
-    const user = await User.create(req.body);
+    const user = await User.create({ ...req.body, userType: 'member' });
     const safeUser = user.toSafeObject();
     return res.status(201).json({ success: true, data: { ...safeUser, password: req.body.password } });
   } catch (err) {
@@ -586,6 +587,27 @@ async function changeUserPassword(req, res, next) {
   }
 }
 
+async function getApplications(req, res, next) {
+  try {
+    const applications = await Career.find().sort({ createdAt: -1 });
+    res.json({ success: true, data: applications });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateApplicationStatus(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const application = await Career.findByIdAndUpdate(id, { status }, { new: true });
+    if (!application) return res.status(404).json({ success: false, message: 'Application not found' });
+    res.json({ success: true, message: `Status updated to ${status}`, data: application });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getBookings,
   assignBooking,
@@ -612,4 +634,6 @@ module.exports = {
   updateServiceRequest,
   deleteServiceRequest,
   changeUserPassword,
+  getApplications,
+  updateApplicationStatus,
 };

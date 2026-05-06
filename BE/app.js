@@ -24,6 +24,7 @@ const locationRoutesV2 = require('./routes/v2/locationRoutesV2');
 const adminRoutesV2 = require('./routes/v2/adminRoutesV2');
 const uploadRoutesV2 = require('./routes/v2/uploadRoutesV2');
 const analyticsRoutesV2 = require('./routes/v2/analyticsRoutesV2');
+const careerRoutesV2 = require('./routes/v2/careerRoutesV2');
 
 const errorHandler = require('./middlewares/errorHandler');
 
@@ -68,6 +69,7 @@ app.use('/api/v2/location', locationRoutesV2);
 app.use('/api/v2/admin', adminRoutesV2);
 app.use('/api/v2/upload', uploadRoutesV2);
 app.use('/api/v2/analytics', analyticsRoutesV2);
+app.use('/api/v2/careers', careerRoutesV2);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });
