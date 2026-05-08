@@ -201,6 +201,7 @@ class _FieldMapScreenState extends ConsumerState<FieldMapScreen> {
           _mapController?.setMapStyle(_mapStyle);
           _fitMarkers();
         },
+        myLocationEnabled: true,
         myLocationButtonEnabled: true,
         zoomControlsEnabled: false,
         mapToolbarEnabled: false,

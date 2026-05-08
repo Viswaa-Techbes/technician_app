@@ -7,7 +7,7 @@ const router = express.Router();
 
 // Compatibility with Frontend ApiService
 router.get('/tasks', authenticate, requireRoles('technician'), jobController.listJobs);
-router.patch('/tasks/:id/status', authenticate, requireRoles('technician'), jobController.updateJobStatus);
+router.patch('/tasks/:id/status', authenticate, requireRoles('technician', 'manager', 'admin'), jobController.updateJobStatus);
 router.patch('/location', authenticate, requireRoles('technician'), (req, res, next) => {
     // Alias to updateStatus but using self ID
     req.params.id = req.user.id;

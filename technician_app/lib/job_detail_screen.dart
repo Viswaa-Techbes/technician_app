@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
+import 'dart:io';
 import 'services/api_service.dart';
 import 'models.dart';
 import 'widgets.dart';
@@ -10,8 +11,10 @@ import 'features/job_description/widgets/job_description_section.dart';
 import 'features/reviews/screens/submit_review_screen.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'core/payments/razorpay_config.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class JobDetailScreen extends ConsumerStatefulWidget {
   final Job job;
@@ -388,8 +391,12 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   }
 
   Widget _buildMapCard() {
+    final double lat = widget.job.latitude ?? 13.0827;
+    final double lng = widget.job.longitude ?? 80.2707;
+    final LatLng position = LatLng(lat, lng);
+
     return Container(
-      height: 260,
+      height: 300,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: const Color(0xFFF0F7FF),
@@ -405,56 +412,18 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
       ),
       child: Stack(
         children: [
-          // Decorative grid lines
-          Positioned.fill(
-            child: CustomPaint(painter: _MapGridPainter()),
-          ),
-          // Decorative rings
-          Positioned(
-            top: 40,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFF3B82F6).withValues(alpha: 0.08),
-                    width: 1.5,
-                  ),
-                ),
-                child: Center(
-                  child: Container(
-                    width: 70,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFF3B82F6).withValues(alpha: 0.12),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: Center(
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(0xFF2563EB).withValues(alpha: 0.15),
-                        ),
-                        child: const Icon(
-                          Icons.location_on_rounded,
-                          color: Color(0xFF2563EB),
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+          GoogleMap(
+            initialCameraPosition: CameraPosition(target: position, zoom: 15),
+            markers: {
+              Marker(
+                markerId: MarkerId(widget.job.id),
+                position: position,
+                infoWindow: InfoWindow(title: widget.job.customerName, snippet: widget.job.address),
               ),
-            ),
+            },
+            zoomControlsEnabled: false,
+            myLocationButtonEnabled: false,
+            liteModeEnabled: true, // Optimized for simple display
           ),
           // Address chip
           Positioned(
@@ -463,7 +432,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Colors.white.withValues(alpha: 0.9),
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
@@ -491,70 +460,14 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
               ),
             ),
           ),
-          // Location chip
+          // Navigation button overlay
           Positioned(
-            top: 16,
+            bottom: 16,
             right: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2563EB).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                widget.job.googleMapsLink != null ? 'Map Link Attached' : '${widget.job.latitude ?? 0.0}° N, ${widget.job.longitude ?? 0.0}° E',
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF2563EB),
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
-          ),
-          // Navigation button
-          Positioned(
-            bottom: 20,
-            left: 20,
-            right: 20,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: _openGoogleMapsNavigation,
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  height: 56,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF2563EB).withValues(alpha: 0.35),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.near_me_rounded, color: Colors.white, size: 20),
-                      SizedBox(width: 10),
-                      Text(
-                        'NAVIGATION',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 14,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            child: FloatingActionButton.small(
+              onPressed: _openGoogleMapsNavigation,
+              backgroundColor: const Color(0xFF2563EB),
+              child: const Icon(Icons.near_me_rounded, color: Colors.white, size: 18),
             ),
           ),
         ],
@@ -671,34 +584,100 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   }
 
   Future<void> _uploadWork() async {
+    final source = await showModalBottomSheet<_WorkProofSource>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Upload work proof',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Take a fresh site photo or choose images from your gallery.',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 20),
+              _buildWorkProofSourceTile(
+                icon: Icons.photo_camera_rounded,
+                title: 'Open camera',
+                subtitle: 'Capture one photo now',
+                onTap: () => Navigator.pop(context, _WorkProofSource.camera),
+              ),
+              const SizedBox(height: 12),
+              _buildWorkProofSourceTile(
+                icon: Icons.photo_library_rounded,
+                title: 'Choose from gallery',
+                subtitle: 'Upload one or more images',
+                onTap: () => Navigator.pop(context, _WorkProofSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        allowMultiple: true,
-        type: FileType.image,
-        withData: true, // Required for web/certain platforms
-      );
+      final List<Map<String, dynamic>> filesData = [];
 
-      if (result != null && result.files.isNotEmpty) {
-        setState(() => _isProcessingPayment = true); // Using existing loader flag for simplicity
-        
-        final api = ref.read(apiServiceProvider);
-        List<Map<String, dynamic>> filesData = [];
+      if (source == _WorkProofSource.camera) {
+        final picker = ImagePicker();
+        final image = await picker.pickImage(
+          source: ImageSource.camera,
+          imageQuality: 85,
+          maxWidth: 1600,
+        );
+
+        if (image == null) return;
+
+        filesData.add({
+          'bytes': await image.readAsBytes(),
+          'name': image.name.isNotEmpty ? image.name : 'camera-${DateTime.now().millisecondsSinceEpoch}.jpg',
+        });
+      } else {
+        FilePickerResult? result = await FilePicker.platform.pickFiles(
+          allowMultiple: true,
+          type: FileType.image,
+          withData: true, // Required for web/certain platforms
+        );
+
+        if (result == null || result.files.isEmpty) return;
+
         for (var file in result.files) {
-          if (file.bytes == null) continue;
-          filesData.add({'bytes': file.bytes!, 'name': file.name});
+          List<int>? bytes = file.bytes;
+          if (bytes == null && file.path != null) {
+            bytes = await File(file.path!).readAsBytes();
+          }
+          if (bytes != null) {
+            filesData.add({'bytes': bytes, 'name': file.name});
+          }
         }
+      }
 
-        if (filesData.isNotEmpty) {
-          final downloadUrls = await api.uploadFiles(filesData);
-          if (downloadUrls.isNotEmpty) {
-            await _updateStatus('work_uploaded', attachments: downloadUrls);
-            setState(() => _currentStatus = JobStatus.workUploaded);
-            
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Work proof uploaded successfully to server!")),
-              );
-            }
+      if (filesData.isNotEmpty) {
+        setState(() => _isProcessingPayment = true);
+
+        final api = ref.read(apiServiceProvider);
+        final downloadUrls = await api.uploadFiles(filesData);
+        if (downloadUrls.isNotEmpty) {
+          await _updateStatus('work_uploaded', attachments: downloadUrls);
+          setState(() => _currentStatus = JobStatus.workUploaded);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text("Work proof uploaded to Cloudinary successfully.")),
+            );
           }
         }
       }
@@ -708,6 +687,48 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
     } finally {
       if (mounted) setState(() => _isProcessingPayment = false);
     }
+  }
+
+  Widget _buildWorkProofSourceTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(color: Color(0xFFEFF6FF), shape: BoxShape.circle),
+              child: Icon(icon, color: Color(0xFF2563EB)),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                  const SizedBox(height: 4),
+                  Text(subtitle, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8)),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showPaymentQR() {
@@ -969,3 +990,5 @@ class _MapGridPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
+enum _WorkProofSource { camera, gallery }

@@ -1,25 +1,14 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
+const { uploadToCloudinary } = require('../../utils/cloudinary');
+const { authenticate, requireRoles } = require('../../middlewares/auth');
 
 const router = express.Router();
+router.use(authenticate, requireRoles('technician', 'manager', 'admin'));
 
-// Ensure uploads directory exists
-const uploadDir = path.join(__dirname, '../../uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-    cb(null, `${Date.now()}-${safeName}`);
-  },
-});
+// Use memory storage for Cloudinary uploads
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   const allowed = /jpeg|jpg|png|gif|pdf|doc|docx|mp4|webp/;
@@ -38,32 +27,45 @@ const upload = multer({
 });
 
 // POST /api/v2/upload — single file
-router.post('/', upload.single('file'), (req, res) => {
+router.post('/', upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, message: 'No file uploaded' });
   }
-  const fileUrl = `/uploads/${req.file.filename}`;
-  return res.status(201).json({
-    success: true,
-    fileUrl,
-    originalName: req.file.originalname,
-    size: req.file.size,
-    mimetype: req.file.mimetype,
-  });
+  try {
+    const result = await uploadToCloudinary(req.file.buffer, req.file.originalname);
+    return res.status(201).json({
+      success: true,
+      fileUrl: result.secure_url,
+      originalName: req.file.originalname,
+      public_id: result.public_id,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Cloudinary upload failed', error: error.message });
+  }
 });
 
 // POST /api/v2/upload/multiple — up to 10 files
-router.post('/multiple', upload.array('files', 10), (req, res) => {
+router.post('/multiple', upload.array('files', 10), async (req, res) => {
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ success: false, message: 'No files uploaded' });
   }
-  const files = req.files.map(f => ({
-    fileUrl: `/uploads/${f.filename}`,
-    originalName: f.originalname,
-    size: f.size,
-    mimetype: f.mimetype,
-  }));
-  return res.status(201).json({ success: true, files });
+  
+  try {
+    const uploadPromises = req.files.map(file => uploadToCloudinary(file.buffer, file.originalname));
+    const results = await Promise.all(uploadPromises);
+    
+    const files = results.map((r, i) => ({
+      fileUrl: r.secure_url,
+      originalName: req.files[i].originalname,
+      public_id: r.public_id,
+      size: r.bytes,
+      mimetype: r.format,
+    }));
+    
+    return res.status(201).json({ success: true, files });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Cloudinary multiple upload failed', error: error.message });
+  }
 });
 
 module.exports = router;

@@ -158,13 +158,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final assignedCount = jobs.where((j) => j.status == JobStatus.assigned).length;
     final pendingCount = jobs.where((j) => j.status == JobStatus.completionRequested || j.status == JobStatus.workUploaded || j.status == JobStatus.approvedByManager || j.status == JobStatus.paymentPending).length;
 
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
-        _buildProductionHeader(),
+        _buildProductionHeader(context),
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+            padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.05, vertical: 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -174,7 +176,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 const SizedBox(height: 48),
                 _buildSectionHeader("ACTIVE PROJECTS"),
                 const SizedBox(height: 16),
-                _buildStaggeredHorizontalTasks(jobs),
+                _buildStaggeredHorizontalTasks(context, jobs),
                 const SizedBox(height: 40),
               ],
             ),
@@ -184,9 +186,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildProductionHeader() {
+  Widget _buildProductionHeader(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final headerHeight = screenWidth > 600 ? 300.0 : 220.0;
+    
     return SliverAppBar(
-      expandedHeight: 220,
+      expandedHeight: headerHeight,
       pinned: true,
       stretch: true,
       backgroundColor: const Color(0xFF1E3A8A),
@@ -215,7 +220,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                padding: EdgeInsets.fromLTRB(screenWidth * 0.06, 0, screenWidth * 0.06, 32),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,7 +243,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 tag: 'app_logo',
                                 child: Image.asset(
                                   'assets/logos/logo.png',
-                                  height: 40,
+                                  height: screenWidth > 600 ? 60 : 40,
                                   fit: BoxFit.contain,
                                 ),
                               ),
@@ -258,11 +263,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           const SizedBox(height: 16),
                           Text(
                             "WELCOME BACK,",
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13, fontWeight: FontWeight.w800, letterSpacing: 1.5),
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: screenWidth > 600 ? 15 : 13, fontWeight: FontWeight.w800, letterSpacing: 1.5),
                           ),
                           Text(
                             _userName,
-                            style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w900, letterSpacing: -1.5),
+                            style: TextStyle(color: Colors.white, fontSize: screenWidth > 600 ? 44 : 36, fontWeight: FontWeight.w900, letterSpacing: -1.5),
                           ),
                         ],
                       ),
@@ -393,7 +398,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildStaggeredHorizontalTasks(List<Job> jobs) {
+  Widget _buildStaggeredHorizontalTasks(BuildContext context, List<Job> jobs) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final cardWidth = screenWidth > 600 ? 400.0 : screenWidth * 0.85;
+
     if (jobs.isEmpty) {
       return const SizedBox(
         height: 330, 
@@ -407,18 +415,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         itemCount: jobs.length,
-        itemBuilder: (context, index) => JobCard(
-          index: index,
-          width: 330,
-          job: jobs[index],
-          onTap: () => Navigator.push(
-            context,
-            PageRouteBuilder(
-              transitionDuration: const Duration(milliseconds: 700),
-              reverseTransitionDuration: const Duration(milliseconds: 500),
-              pageBuilder: (context, animation, secondaryAnimation) => FadeTransition(
-                opacity: animation,
-                child: JobDetailScreen(job: jobs[index]),
+        itemBuilder: (context, index) => Padding(
+          padding: EdgeInsets.only(right: 16, left: index == 0 ? 0 : 0),
+          child: JobCard(
+            index: index,
+            width: cardWidth,
+            job: jobs[index],
+            onTap: () => Navigator.push(
+              context,
+              PageRouteBuilder(
+                transitionDuration: const Duration(milliseconds: 700),
+                reverseTransitionDuration: const Duration(milliseconds: 500),
+                pageBuilder: (context, animation, secondaryAnimation) => FadeTransition(
+                  opacity: animation,
+                  child: JobDetailScreen(job: jobs[index]),
+                ),
               ),
             ),
           ),

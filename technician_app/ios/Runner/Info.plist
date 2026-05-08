@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Technicians can capture work proof photos for job completion approval.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Technicians can choose existing work proof photos for job completion approval.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

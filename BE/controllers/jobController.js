@@ -113,7 +113,13 @@ async function updateJobStatus(req, res, next) {
       'inProgress': 'started',
       'in_progress': 'started',
       'pendingApproval': 'completion_requested',
-      'pending_approval': 'completion_requested'
+      'pending_approval': 'completion_requested',
+      'workUploaded': 'work_uploaded',
+      'completionRequested': 'completion_requested',
+      'approvedByManager': 'approved_by_manager',
+      'paymentRequested': 'payment_requested',
+      'paymentPending': 'payment_pending',
+      'paymentDone': 'payment_done',
     };
     if (statusMap[status]) status = statusMap[status];
 

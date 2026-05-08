@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models.dart';
 import 'widgets.dart';
 import 'services/api_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class CompletionRequestsScreen extends ConsumerStatefulWidget {
   const CompletionRequestsScreen({super.key});
@@ -118,6 +119,10 @@ class _CompletionRequestsScreenState extends ConsumerState<CompletionRequestsScr
               Text("Technician: ${job.technicianName ?? 'N/A'}", style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
             ],
           ),
+          if ((job.fileAttachments ?? []).isNotEmpty) ...[
+            const SizedBox(height: 18),
+            _buildWorkProofPreview(job.fileAttachments!),
+          ],
           const Divider(height: 48, color: Color(0xFFF1F5F9)),
           Row(
             children: [
@@ -185,18 +190,26 @@ class _CompletionRequestsScreenState extends ConsumerState<CompletionRequestsScr
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         title: Text("Approve Completion: ${job.serviceName}", style: const TextStyle(fontWeight: FontWeight.w900)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildDetailRow("Client", job.customerName),
-            _buildDetailRow("Location", job.address),
-            _buildDetailRow("Technician", job.technicianName ?? 'System'),
-            _buildDetailRow("Time Taken", "02:45:00"),
-            const SizedBox(height: 16),
-            const Text("NOTES:", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.grey)),
-            Text(job.notes ?? "Work completed as per specifications. No issues found.", style: const TextStyle(fontSize: 14)),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildDetailRow("Client", job.customerName),
+              _buildDetailRow("Location", job.address),
+              _buildDetailRow("Technician", job.technicianName ?? 'System'),
+              _buildDetailRow("Time Taken", "02:45:00"),
+              if ((job.fileAttachments ?? []).isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text("WORK PROOF:", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.grey)),
+                const SizedBox(height: 10),
+                _buildWorkProofPreview(job.fileAttachments!),
+              ],
+              const SizedBox(height: 16),
+              const Text("NOTES:", style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12, color: Colors.grey)),
+              Text(job.notes ?? "Work completed as per specifications. No issues found.", style: const TextStyle(fontSize: 14)),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("CANCEL", style: TextStyle(fontWeight: FontWeight.w900, color: Colors.grey))),
@@ -211,6 +224,70 @@ class _CompletionRequestsScreenState extends ConsumerState<CompletionRequestsScr
         ],
       ),
     );
+  }
+
+  Widget _buildWorkProofPreview(List<String> attachments) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: attachments.map((url) {
+        final isImage = RegExp(r'\.(jpg|jpeg|png|gif|webp)(\?.*)?$', caseSensitive: false).hasMatch(url) ||
+            url.contains('res.cloudinary.com');
+
+        return InkWell(
+          onTap: () => _openAttachment(url),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            width: 92,
+            height: 92,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: isImage
+                ? Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(
+                        url,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_rounded, color: Color(0xFF94A3B8)),
+                      ),
+                      Align(
+                        alignment: Alignment.bottomRight,
+                        child: Container(
+                          margin: const EdgeInsets.all(6),
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), borderRadius: BorderRadius.circular(8)),
+                          child: const Icon(Icons.open_in_new_rounded, color: Colors.white, size: 14),
+                        ),
+                      ),
+                    ],
+                  )
+                : const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.link_rounded, color: Color(0xFF2563EB)),
+                      SizedBox(height: 6),
+                      Text('Open', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF2563EB))),
+                    ],
+                  ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Future<void> _openAttachment(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open attachment link')));
+    }
   }
 
   void _showExpenseDetailDialog(Map<String, dynamic> exp) {

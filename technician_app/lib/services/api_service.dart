@@ -163,11 +163,16 @@ class ApiService {
   }
 
   Future<void> updateJobStatus(String jobId, String status, {String? notes, List<String>? attachments}) async {
-    await http.patch(
+    final res = await http.patch(
       Uri.parse("$baseUrl/technician/tasks/$jobId/status"),
       headers: _headers,
       body: jsonEncode({"status": status, "notes": notes, "attachments": attachments}),
     );
+
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode < 200 || res.statusCode >= 300 || json['success'] != true) {
+      throw Exception(json['message'] ?? 'Failed to update job status');
+    }
   }
 
   // --- Technician Endpoints ---
@@ -374,7 +379,7 @@ class ApiService {
         return uploaded.map<String>((f) => f['fileUrl']).toList();
       }
     }
-    throw Exception('Failed to upload files');
+    throw Exception('Failed to upload files: $resBody');
   }
 }
 
