@@ -56,8 +56,8 @@ export default function ContactPage() {
     <main className="min-h-screen bg-white">
       <Header />
 
-      <section className="py-16">
-        <div className="container mx-auto px-4">
+      <section className="pt-40 md:pt-48 pb-16">
+        <div className="container mx-auto px-6 lg:px-8 max-w-7xl">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-5xl mx-auto">
             {/* Contact Info */}
             <div className="space-y-8">

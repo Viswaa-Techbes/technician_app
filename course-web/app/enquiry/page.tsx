@@ -29,9 +29,9 @@ export default function EnquiryPage() {
       <Header />
 
       {/* Hero */}
-      <section className="relative pt-36 pb-16 overflow-hidden">
+      <section className="relative pt-40 md:pt-48 pb-16 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgba(11,77,186,0.12),transparent_55%),radial-gradient(ellipse_at_75%_20%,rgba(255,107,0,0.08),transparent_45%)]" />
-        <div className="container mx-auto px-4 relative z-10 text-center">
+        <div className="container mx-auto px-6 lg:px-8 max-w-7xl relative z-10 text-center">
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
             <p className="text-accent font-bold tracking-widest text-sm uppercase mb-4">Get In Touch</p>
             <h1 className="text-5xl md:text-7xl font-black text-primary mb-4">

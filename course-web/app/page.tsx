@@ -94,8 +94,8 @@ function HeroSection() {
         ))}
       </motion.div>
 
-      <div className="container mx-auto px-4 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+      <div className="container mx-auto px-6 lg:px-8 max-w-7xl relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           {/* Left */}
           <div className="space-y-8">
             <motion.div
@@ -112,7 +112,7 @@ function HeroSection() {
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.1 }}
-              className="text-5xl md:text-6xl lg:text-7xl font-black leading-tight"
+              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-tight"
             >
               <span style={{ color: '#0B4DBA' }}>CCTV &</span>{' '}
               <span className="relative inline-block">
@@ -130,10 +130,16 @@ function HeroSection() {
             </motion.h1>
 
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}>
-              <p className="text-2xl font-bold text-accent">2 Months Training + 1 Month Internship</p>
-              <p className="mt-3 text-lg text-foreground/60 font-medium">
-                Get Job Ready &nbsp;|&nbsp; Work on Real Projects &nbsp;|&nbsp; Build Skills &nbsp;|&nbsp; Build Your Future
-              </p>
+              <p className="text-xl sm:text-2xl font-bold text-accent mb-4">2 Months Training + 1 Month Internship</p>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-base sm:text-lg text-foreground/60 font-medium">
+                <span>Get Job Ready</span>
+                <span className="text-primary/30 hidden sm:inline">•</span>
+                <span>Work on Real Projects</span>
+                <span className="text-primary/30 hidden sm:inline">•</span>
+                <span>Build Skills</span>
+                <span className="text-primary/30 hidden sm:inline">•</span>
+                <span>Build Your Future</span>
+              </div>
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.45 }} className="flex flex-wrap gap-4">

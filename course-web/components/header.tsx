@@ -43,21 +43,21 @@ export function Header() {
           }`}
         >
           {/* Logo */}
-          <Link href="/" className="flex items-center group">
+          <Link href="/" className="flex items-center group shrink-0">
             <img 
               src="/logo.png" 
               alt="TECHBES Logo" 
-              className="h-10 md:h-12 w-auto object-contain transition-transform duration-500 group-hover:scale-105" 
+              className="h-8 md:h-10 lg:h-12 w-auto object-contain transition-transform duration-500 group-hover:scale-105" 
             />
           </Link>
 
           {/* Desktop Nav */}
-          <div className="hidden md:flex items-center gap-8">
+          <div className="hidden lg:flex items-center gap-4 xl:gap-8">
             {navLinks.map((link) => (
               <Link
                 key={link.name}
                 href={link.href}
-                className="relative text-sm font-semibold text-foreground/80 hover:text-primary transition-colors group"
+                className="relative text-sm font-semibold text-foreground/80 hover:text-primary transition-colors group whitespace-nowrap"
               >
                 {link.name}
                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all duration-300 group-hover:w-full" />
@@ -66,7 +66,7 @@ export function Header() {
           </div>
 
           {/* Right Side */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden lg:flex items-center gap-4 shrink-0">
             <Link href="/admission">
               <Button className="glow-button bg-accent hover:bg-accent/90 text-white font-bold px-6 py-2 rounded-xl border-none">
                 Admissions Open
@@ -76,7 +76,7 @@ export function Header() {
 
           {/* Mobile Menu Toggle */}
           <button
-            className="md:hidden text-primary p-2"
+            className="lg:hidden text-primary p-2 shrink-0"
             onClick={() => setIsOpen(!isOpen)}
           >
             {isOpen ? <X size={28} /> : <Menu size={28} />}
@@ -91,7 +91,7 @@ export function Header() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden glass-nav overflow-hidden mx-4 mt-2 rounded-2xl border border-white/20 shadow-xl"
+            className="lg:hidden glass-nav overflow-hidden mx-4 mt-2 rounded-2xl border border-white/20 shadow-xl"
           >
             <div className="flex flex-col gap-4 p-6">
               {navLinks.map((link) => (

@@ -43,10 +43,10 @@ export default function InternshipPage() {
       <Header />
 
       {/* Hero */}
-      <section className="relative min-h-[60vh] flex items-center overflow-hidden pt-32 pb-16">
+      <section className="relative min-h-[60vh] flex items-center overflow-hidden pt-40 md:pt-48 pb-16">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgba(11,77,186,0.15),transparent_55%),radial-gradient(ellipse_at_75%_30%,rgba(255,107,0,0.10),transparent_45%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(rgba(11,77,186,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(11,77,186,0.04)_1px,transparent_1px)] bg-[size:60px_60px]" />
-        <div className="container mx-auto px-4 relative z-10">
+        <div className="container mx-auto px-6 lg:px-8 max-w-7xl relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}

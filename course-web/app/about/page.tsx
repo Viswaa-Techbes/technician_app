@@ -51,7 +51,7 @@ export default function AboutPage() {
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="px-4 py-12 md:py-24 border-b border-border bg-primary/5">
+        <section className="px-6 lg:px-8 pt-40 md:pt-48 pb-12 md:pb-24 border-b border-border bg-primary/5">
           <div className="container mx-auto max-w-4xl text-center">
             <h1 className="text-4xl md:text-5xl font-bold mb-6">About TECHBES</h1>
             <p className="text-lg text-muted-foreground">
