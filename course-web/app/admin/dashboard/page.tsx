@@ -207,6 +207,44 @@ export default function AdminDashboard() {
               </CardContent>
             </Link>
           </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <Link href="/admin/admission">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-6 h-6 text-orange-600" />
+                  Admission Management
+                </CardTitle>
+                <CardDescription>
+                  Handle applications, profiles, payments, and assignments in a separate CRM module
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button variant="outline" size="sm">
+                  Go to Admission CRM
+                </Button>
+              </CardContent>
+            </Link>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <Link href="/admin/analytics-dashboard">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="w-6 h-6 text-blue-600" />
+                  Visitor Analytics
+                </CardTitle>
+                <CardDescription>
+                  View visitors, traffic trends, conversion funnel, and page-level analytics
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button variant="outline" size="sm">
+                  Go to Analytics
+                </Button>
+              </CardContent>
+            </Link>
+          </Card>
         </div>
       </main>
     </div>
