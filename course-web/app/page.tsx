@@ -1,7 +1,7 @@
 'use client'
 
 import { motion, useScroll, useTransform } from 'framer-motion'
-import { useRef, useState } from 'react'
+import { useRef } from 'react'
 import Link from 'next/link'
 import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
@@ -48,7 +48,7 @@ const careers = [
   { icon: Camera, role: 'CCTV Technician', desc: 'Install & maintain surveillance systems', salary: '₹15K–₹30K/mo' },
   { icon: Network, role: 'Network Technician', desc: 'Configure routers, switches & LAN', salary: '₹18K–₹35K/mo' },
   { icon: Cpu, role: 'IT Support Executive', desc: 'Hardware & software troubleshooting', salary: '₹15K–₹28K/mo' },
-  { icon: Wrench, role: 'Field Service Engineer', desc: 'On-site installation & client service', salary: '₹20K–₹40K/mo' },
+  { icon: Wrench, role: 'Field Service Engineer', desc: 'On-site installation & client service', salary: '₹15K–₹40K/mo' },
 ]
 
 const plans = [
@@ -57,12 +57,12 @@ const plans = [
     features: ['2 Months Classroom Training', 'CCTV Basics & Installation', 'Networking Basics', 'Computer Hardware Basics', 'Practical Lab Sessions', 'Course Completion Certificate', 'Trainer Support During Course', 'Study Materials (PDF)'],
   },
   {
-    name: 'JOB READY PLAN', price: '₹14,999', popular: true,
-    features: ['Everything in Basic Plan', '1 Month Real Project Internship', 'Advanced CCTV (IP Camera, NVR)', 'Advanced Networking (Router, Switch)', 'Troubleshooting & Maintenance', 'Mobile App Setup & Configuration', 'Soft Skills & Client Handling', 'Job Assistance & Guidance', 'Certificate + Internship Certificate'],
+    name: 'PREMIUM PLAN', price: '₹24,999', popular: true,
+    features: ['Everything in Job Ready Plan', '2 Months Extended Internship', 'Live Project Experience (On Site)', 'Business & Entrepreneurship Training', 'How to Start Your Own CCTV Business', 'Quotation, Pricing & Marketing', 'Placement Assistance', 'Interview Preparation', 'Premium Certificate', 'Guidance & Support'],
   },
   {
-    name: 'PREMIUM PLAN', price: '₹24,999', popular: false,
-    features: ['Everything in Job Ready Plan', '2 Months Extended Internship', 'Live Project Experience (On Site)', 'Business & Entrepreneurship Training', 'How to Start Your Own CCTV Business', 'Quotation, Pricing & Marketing', 'Placement Assistance', 'Interview Preparation', 'Premium Certificate', 'Lifetime Guidance & Support'],
+    name: 'JOB READY PLAN', price: '₹14,999', popular: false,
+    features: ['Everything in Basic Plan', '1 Month Real Project Internship', 'Advanced CCTV (IP Camera, NVR)', 'Advanced Networking (Router, Switch)', 'Troubleshooting & Maintenance', 'Mobile App Setup & Configuration', 'Soft Skills & Client Handling', 'Job Assistance & Guidance', 'Certificate + Internship Certificate'],
   },
 ]
 
@@ -73,7 +73,7 @@ function HeroSection() {
   const y = useTransform(scrollYProgress, [0, 1], ['0%', '30%'])
 
   return (
-    <section ref={ref} className="relative min-h-screen flex items-center overflow-hidden pt-40 md:pt-48 pb-20" style={{ position: 'relative' }}>
+    <section ref={ref} className="relative min-h-screen flex items-center overflow-hidden pt-28 md:pt-32 pb-20" style={{ position: 'relative' }}>
       {/* Animated background */}
       <motion.div style={{ y }} className="absolute inset-0 pointer-events-none">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_50%,rgba(11,77,186,0.18),transparent_55%),radial-gradient(ellipse_at_80%_20%,rgba(255,107,0,0.12),transparent_45%),radial-gradient(ellipse_at_60%_80%,rgba(11,77,186,0.10),transparent_50%)]" />
@@ -97,7 +97,7 @@ function HeroSection() {
       <div className="container mx-auto px-6 lg:px-8 max-w-7xl relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           {/* Left */}
-          <div className="space-y-8">
+          <div className="space-y-6">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
@@ -112,9 +112,9 @@ function HeroSection() {
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.1 }}
-              className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-tight"
+              className="text-4xl sm:text-5xl md:text-5xl lg:text-5xl xl:text-6xl font-black leading-tight"
             >
-              <span style={{ color: '#0B4DBA' }}>CCTV &</span>{' '}
+              <span className="whitespace-nowrap" style={{ color: '#0B4DBA' }}>CCTV & Networking</span>{' '}
               <span className="relative inline-block">
                 <span style={{ color: '#FF6B00' }}>IT Skill</span>
                 <motion.span
@@ -183,7 +183,7 @@ function HeroSection() {
           </div>
 
           {/* Right – Video */}
-          <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.9, delay: 0.2 }}>
+          <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.9, delay: 0.2 }} className="lg:-mt-10">
             <CinematicVideoFrame />
           </motion.div>
         </div>
@@ -240,27 +240,27 @@ function CoursesSection() {
 /* ─────────────── CAREER ─────────────── */
 function CareerSection() {
   return (
-    <SectionShell className="bg-[linear-gradient(135deg,#061f4f,#0B4DBA)]">
+    <SectionShell className="bg-[linear-gradient(135deg,#f8fbff,#e8f1ff)]">
       <Reveal>
         <div className="text-center mb-16">
           <p className="text-accent font-bold tracking-widest text-sm uppercase mb-3">After Training</p>
-          <h2 className="text-4xl md:text-5xl font-black text-white">Build a Secure Career</h2>
-          <p className="mt-4 text-xl font-bold text-accent">High Demand | Good Salary | Bright Future</p>
+          <h2 className="text-4xl md:text-5xl font-black text-black">Build a Secure Career</h2>
+          <p className="mt-4 text-xl font-bold text-primary">High Demand | Good Salary | Bright Future</p>
         </div>
       </Reveal>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {careers.map(({ icon: Icon, role, desc, salary }, i) => (
           <GlassCard key={role} delay={i * 0.12}>
-            <div className="p-6 space-y-4 bg-white/5 backdrop-blur-xl rounded-2xl border border-white/15">
-              <div className="w-14 h-14 rounded-2xl bg-accent/20 flex items-center justify-center border border-accent/30">
+            <div className="p-6 space-y-4 bg-white rounded-2xl border border-primary/10 shadow-[0_16px_45px_rgba(11,77,186,0.10)]">
+              <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center border border-accent/30">
                 <Icon size={26} className="text-accent" />
               </div>
-              <h3 className="text-xl font-black text-white">{role}</h3>
-              <p className="text-white/60 text-sm">{desc}</p>
+              <h3 className="text-xl font-black text-black">{role}</h3>
+              <p className="text-foreground/65 text-sm">{desc}</p>
               <div className="flex items-center gap-2 pt-2">
-                <TrendingUp size={16} className="text-green-400" />
-                <span className="text-green-400 font-bold text-sm">{salary}</span>
+                <TrendingUp size={16} className="text-emerald-600" />
+                <span className="text-emerald-600 font-bold text-sm">{salary}</span>
               </div>
             </div>
           </GlassCard>
@@ -344,87 +344,30 @@ function PricingSection() {
   )
 }
 
-/* ─────────────── ADMISSION FORM ─────────────── */
-function AdmissionForm() {
-  const [focused, setFocused] = useState<string | null>(null)
-  const [submitted, setSubmitted] = useState(false)
-
-  const fields = [
-    { id: 'name', label: 'Full Name', type: 'text', placeholder: 'Your full name' },
-    { id: 'phone', label: 'Phone Number', type: 'tel', placeholder: '10-digit mobile number' },
-    { id: 'email', label: 'Email Address', type: 'email', placeholder: 'your@email.com' },
-  ]
-
+/* ─────────────── ADMISSION CTA ─────────────── */
+function AdmissionCTA() {
   return (
     <SectionShell>
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-3xl mx-auto text-center">
         <Reveal>
-          <div className="text-center mb-12">
+          <div className="mb-8">
             <p className="text-accent font-bold tracking-widest text-sm uppercase mb-3">Secure Your Seat</p>
             <h2 className="text-4xl md:text-5xl font-black text-primary">Apply for Admission</h2>
-            <p className="mt-4 text-lg text-foreground/60">Fill in your details and our team will contact you within 24 hours.</p>
+            <p className="mt-4 text-lg text-foreground/60">Open the admission panel to choose your plan and submit your details.</p>
           </div>
         </Reveal>
 
         <Reveal delay={0.15}>
-          <motion.form
-            onSubmit={(e) => { e.preventDefault(); setSubmitted(true) }}
-            className="glass-form rounded-3xl p-8 md:p-12 space-y-6"
-          >
-            {fields.map(({ id, label, type, placeholder }) => (
-              <div key={id} className="relative">
-                <motion.label
-                  animate={focused === id ? { y: -28, scale: 0.8, color: '#0B4DBA' } : { y: 0, scale: 1, color: '#083B8A99' }}
-                  className="absolute left-4 top-4 font-semibold pointer-events-none origin-left z-10 transition-all"
-                >
-                  {label}
-                </motion.label>
-                <input
-                  id={id} type={type} placeholder={focused === id ? placeholder : ''}
-                  onFocus={() => setFocused(id)} onBlur={() => setFocused(null)}
-                  className="w-full px-4 pt-8 pb-3 rounded-2xl bg-white/60 border-2 border-transparent text-foreground font-medium outline-none transition-all duration-300 focus:border-primary focus:bg-white focus:shadow-[0_0_0_4px_rgba(11,77,186,0.1)]"
-                />
-              </div>
-            ))}
-
-            <div className="relative">
-              <label className="block text-sm font-bold text-foreground/60 mb-2">Course Interest</label>
-              <select className="w-full px-4 py-4 rounded-2xl bg-white/60 border-2 border-transparent text-foreground font-medium outline-none transition-all duration-300 focus:border-primary focus:bg-white">
-                <option value="">Select a course</option>
-                <option>CCTV Technology</option>
-                <option>Networking</option>
-                <option>Computer Hardware</option>
-                <option>Full Program (All Modules)</option>
-              </select>
-            </div>
-
-            <div className="relative">
-              <label className="block text-sm font-bold text-foreground/60 mb-2">Preferred Plan</label>
-              <select className="w-full px-4 py-4 rounded-2xl bg-white/60 border-2 border-transparent text-foreground font-medium outline-none transition-all duration-300 focus:border-primary focus:bg-white">
-                <option value="">Select a plan</option>
-                <option>Basic Plan – ₹7,999</option>
-                <option>Job Ready Plan – ₹14,999</option>
-                <option>Premium Plan – ₹24,999</option>
-              </select>
-            </div>
-
-            {submitted ? (
-              <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center py-6">
-                <div className="text-5xl mb-3">🎉</div>
-                <p className="text-xl font-black text-primary">Thank you! We'll contact you shortly.</p>
-              </motion.div>
-            ) : (
+          <Link href="/admission">
               <motion.button
-                type="submit"
                 whileHover={{ scale: 1.03, boxShadow: '0 0 50px rgba(255,107,0,0.45)' }}
                 whileTap={{ scale: 0.97 }}
-                className="w-full py-5 rounded-2xl text-white text-lg font-black"
+                className="px-10 py-5 rounded-2xl text-white text-lg font-black inline-flex items-center justify-center gap-2"
                 style={{ background: 'linear-gradient(135deg,#FF6B00,#e65c00)' }}
               >
-                Submit Application →
+                Go to Admission Panel <ChevronRight size={20} />
               </motion.button>
-            )}
-          </motion.form>
+          </Link>
         </Reveal>
       </div>
     </SectionShell>
@@ -440,7 +383,7 @@ export default function HomePage() {
       <CoursesSection />
       <CareerSection />
       <PricingSection />
-      <AdmissionForm />
+      <AdmissionCTA />
       <Footer />
     </main>
   )

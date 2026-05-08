@@ -88,8 +88,17 @@ export default function ContactPage() {
                     <h3 className="font-semibold mb-1" style={{ color: '#0B4DBA' }}>
                       Location
                     </h3>
-                    <p className="text-gray-600">Nagarbhavi, Bangalore</p>
-                    <p className="text-gray-600">Karnataka – 560072</p>
+                    <div className="mt-3 overflow-hidden rounded-xl border border-gray-200 shadow-sm">
+                      <iframe
+                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d745.0199609626419!2d77.50751297978948!3d12.971613456782496!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bae3d78c8c6765f%3A0xc9f8cd68848bd7a4!2sExcel%20Coworks%20-%20West!5e0!3m2!1sen!2sin!4v1778225612362!5m2!1sen!2sin"
+                        title="TECHBES location map"
+                        className="h-80 w-full"
+                        style={{ border: 0 }}
+                        allowFullScreen
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

@@ -10,8 +10,8 @@ import Script from 'next/script'
 
 const plans = [
   { id: 'basic', name: 'Basic Plan', price: 7999, originalPrice: 12000 },
-  { id: 'job-ready', name: 'Job Ready Plan', price: 14999, originalPrice: 25000, recommended: true },
-  { id: 'premium', name: 'Premium Plan', price: 24999, originalPrice: 40000 },
+  { id: 'job-ready', name: 'Job Ready Plan', price: 14999, originalPrice: 25000 },
+  { id: 'premium', name: 'Premium Plan', price: 24999, originalPrice: 40000, recommended: true },
 ]
 
 export default function AdmissionPage() {
@@ -26,7 +26,7 @@ export default function AdmissionPage() {
     address: '',
     qualification: '',
     course: 'CCTV & IT Skill Development Program',
-    plan: 'job-ready',
+    plan: 'premium',
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
