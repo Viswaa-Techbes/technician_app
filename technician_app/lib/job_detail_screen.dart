@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 import 'dart:io';
@@ -9,11 +8,8 @@ import 'models.dart';
 import 'widgets.dart';
 import 'features/job_description/widgets/job_description_section.dart';
 import 'features/reviews/screens/submit_review_screen.dart';
-import 'features/auth/presentation/providers/auth_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:qr_flutter/qr_flutter.dart';
-import 'core/payments/razorpay_config.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class JobDetailScreen extends ConsumerStatefulWidget {
@@ -32,17 +28,12 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   Timer? _timer;
   bool _isRunning = false;
   bool _isProcessingPayment = false;
-  late final Razorpay _razorpay;
 
   @override
   void initState() {
     super.initState();
     _currentStatus = widget.job.status;
     _currentPaymentStatus = widget.job.paymentStatus;
-    _razorpay = Razorpay()
-      ..on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess)
-      ..on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError)
-      ..on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     if (_currentStatus == JobStatus.started) {
       _startTimer();
     }
@@ -50,7 +41,6 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
 
   @override
   void dispose() {
-    _razorpay.clear();
     _timer?.cancel();
     super.dispose();
   }
@@ -732,141 +722,86 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   }
 
   void _showPaymentQR() {
-    // Generate a UPI payment link or use the Razorpay payment link
-    final String upiUrl = "upi://pay?pa=techbes@upi&pn=Techbes&am=${widget.job.price}&cu=INR&tn=Job_${widget.job.id}";
-    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-        title: const Text('Customer Payment QR', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w900)),
+        title: const Text('Scan PhonePe QR', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.w900)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('AMOUNT: INR ${widget.job.price}', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1E3A8A))),
-            const SizedBox(height: 24),
+            Text('AMOUNT: INR ${widget.job.price.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF1E3A8A))),
+            const SizedBox(height: 18),
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.grey.shade200),
               ),
-              child: QrImageView(
-                data: upiUrl,
-                version: QrVersions.auto,
-                size: 200.0,
+              child: Image.asset(
+                'assets/payments/techbes_phonepe_qr.png',
+                width: 240,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  width: 240,
+                  height: 320,
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Text(
+                    'PhonePe QR image missing.\nAdd it at assets/payments/techbes_phonepe_qr.png',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF64748B)),
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 24),
-            const Text('Scan this code to pay via any UPI app', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const SizedBox(height: 14),
+            const Text('Ask the customer to scan and pay to TECHBES.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 12)),
             const SizedBox(height: 16),
-            CustomButton(
-              label: "OPEN RAZORPAY",
-              onPressed: () {
-                Navigator.pop(context);
-                _startPaymentCollection();
-              },
-              color: const Color(0xFF2563EB),
-              icon: Icons.payment_rounded,
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('CLOSE', style: TextStyle(fontWeight: FontWeight.w900)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      await _updateStatus('payment_done');
+                      if (!mounted) return;
+                      Navigator.pop(context);
+                      setState(() {
+                        _currentStatus = JobStatus.completed;
+                        _currentPaymentStatus = PaymentStatus.paid;
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Payment marked as collected.')),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    icon: const Icon(Icons.check_circle_rounded, size: 18),
+                    label: const Text('PAID', style: TextStyle(fontWeight: FontWeight.w900)),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Future<void> _startPaymentCollection() async {
-    final session = ref.read(authProvider);
-    final orderId = widget.job.orderId;
-
-    if (orderId == null || orderId.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payment order is missing. Ask the manager to recreate this payment link.')),
-        );
-      }
-      return;
-    }
-
-    setState(() => _isProcessingPayment = true);
-
-    try {
-      _razorpay.open({
-        'key': RazorpayConfig.keyId,
-        'amount': (widget.job.price * 100).round(),
-        'name': RazorpayConfig.companyName,
-        'description': widget.job.description.isNotEmpty ? widget.job.description : widget.job.serviceName,
-        'order_id': orderId,
-        'prefill': {
-          'contact': widget.job.customerPhone,
-          'email': session?.email ?? '',
-        },
-      });
-    } catch (e) {
-      if (e.toString().contains('resync')) {
-        return; // Ignore harmless resync error on web
-      }
-      if (mounted) {
-        setState(() => _isProcessingPayment = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Unable to open Razorpay checkout: $e')));
-      }
-    }
-  }
-
-  Future<void> _handlePaymentSuccess(PaymentSuccessResponse response) async {
-    final api = ref.read(apiServiceProvider);
-
-    try {
-      await api.verifyPayment(
-        jobId: widget.job.id,
-        orderId: response.orderId ?? '',
-        paymentId: response.paymentId ?? '',
-        signature: response.signature ?? '',
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _isProcessingPayment = false;
-        _currentPaymentStatus = PaymentStatus.paid;
-      });
-
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Payment Successful'),
-          content: Text('Payment ${response.paymentId ?? ''} was verified and the job was marked as paid.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isProcessingPayment = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Payment was captured but verification failed: $e')),
-      );
-    }
-  }
-
-  void _handlePaymentError(PaymentFailureResponse response) {
-    if (!mounted) return;
-    setState(() => _isProcessingPayment = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(response.message ?? 'Payment failed. Please try again.')),
-    );
-  }
-
-  void _handleExternalWallet(ExternalWalletResponse response) {
-    if (!mounted) return;
-    setState(() => _isProcessingPayment = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('External wallet selected: ${response.walletName ?? 'Unknown'}')),
     );
   }
 

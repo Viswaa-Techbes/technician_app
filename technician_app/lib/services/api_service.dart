@@ -85,54 +85,6 @@ class ApiService {
     return Job.fromFirestore(job, job['id'] ?? job['_id'] ?? '');
   }
 
-  Future<Map<String, dynamic>> createOrder({
-    required int amountInPaise,
-    required String description,
-    String? receipt,
-  }) async {
-    final res = await http.post(
-      Uri.parse("$baseUrl/create-order"),
-      headers: _headers,
-      body: jsonEncode({
-        'amount': amountInPaise,
-        'description': description,
-        if (receipt != null && receipt.isNotEmpty) 'receipt': receipt,
-      }),
-    );
-
-    final json = jsonDecode(res.body) as Map<String, dynamic>;
-    if (res.statusCode < 200 || res.statusCode >= 300 || json['success'] != true) {
-      throw Exception(json['message'] ?? 'Failed to create Razorpay order');
-    }
-
-    return Map<String, dynamic>.from(json['data'] ?? <String, dynamic>{});
-  }
-
-  Future<Map<String, dynamic>> verifyPayment({
-    required String jobId,
-    required String orderId,
-    required String paymentId,
-    required String signature,
-  }) async {
-    final res = await http.post(
-      Uri.parse("$baseUrl/verify-payment"),
-      headers: _headers,
-      body: jsonEncode({
-        'jobId': jobId,
-        'razorpay_order_id': orderId,
-        'razorpay_payment_id': paymentId,
-        'razorpay_signature': signature,
-      }),
-    );
-
-    final json = jsonDecode(res.body) as Map<String, dynamic>;
-    if (res.statusCode < 200 || res.statusCode >= 300 || json['success'] != true) {
-      throw Exception(json['message'] ?? 'Failed to verify payment');
-    }
-
-    return Map<String, dynamic>.from(json['data'] ?? <String, dynamic>{});
-  }
-
   Future<void> requestPayment({
     required String jobId,
     required double amount,

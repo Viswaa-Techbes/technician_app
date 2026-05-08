@@ -97,12 +97,6 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
           ? _titleController.text.trim()
           : _descriptionController.text.trim();
 
-      final order = await api.createOrder(
-        amountInPaise: (amount * 100).round(),
-        description: description,
-        receipt: 'job_${DateTime.now().millisecondsSinceEpoch}',
-      );
-
       await api.createJob({
         'title': _titleController.text.trim(),
         'description': description,
@@ -117,15 +111,11 @@ class _AssignJobScreenState extends ConsumerState<AssignJobScreen> {
         'price': amount,
         'paymentStatus': 'pending',
         'paymentDescription': description,
-        'orderId': order['orderId'],
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Job created with payment order ${order['orderId']}"),
-            backgroundColor: const Color(0xFF10B981),
-          ),
+          const SnackBar(content: Text("Job created successfully"), backgroundColor: Color(0xFF10B981)),
         );
         Navigator.pop(context);
       }

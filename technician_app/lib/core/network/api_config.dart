@@ -26,10 +26,6 @@ class ApiConfig {
   // Notifications
   static const String notifications = "/notifications";
   
-  // Payments
-  static const String createOrder = "/create-order";
-  static const String verifyPayment = "/verify-payment";
-
   // Socket
   static const String socketUrl = "https://technician-app.onrender.com";
 }
