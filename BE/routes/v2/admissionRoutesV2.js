@@ -16,6 +16,7 @@ router.post('/assign', controller.bulkAssign);
 // Preview multiple admissions before bulk assign
 router.post('/preview', controller.bulkPreview);
 router.get('/:id', controller.getAdmissionById);
+router.get('/:id/receipt', controller.getReceipt);
 router.put('/:id', controller.updateAdmission);
 router.delete('/:id', controller.deleteAdmission);
 

@@ -47,10 +47,13 @@ async function getAdmissionById(req, res, next) {
 
 async function createAdmission(req, res, next) {
   try {
+    console.log("[Admission] Received creation request:", JSON.stringify(req.body, null, 2));
     const payload = parsePayload(req, false);
     const item = await admissionService.createApplication(payload);
+    console.log("[Admission] Saved to DB successfully. ID:", item._id);
     return res.status(201).json({ success: true, data: item });
   } catch (err) {
+    console.error("[Admission] Save Error:", err.message);
     return next(err);
   }
 }
@@ -218,21 +221,91 @@ async function getAssignmentHistory(req, res, next) {
   } catch (err) { return next(err); }
 }
 
-module.exports = {
-  listAdmissions,
-  getAdmissionById,
-  createAdmission,
-  updateAdmission,
-  deleteAdmission,
-  updateStatus,
-  assignCourseOrInternship,
-  upsertPayment,
-  addDocument,
-  bulkAssign,
-  getActivity,
-  getPayments,
-  getAssignmentHistory,
-};
+async function getReceipt(req, res, next) {
+  try {
+    const id = req.params.id;
+    const item = await admissionService.getApplicationById(id);
+    if (!item) return res.status(404).send('Receipt not found');
+    
+    const html = `
+      <html>
+        <head>
+          <title>TECHBES Receipt - ${id}</title>
+          <style>
+            body { font-family: sans-serif; padding: 40px; color: #333; }
+            .receipt-box { max-width: 800px; margin: auto; border: 1px solid #eee; padding: 30px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.15); }
+            .header { border-bottom: 2px solid #0B4DBA; padding-bottom: 20px; margin-bottom: 20px; }
+            .title { color: #0B4DBA; font-size: 24px; font-weight: bold; }
+            .details { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+            .label { font-weight: bold; color: #666; font-size: 12px; text-transform: uppercase; }
+            .value { font-size: 16px; margin-top: 4px; }
+            .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
+            @media print { .no-print { display: none; } }
+          </style>
+        </head>
+        <body>
+          <div class="receipt-box">
+            <div class="header">
+              <div class="title">TECHBES ADMISSION RECEIPT</div>
+              <p>Official Confirmation of Enrollment</p>
+            </div>
+            <div class="details">
+              <div>
+                <div class="label">Enrollment ID</div>
+                <div class="value">${item._id}</div>
+              </div>
+              <div>
+                <div class="label">Date</div>
+                <div class="value">${new Date(item.createdAt).toLocaleDateString()}</div>
+              </div>
+              <div>
+                <div class="label">Student Name</div>
+                <div class="value">${item.fullName}</div>
+              </div>
+              <div>
+                <div class="label">Course</div>
+                <div class="value">${item.assignedCourse || item.selectedPlan}</div>
+              </div>
+              <div>
+                <div class="label">Total Fees</div>
+                <div class="value">₹${item.payment?.totalFees || 0}</div>
+              </div>
+              <div>
+                <div class="label">Amount Paid</div>
+                <div class="value">₹${item.payment?.paidAmount || 0}</div>
+              </div>
+              <div>
+                <div class="label">Payment Status</div>
+                <div class="value" style="color: green; font-weight: bold;">${item.payment?.paymentStatus?.toUpperCase() || 'PAID'}</div>
+              </div>
+              <div>
+                <div class="label">Transaction ID</div>
+                <div class="value">${item.payment?.transactionLogs?.[0]?.transactionId || 'N/A'}</div>
+              </div>
+            </div>
+            <div class="footer">
+              <p>This is a computer-generated receipt and does not require a signature.</p>
+              <p>TECHBES - Skill Development & Field Services</p>
+              <button class="no-print" onclick="window.print()" style="margin-top: 20px; padding: 10px 20px; background: #0B4DBA; color: white; border: none; border-radius: 5px; cursor: pointer;">Print Receipt</button>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+    res.setHeader('Content-Type', 'text/html');
+    return res.send(html);
+  } catch (err) { return next(err); }
+}
+
+// Bulk preview for admissions
+async function bulkPreview(req, res, next) {
+  try {
+    const { ids = [] } = req.body || {};
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ success: false, message: 'ids required' });
+    const items = await Admission.find({ _id: { $in: ids } }).select('fullName _id assignedCourse assignedInternship admissionStatus paymentStatus programType').lean();
+    return res.json({ success: true, data: items });
+  } catch (err) { return next(err); }
+}
 
 // verify payment (admin manual verify)
 async function verifyPayment(req, res, next) {
@@ -252,16 +325,21 @@ async function verifyPayment(req, res, next) {
   } catch (err) { return next(err); }
 }
 
-module.exports.verifyPayment = verifyPayment;
-
-// Bulk preview for admissions
-async function bulkPreview(req, res, next) {
-  try {
-    const { ids = [] } = req.body || {};
-    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ success: false, message: 'ids required' });
-    const items = await Admission.find({ _id: { $in: ids } }).select('fullName _id assignedCourse assignedInternship admissionStatus paymentStatus programType').lean();
-    return res.json({ success: true, data: items });
-  } catch (err) { return next(err); }
-}
-
-module.exports.bulkPreview = bulkPreview;
+module.exports = {
+  listAdmissions,
+  getAdmissionById,
+  createAdmission,
+  updateAdmission,
+  deleteAdmission,
+  updateStatus,
+  assignCourseOrInternship,
+  upsertPayment,
+  addDocument,
+  bulkAssign,
+  getActivity,
+  getPayments,
+  getAssignmentHistory,
+  verifyPayment,
+  bulkPreview,
+  getReceipt
+};

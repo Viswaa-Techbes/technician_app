@@ -4,8 +4,23 @@ const AdmissionDocument = require('../models/AdmissionDocument');
 
 function buildQuery(params = {}) {
   const query = {};
-  if (params.status) query.admissionStatus = params.status;
-  if (params.paymentStatus) query.paymentStatus = params.paymentStatus;
+  
+  if (params.status) {
+    if (params.status.includes(',')) {
+      query.admissionStatus = { $in: params.status.split(',') };
+    } else {
+      query.admissionStatus = params.status;
+    }
+  }
+
+  if (params.paymentStatus) {
+    if (params.paymentStatus.includes(',')) {
+      query.paymentStatus = { $in: params.paymentStatus.split(',') };
+    } else {
+      query.paymentStatus = params.paymentStatus;
+    }
+  }
+
   if (params.programType) query.programType = params.programType;
   if (params.city) query.city = params.city;
   if (params.search) {
@@ -44,7 +59,23 @@ async function getApplicationById(id) {
 }
 
 async function createApplication(payload) {
-  return Admission.create(payload);
+  const paymentData = payload.payment;
+  delete payload.payment;
+
+  const admission = await Admission.create(payload);
+
+  if (paymentData) {
+    await AdmissionPayment.create({
+      admissionId: admission._id,
+      totalFees: paymentData.totalFees || 0,
+      paidAmount: paymentData.paidAmount || 0,
+      pendingAmount: (paymentData.totalFees || 0) - (paymentData.paidAmount || 0),
+      paymentStatus: paymentData.paymentStatus || 'pending',
+      transactionLogs: paymentData.transactionLogs || []
+    });
+  }
+
+  return admission;
 }
 
 async function updateApplication(id, payload) {

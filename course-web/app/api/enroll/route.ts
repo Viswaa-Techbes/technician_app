@@ -13,8 +13,9 @@ export async function POST(req: Request) {
       email: data.email,
       address: data.address,
       qualification: data.qualification,
-      programType: data.course,
+      programType: 'course', // Must be one of ['course', 'internship', 'placement_program']
       selectedPlan: data.plan,
+      assignedCourse: data.course, // Map descriptive name here
       paymentStatus: 'paid',
       admissionStatus: 'applied',
       payment: {

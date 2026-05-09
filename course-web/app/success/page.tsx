@@ -22,7 +22,8 @@ function SuccessContent() {
   if (!mounted) return null
 
   const handleDownloadReceipt = () => {
-    window.print()
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://technician-app.onrender.com'
+    window.open(`${backendUrl}/api/v2/admission/${id}/receipt`, '_blank')
   }
 
   return (
