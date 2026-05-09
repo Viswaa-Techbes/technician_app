@@ -20,8 +20,7 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Load BE/.env
 require('dotenv').config({
-  path: path.join(__dirname, '.env'),
-  override: true,
+  path: path.join(__dirname, '.env')
 });
 
 const http = require('http');
@@ -65,24 +64,24 @@ io.on('connection', (socket) => {
 });
 
 async function start() {
-  try {
-    console.log("Connecting to Database...");
-    await connectDB();
-    console.log("Database connected successfully.");
+  // Start listening IMMEDIATELY so Render detects the open port
+  server.listen(PORT, '0.0.0.0', async () => {
+    console.log(`--------------------------------------------------`);
+    console.log(`SERVER IS LIVE ON PORT ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'production'}`);
+    console.log(`Binds to: 0.0.0.0:${PORT}`);
+    console.log(`--------------------------------------------------`);
 
-    // IMPORTANT: Listen on 0.0.0.0 for Render deployment
-    server.listen(PORT, '0.0.0.0', () => {
-      console.log(`--------------------------------------------------`);
-      console.log(`SERVER IS LIVE`);
-      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`Local Address: http://localhost:${PORT}`);
-      console.log(`Network Address: 0.0.0.0:${PORT}`);
-      console.log(`--------------------------------------------------`);
-    });
-  } catch (err) {
-    console.error('FATAL: Failed to start server:', err.message || err);
-    process.exit(1);
-  }
+    try {
+      console.log("Connecting to Database...");
+      await connectDB();
+      console.log("Database connected successfully.");
+    } catch (err) {
+      console.error('CRITICAL: Failed to connect to database:', err.message || err);
+      // We don't exit here so the process stays alive and Render doesn't restart it immediately
+      // This allows us to see the error in logs more easily.
+    }
+  });
 }
 
 start();
