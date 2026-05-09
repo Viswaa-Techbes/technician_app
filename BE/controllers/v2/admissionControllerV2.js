@@ -228,6 +228,10 @@ module.exports = {
   assignCourseOrInternship,
   upsertPayment,
   addDocument,
+  bulkAssign,
+  getActivity,
+  getPayments,
+  getAssignmentHistory,
 };
 
 // verify payment (admin manual verify)
