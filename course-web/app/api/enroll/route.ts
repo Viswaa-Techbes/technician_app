@@ -1,31 +1,65 @@
 import { NextResponse } from 'next/server'
 
-// Simple in-memory DB for demo purposes
-const globalAny = global as any
-if (!globalAny.enrollments) {
-  globalAny.enrollments = []
-}
+const BACKEND_URL = process.env.BACKEND_API_URL || 'https://technician-app.onrender.com'
 
 export async function POST(req: Request) {
   try {
     const data = await req.json()
     
-    const newEnrollment = {
-      id: `ENR-${Math.floor(100000 + Math.random() * 900000)}`,
-      txId: `TXN-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
-      date: new Date().toISOString(),
-      status: 'Paid',
-      ...data
+    // 1. Prepare payload for backend (Admission Schema)
+    const payload = {
+      fullName: data.name,
+      phone: data.phone,
+      email: data.email,
+      address: data.address,
+      qualification: data.qualification,
+      programType: data.course,
+      selectedPlan: data.plan,
+      paymentStatus: 'paid',
+      admissionStatus: 'applied',
+      payment: {
+        totalFees: data.amountPaid || 0,
+        paidAmount: data.amountPaid || 0,
+        paymentStatus: 'paid',
+        transactionLogs: [{
+          transactionId: data.razorpayPaymentId || 'TEST_TXN',
+          amount: data.amountPaid || 0,
+          mode: 'razorpay',
+          status: 'success',
+          note: `OrderId: ${data.razorpayOrderId}`
+        }]
+      }
+    }
+
+    // 2. Send to central backend
+    const res = await fetch(`${BACKEND_URL}/api/v2/admission`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    
+    const result = await res.json()
+    
+    if (!res.ok) {
+      console.error('Backend Sync Error:', result)
+      // Return a partial success so user isn't blocked, but log the error
+      return NextResponse.json({ 
+        success: true, 
+        enrollment: { id: `ERR-${Date.now()}`, ...data },
+        warning: 'Sync to admin panel pending'
+      })
     }
     
-    globalAny.enrollments.push(newEnrollment)
-    
-    return NextResponse.json({ success: true, enrollment: newEnrollment })
-  } catch (error) {
-    return NextResponse.json({ success: false, error: 'Failed to process enrollment' }, { status: 500 })
-  }
-}
+    return NextResponse.json({ 
+      success: true, 
+      enrollment: { 
+        id: result.data?._id || `ENR-${Math.floor(1000 + Math.random()*9000)}`,
+        ...data 
+      } 
+    })
 
-export async function GET() {
-  return NextResponse.json({ enrollments: globalAny.enrollments || [] })
+  } catch (error: any) {
+    console.error('Enrollment Route Error:', error)
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+  }
 }

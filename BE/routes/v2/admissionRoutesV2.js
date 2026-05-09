@@ -4,11 +4,13 @@ const controller = require('../../controllers/v2/admissionControllerV2');
 
 const router = express.Router();
 
+// PUBLIC: Allow students to apply
+router.post('/', controller.createAdmission);
+
 // Admin-only admission management
 router.use(authenticate, requireRoles('admin'));
 
 router.get('/', controller.listAdmissions);
-router.post('/', controller.createAdmission);
 // Bulk assignment endpoint for admin UI
 router.post('/assign', controller.bulkAssign);
 // Preview multiple admissions before bulk assign
