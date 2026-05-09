@@ -22,9 +22,11 @@ function parseUserAgent(ua = '') {
 
 async function trackVisitor(req, res, next) {
   try {
+    const safeIp = getClientIp(req);
+    console.log(`[Analytics] Track Request: IP=${safeIp} Domain=${req.body?.domain} Page=${req.body?.page}`);
+    
     const { page = '/', eventType, domain, sessionId, referral, os, metadata } = req.body || {};
     const { browser, device, os: detectedOs } = parseUserAgent(req.headers['user-agent']);
-    const safeIp = getClientIp(req);
 
     // Geolocation resolution
     let country = 'Unknown', state = 'Unknown', city = 'Unknown';
