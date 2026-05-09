@@ -9,9 +9,9 @@ import { useRouter } from 'next/navigation'
 import Script from 'next/script'
 
 const plans = [
-  { id: 'basic', name: 'Basic Plan', price: 1, originalPrice: 1 },
-  { id: 'job-ready', name: 'Job Ready Plan', price: 1, originalPrice: 1 },
-  { id: 'premium', name: 'Premium Plan', price: 1, originalPrice: 1, recommended: true },
+  { id: 'basic', name: 'Basic Plan', price: 7999, originalPrice: 7999 },
+  { id: 'job-ready', name: 'Job Ready Plan', price: 14999, originalPrice: 14999 },
+  { id: 'premium', name: 'Premium Plan', price: 24999, originalPrice: 24999, recommended: true },
 ]
 
 export default function AdmissionPage() {

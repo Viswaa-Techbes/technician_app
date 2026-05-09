@@ -37,8 +37,24 @@ async function listApplications(params = {}) {
   const sortOrder = params.sortOrder === 'asc' ? 1 : -1;
   const query = buildQuery(params);
 
+  const pipeline = [
+    { $match: query },
+    { $sort: { [sortBy]: sortOrder } },
+    { $skip: skip },
+    { $limit: limit },
+    {
+      $lookup: {
+        from: 'admissionPayments',
+        localField: '_id',
+        foreignField: 'admissionId',
+        as: 'payment'
+      }
+    },
+    { $unwind: { path: '$payment', preserveNullAndEmptyArrays: true } }
+  ];
+
   const [items, total] = await Promise.all([
-    Admission.find(query).sort({ [sortBy]: sortOrder }).skip(skip).limit(limit).lean(),
+    Admission.aggregate(pipeline),
     Admission.countDocuments(query),
   ]);
 
@@ -61,6 +77,11 @@ async function getApplicationById(id) {
 async function createApplication(payload) {
   const paymentData = payload.payment;
   delete payload.payment;
+
+  // Sync paymentStatus to the main Admission model if provided
+  if (paymentData && paymentData.paymentStatus) {
+    payload.paymentStatus = paymentData.paymentStatus;
+  }
 
   const admission = await Admission.create(payload);
 

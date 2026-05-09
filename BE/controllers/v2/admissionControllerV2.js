@@ -293,6 +293,7 @@ async function getReceipt(req, res, next) {
       </html>
     `;
     res.setHeader('Content-Type', 'text/html');
+    res.setHeader('Content-Disposition', `inline; filename=receipt-${id}.html`);
     return res.send(html);
   } catch (err) { return next(err); }
 }
