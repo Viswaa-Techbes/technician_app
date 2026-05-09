@@ -40,7 +40,19 @@ export default function ContactPage() {
         throw new Error(data.error || 'Failed to submit form')
       }
 
-      setSubmitted(true)
+      // Track lead submission
+      fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL || ''}/api/v2/analytics/visitors/track`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          domain: 'skills.techbes.co.in',
+          eventType: 'lead_submitted',
+          page: '/contact',
+          metadata: { source: 'contact_form' }
+        })
+      }).catch(() => {});
+
+      setSubmitted(true);
       setFormData({ name: '', email: '', phone: '', message: '' })
     } catch (err: any) {
       setError(err.message || 'Error submitting form. Please try again.')

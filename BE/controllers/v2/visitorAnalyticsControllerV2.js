@@ -22,12 +22,16 @@ function parseUserAgent(ua = '') {
 
 async function trackVisitor(req, res, next) {
   try {
-    const { page = '/', country, state, city, eventType, serviceName, metadata } = req.body || {};
+    const { page = '/', country, state, city, eventType, serviceName, domain, sessionId, referral, os, metadata } = req.body || {};
     const { browser, device } = parseUserAgent(req.headers['user-agent']);
     const safeIp = getClientIp(req);
 
     // Fire-and-forget style write to avoid slowing request path.
     const doc = await VisitorAnalytics.create({
+      domain: domain || serviceName || 'unknown',
+      sessionId: sessionId || 'unknown',
+      referral: referral || '',
+      os: os || 'unknown',
       ip: safeIp,
       country: country || 'unknown',
       state: state || 'unknown',
@@ -36,29 +40,9 @@ async function trackVisitor(req, res, next) {
       device,
       page,
       eventType: eventType || 'page_view',
-      serviceName,
       visitedAt: new Date(),
       metadata: metadata || {},
     });
-
-    // Emit a lightweight socket event for realtime dashboards if socket is available
-    try {
-      const io = req.app && req.app.get && req.app.get('io');
-      if (io && typeof io.emit === 'function') {
-        io.emit('visitorEvent', {
-          city: doc.city,
-          state: doc.state,
-          country: doc.country,
-          page: doc.page,
-          device: doc.device,
-          browser: doc.browser,
-          visitedAt: doc.visitedAt,
-          metadata: doc.metadata || {},
-        });
-      }
-    } catch (e) {
-      // don't crash ingestion on socket errors
-    }
 
     return res.status(202).json({ success: true });
   } catch (err) {
@@ -68,25 +52,32 @@ async function trackVisitor(req, res, next) {
 
 async function getDashboard(req, res, next) {
   try {
+    const { domain } = req.query;
+    const cacheKey = domain ? `dashboard_${domain}` : 'dashboard_all';
     const nowTs = Date.now();
-    if (_cache.dashboard.data && (nowTs - _cache.dashboard.ts) < _cache.dashboard.ttl) {
-      return res.json({ success: true, data: _cache.dashboard.data });
+    if (_cache[cacheKey] && (nowTs - _cache[cacheKey].ts) < _cache[cacheKey].ttl) {
+      return res.json({ success: true, data: _cache[cacheKey].data });
     }
+    
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - 7);
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const [totalVisitors, todayVisitors, topPages, topCities, conversion] = await Promise.all([
-      VisitorAnalytics.countDocuments({}),
-      VisitorAnalytics.countDocuments({ visitedAt: { $gte: startOfDay } }),
+    const matchDomain = domain ? { domain } : {};
+
+    const [totalVisitors, todayVisitors, topPages, topCities, conversion, leadsCount, returningAgg] = await Promise.all([
+      VisitorAnalytics.countDocuments(matchDomain),
+      VisitorAnalytics.countDocuments({ ...matchDomain, visitedAt: { $gte: startOfDay } }),
       VisitorAnalytics.aggregate([
+        { $match: matchDomain },
         { $group: { _id: '$page', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 10 },
       ]),
       VisitorAnalytics.aggregate([
+        { $match: matchDomain },
         { $group: { _id: '$city', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 10 },
@@ -94,16 +85,24 @@ async function getDashboard(req, res, next) {
       VisitorAnalytics.aggregate([
         {
           $match: {
+            ...matchDomain,
             eventType: { $in: ['service_viewed', 'booking_started', 'booking_completed', 'payment_completed'] },
             visitedAt: { $gte: startOfMonth },
           },
         },
         { $group: { _id: '$eventType', count: { $sum: 1 } } },
       ]),
+      VisitorAnalytics.countDocuments({ ...matchDomain, eventType: 'lead_submitted' }),
+      VisitorAnalytics.aggregate([
+        { $match: matchDomain },
+        { $group: { _id: '$sessionId', count: { $sum: 1 } } },
+        { $match: { count: { $gt: 1 }, _id: { $ne: 'unknown' } } },
+        { $count: "returning" }
+      ])
     ]);
 
     const trends = await VisitorAnalytics.aggregate([
-      { $match: { visitedAt: { $gte: startOfWeek } } },
+      { $match: { ...matchDomain, visitedAt: { $gte: startOfWeek } } },
       {
         $group: {
           _id: {
@@ -120,13 +119,15 @@ async function getDashboard(req, res, next) {
       totalVisitors,
       todayVisitors,
       liveVisitors: todayVisitors,
+      leads: leadsCount,
+      returningVisitors: returningAgg[0]?.returning || 0,
       topPages: topPages.map((x) => ({ page: x._id || '/', visitors: x.count })),
       topCities: topCities.map((x) => ({ city: x._id || 'unknown', visitors: x.count })),
       conversionFunnel: conversion.map((x) => ({ stage: x._id, count: x.count })),
       trafficTrends: trends.map((t) => ({ date: `${t._id.day}/${t._id.month}`, visitors: t.visitors })),
     };
-    _cache.dashboard.ts = Date.now();
-    _cache.dashboard.data = payload;
+    
+    _cache[cacheKey] = { ts: Date.now(), ttl: 8_000, data: payload };
     return res.json({ success: true, data: payload });
   } catch (err) {
     return next(err);

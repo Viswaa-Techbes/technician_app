@@ -50,7 +50,20 @@ export default function EnquiryPage() {
           {/* Enquiry Form */}
           <Reveal>
             <motion.form
-              onSubmit={(e) => { e.preventDefault(); setSubmitted(true) }}
+              onSubmit={(e) => { 
+                e.preventDefault(); 
+                setSubmitted(true);
+                fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL || ''}/api/v2/analytics/visitors/track`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    domain: 'skills.techbes.co.in',
+                    eventType: 'lead_submitted',
+                    page: '/enquiry',
+                    metadata: { source: 'enquiry_form' }
+                  })
+                }).catch(() => {});
+              }}
               className="glass-form rounded-3xl p-8 md:p-10 space-y-6"
             >
               <h2 className="text-3xl font-black text-primary mb-2">Send Enquiry</h2>

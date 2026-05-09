@@ -111,6 +111,23 @@ export default function AdmissionPage() {
         alert('Payment Failed! ' + response.error.description)
         setIsProcessing(false)
       })
+
+      // Track lead submission (Proceed to Pay)
+      fetch(`${process.env.NEXT_PUBLIC_BACKEND_API_URL || ''}/api/v2/analytics/visitors/track`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          domain: 'skills.techbes.co.in',
+          eventType: 'lead_submitted',
+          page: '/admission',
+          metadata: { 
+            source: 'admission_form',
+            plan: formData.plan,
+            course: formData.course
+          }
+        })
+      }).catch(() => {});
+
       rzp.open()
 
     } catch (error) {
