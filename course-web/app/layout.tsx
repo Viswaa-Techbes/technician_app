@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { Analytics } from '@vercel/analytics/next'
 import { MouseGlow } from '@/components/premium-ui'
 import { WhatsAppFloatingButton } from '@/components/whatsapp-floating-button'
-import { VisitorTracker } from '@/components/visitor-tracker'
 import './globals.css'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://techbes.in'
@@ -159,7 +158,6 @@ export default function RootLayout({
       </head>
       <body className="antialiased bg-background text-foreground" style={{ fontFamily: "'Poppins', sans-serif" }}>
         <MouseGlow />
-        <VisitorTracker />
         {children}
         <WhatsAppFloatingButton />
         {process.env.NODE_ENV === 'production' && <Analytics />}

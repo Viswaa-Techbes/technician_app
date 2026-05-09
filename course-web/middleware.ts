@@ -7,7 +7,7 @@ export async function middleware(request: NextRequest) {
   // Fire and forget visitor tracking
   const { pathname } = request.nextUrl
   if (!pathname.startsWith('/api') && !pathname.startsWith('/_next') && !pathname.match(/\.(png|jpg|jpeg|gif|webp|svg|ico)$/)) {
-    const ip = request.ip || request.headers.get('x-forwarded-for') || 'unknown'
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || request.ip || 'unknown'
     const userAgent = request.headers.get('user-agent') || 'unknown'
     const referral = request.headers.get('referer') || ''
     
@@ -17,8 +17,11 @@ export async function middleware(request: NextRequest) {
       response.cookies.set('tb_session_id', sessionId, { maxAge: 60 * 60 * 24 * 365, path: '/' });
     }
 
+    const backendBase = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://technician-app.onrender.com';
+    const trackUrl = `${backendBase.replace(/\/$/, '')}/api/v2/analytics/visitors/track`;
+
     // We don't await this to avoid blocking the response
-    fetch(`${process.env.BACKEND_API_URL || 'http://localhost:5000'}/api/v2/analytics/visitors/track`, {
+    fetch(trackUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
