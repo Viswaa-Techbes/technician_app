@@ -3,10 +3,11 @@ const mongoose = require('mongoose');
 const visitorAnalyticsSchema = new mongoose.Schema(
   {
     domain: { type: String, trim: true, index: true },
+    hostname: { type: String, trim: true, index: true },
     ip: { type: String, trim: true },
-    country: { type: String, trim: true, default: 'unknown' },
-    state: { type: String, trim: true, default: 'unknown' },
-    city: { type: String, trim: true, default: 'unknown' },
+    country: { type: String, trim: true, default: 'Unknown' },
+    state: { type: String, trim: true, default: 'Unknown' },
+    city: { type: String, trim: true, default: 'Unknown' },
     browser: { type: String, trim: true, default: 'unknown' },
     device: { type: String, trim: true, default: 'unknown' },
     os: { type: String, trim: true, default: 'unknown' },

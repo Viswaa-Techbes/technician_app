@@ -1,9 +1,8 @@
 const VisitorAnalytics = require('../../models/VisitorAnalytics');
+const geoip = require('geoip-lite');
 
-// Simple in-memory cache for aggregated endpoints to reduce DB load
-const _cache = {
-  dashboard: { ts: 0, ttl: 8_000, data: null },
-};
+// Simple in-memory cache to reduce DB load
+const _cache = {};
 
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
@@ -17,25 +16,40 @@ function parseUserAgent(ua = '') {
   const raw = String(ua).toLowerCase();
   const browser = raw.includes('edg') ? 'Edge' : raw.includes('chrome') ? 'Chrome' : raw.includes('firefox') ? 'Firefox' : raw.includes('safari') ? 'Safari' : 'Unknown';
   const device = /mobile|android|iphone|ipad/.test(raw) ? 'Mobile' : 'Desktop';
-  return { browser, device };
+  const os = raw.includes('windows') ? 'Windows' : raw.includes('macintosh') || raw.includes('mac os') ? 'macOS' : raw.includes('linux') ? 'Linux' : raw.includes('android') ? 'Android' : raw.includes('iphone') || raw.includes('ipad') ? 'iOS' : 'Unknown';
+  return { browser, device, os };
 }
 
 async function trackVisitor(req, res, next) {
   try {
-    const { page = '/', country, state, city, eventType, serviceName, domain, sessionId, referral, os, metadata } = req.body || {};
-    const { browser, device } = parseUserAgent(req.headers['user-agent']);
+    const { page = '/', eventType, domain, sessionId, referral, os, metadata } = req.body || {};
+    const { browser, device, os: detectedOs } = parseUserAgent(req.headers['user-agent']);
     const safeIp = getClientIp(req);
 
-    // Fire-and-forget style write to avoid slowing request path.
-    const doc = await VisitorAnalytics.create({
-      domain: domain || serviceName || 'unknown',
+    // Geolocation resolution
+    let country = 'Unknown', state = 'Unknown', city = 'Unknown';
+    if (safeIp && safeIp !== 'unknown' && safeIp !== '127.0.0.1' && safeIp !== '::1') {
+      const geo = geoip.lookup(safeIp);
+      if (geo) {
+        country = geo.country || 'Unknown';
+        state = geo.region || 'Unknown';
+        city = geo.city || 'Unknown';
+      }
+    }
+
+    // Strict domain assignment
+    const targetDomain = domain || 'unknown';
+
+    await VisitorAnalytics.create({
+      domain: targetDomain,
+      hostname: targetDomain, // full hostname
       sessionId: sessionId || 'unknown',
       referral: referral || '',
-      os: os || 'unknown',
+      os: os || detectedOs || 'unknown',
       ip: safeIp,
-      country: country || 'unknown',
-      state: state || 'unknown',
-      city: city || 'unknown',
+      country,
+      state,
+      city,
       browser,
       device,
       page,
@@ -52,10 +66,12 @@ async function trackVisitor(req, res, next) {
 
 async function getDashboard(req, res, next) {
   try {
-    const { domain } = req.query;
-    const cacheKey = domain ? `dashboard_${domain}` : 'dashboard_all';
+    const domain = req.query.domain || 'all';
+    const cacheKey = `dashboard_${domain}`;
     const nowTs = Date.now();
-    if (_cache[cacheKey] && (nowTs - _cache[cacheKey].ts) < _cache[cacheKey].ttl) {
+    
+    // Cache check: 8 seconds TTL
+    if (_cache[cacheKey] && (nowTs - _cache[cacheKey].ts) < 8000) {
       return res.json({ success: true, data: _cache[cacheKey].data });
     }
     
@@ -63,11 +79,11 @@ async function getDashboard(req, res, next) {
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfWeek = new Date(now);
     startOfWeek.setDate(now.getDate() - 7);
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const matchDomain = domain ? { domain } : {};
+    // Strict match filter
+    const matchDomain = domain === 'all' ? {} : { domain: domain };
 
-    const [totalVisitors, todayVisitors, topPages, topCities, conversion, leadsCount, returningAgg] = await Promise.all([
+    const [totalVisitors, todayVisitors, topPages, topCities, leadsCount, returningAgg] = await Promise.all([
       VisitorAnalytics.countDocuments(matchDomain),
       VisitorAnalytics.countDocuments({ ...matchDomain, visitedAt: { $gte: startOfDay } }),
       VisitorAnalytics.aggregate([
@@ -81,16 +97,6 @@ async function getDashboard(req, res, next) {
         { $group: { _id: '$city', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 10 },
-      ]),
-      VisitorAnalytics.aggregate([
-        {
-          $match: {
-            ...matchDomain,
-            eventType: { $in: ['service_viewed', 'booking_started', 'booking_completed', 'payment_completed'] },
-            visitedAt: { $gte: startOfMonth },
-          },
-        },
-        { $group: { _id: '$eventType', count: { $sum: 1 } } },
       ]),
       VisitorAnalytics.countDocuments({ ...matchDomain, eventType: 'lead_submitted' }),
       VisitorAnalytics.aggregate([
@@ -115,19 +121,18 @@ async function getDashboard(req, res, next) {
       },
       { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } },
     ]);
+
     const payload = {
       totalVisitors,
       todayVisitors,
-      liveVisitors: todayVisitors,
       leads: leadsCount,
       returningVisitors: returningAgg[0]?.returning || 0,
       topPages: topPages.map((x) => ({ page: x._id || '/', visitors: x.count })),
-      topCities: topCities.map((x) => ({ city: x._id || 'unknown', visitors: x.count })),
-      conversionFunnel: conversion.map((x) => ({ stage: x._id, count: x.count })),
+      topCities: topCities.map((x) => ({ city: x._id || 'Unknown', visitors: x.count })),
       trafficTrends: trends.map((t) => ({ date: `${t._id.day}/${t._id.month}`, visitors: t.visitors })),
     };
     
-    _cache[cacheKey] = { ts: Date.now(), ttl: 8_000, data: payload };
+    _cache[cacheKey] = { ts: Date.now(), data: payload };
     return res.json({ success: true, data: payload });
   } catch (err) {
     return next(err);
