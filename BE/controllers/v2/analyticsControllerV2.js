@@ -221,7 +221,7 @@ async function getTechnicianPerformance(req, res, next) {
             as: 'technician',
           },
         },
-        { $unwind: { path: '$technician', preserveNullAndEmpty: true } },
+        { $unwind: { path: '$technician', preserveNullAndEmptyArrays: true } },
         {
           $project: {
             technicianId: '$_id',

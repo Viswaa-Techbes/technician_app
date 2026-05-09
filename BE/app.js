@@ -28,7 +28,6 @@ const visitorAnalyticsRoutesV2 = require('./routes/v2/visitorAnalyticsRoutesV2')
 const careerRoutesV2 = require('./routes/v2/careerRoutesV2');
 const courseRoutesV2 = require('./routes/v2/courseRoutesV2');
 const admissionRoutesV2 = require('./routes/v2/admissionRoutesV2');
-const { visitorAnalyticsMiddleware } = require('./middlewares/visitorAnalytics');
 
 const errorHandler = require('./middlewares/errorHandler');
 
@@ -40,7 +39,6 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(visitorAnalyticsMiddleware);
 
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
