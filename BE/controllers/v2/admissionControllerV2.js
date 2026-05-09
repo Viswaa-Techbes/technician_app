@@ -1,5 +1,6 @@
 const AdmissionPayment = require('../../models/AdmissionPayment');
 const AdmissionDocument = require('../../models/AdmissionDocument');
+const Admission = require('../../models/Admission');
 const admissionService = require('../../services/admissionServiceV2');
 
 function parsePayload(req, partial = false) {
@@ -157,6 +158,66 @@ async function addDocument(req, res, next) {
   }
 }
 
+// Bulk assign multiple admissions (admin-only)
+async function bulkAssign(req, res, next) {
+  try {
+    const { ids = [], assignedCourse, assignedInternship } = req.body || {};
+    const programType = req.body?.programType;
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ success: false, message: 'ids required' });
+    const updates = { };
+    if (assignedCourse) updates.assignedCourse = assignedCourse;
+    if (assignedInternship) updates.assignedInternship = assignedInternship;
+    if (programType) updates.programType = programType;
+
+    const results = [];
+    for (const id of ids) {
+      const item = await admissionService.updateApplication(id, updates);
+      if (item) {
+        // push internal note about assignment for history
+        const note = `Assigned${assignedCourse ? ' course:'+assignedCourse : ''}${assignedInternship ? ' internship:'+assignedInternship : ''}`;
+        await Admission.findByIdAndUpdate(id, { $push: { internalNotes: { note, addedBy: req.user.id } } }).catch(() => {});
+        results.push(id);
+      }
+    }
+    return res.json({ success: true, assigned: results.length, ids: results });
+  } catch (err) { return next(err); }
+}
+
+// Activity stream for a specific admission
+async function getActivity(req, res, next) {
+  try {
+    const id = req.params.id;
+    const item = await admissionService.getApplicationById(id);
+    if (!item) return res.status(404).json({ success: false, message: 'Admission not found' });
+    const notes = (item.internalNotes || []).map(n => ({ message: n.note, timestamp: n.addedAt, addedBy: n.addedBy }));
+    return res.json({ success: true, data: notes });
+  } catch (err) { return next(err); }
+}
+
+// Payment ledger list
+async function getPayments(req, res, next) {
+  try {
+    const id = req.params.id;
+    const payments = await AdmissionPayment.find({ admissionId: id }).sort({ createdAt: -1 }).lean();
+    return res.json({ success: true, data: payments });
+  } catch (err) { return next(err); }
+}
+
+// Assignment history — derive from internalNotes
+async function getAssignmentHistory(req, res, next) {
+  try {
+    const id = req.params.id;
+    const item = await admissionService.getApplicationById(id);
+    if (!item) return res.status(404).json({ success: false, message: 'Admission not found' });
+    const hist = (item.internalNotes || []).filter(n => /assign/i.test(n.note || '')).map(n => ({ assignedTo: n.note, note: n.note, date: n.addedAt }));
+    // include current assignment
+    if (item.assignedCourse || item.assignedInternship) {
+      hist.unshift({ assignedTo: item.assignedCourse || item.assignedInternship, note: `Current: ${item.assignedCourse||''} ${item.assignedInternship||''}`, date: item.updatedAt });
+    }
+    return res.json({ success: true, data: hist });
+  } catch (err) { return next(err); }
+}
+
 module.exports = {
   listAdmissions,
   getAdmissionById,
@@ -168,3 +229,35 @@ module.exports = {
   upsertPayment,
   addDocument,
 };
+
+// verify payment (admin manual verify)
+async function verifyPayment(req, res, next) {
+  try {
+    const id = req.params.id;
+    const payment = await AdmissionPayment.findOne({ admissionId: id });
+    if (!payment) return res.status(404).json({ success: false, message: 'Payment record not found' });
+    const total = Number(payment.totalFees || 0);
+    payment.paymentStatus = 'paid';
+    payment.paidAmount = total;
+    payment.pendingAmount = 0;
+    payment.transactionLogs = payment.transactionLogs || [];
+    payment.transactionLogs.push({ amount: total, mode: 'admin_verify', transactionId: `admin-${Date.now()}`, status: 'success', note: 'Verified by admin' });
+    await payment.save();
+    await admissionService.updateApplication(id, { paymentStatus: 'paid' });
+    return res.json({ success: true, data: payment });
+  } catch (err) { return next(err); }
+}
+
+module.exports.verifyPayment = verifyPayment;
+
+// Bulk preview for admissions
+async function bulkPreview(req, res, next) {
+  try {
+    const { ids = [] } = req.body || {};
+    if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ success: false, message: 'ids required' });
+    const items = await Admission.find({ _id: { $in: ids } }).select('fullName _id assignedCourse assignedInternship admissionStatus paymentStatus programType').lean();
+    return res.json({ success: true, data: items });
+  } catch (err) { return next(err); }
+}
+
+module.exports.bulkPreview = bulkPreview;
