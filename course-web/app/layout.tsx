@@ -122,7 +122,7 @@ const structuredData = {
         '@type': 'Offer',
         url: `${siteUrl}/admission`,
         priceCurrency: 'INR',
-        price: '7999',
+        price: '1',
         availability: 'https://schema.org/InStock',
       },
     },

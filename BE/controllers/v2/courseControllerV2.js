@@ -7,9 +7,9 @@ const { getRazorpayCredentials } = require('../../config/razorpay');
 const crypto = require('crypto');
 
 const PLAN_AMOUNTS = {
-  basic: 7999,
-  'job-ready': 14999,
-  premium: 24999,
+  basic: 1,
+  'job-ready': 1,
+  premium: 1,
 };
 
 function normalizeCoursePayload(body) {
