@@ -57,7 +57,7 @@ const plans = [
     features: ['2 Months Classroom Training', 'CCTV Basics & Installation', 'Networking Basics', 'Computer Hardware Basics', 'Practical Lab Sessions', 'Course Completion Certificate', 'Trainer Support During Course', 'Study Materials (PDF)'],
   },
   {
-    name: 'PREMIUM PLAN', price: '₹24,999', popular: true,
+    name: 'PREMIUM PLAN', price: '₹24,999', originalPrice: '₹30,000', popular: true,
     features: ['Everything in Job Ready Plan', '2 Months Extended Internship', 'Live Project Experience (On Site)', 'Business & Entrepreneurship Training', 'How to Start Your Own CCTV Business', 'Quotation, Pricing & Marketing', 'Placement Assistance', 'Interview Preparation', 'Premium Certificate', 'Guidance & Support'],
   },
   {
@@ -283,7 +283,9 @@ function PricingSection() {
       </Reveal>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12 items-center">
-        {plans.map(({ name, price, popular, features: fs }, i) => (
+        {plans.map((plan, i) => {
+          const { name, price, popular, features: fs } = plan;
+          return (
           <Reveal key={name} delay={i * 0.15}>
             <motion.div
               whileHover={{ y: -12 }}
@@ -312,8 +314,27 @@ function PricingSection() {
                 </>
               )}
               <div>
-                <p className={`text-sm font-black tracking-widest uppercase mb-2 ${popular ? 'text-accent' : 'text-foreground/50'}`}>{name}</p>
-                <p className={`text-5xl font-black ${popular ? 'text-white' : 'text-primary'}`}>{price}</p>
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <p className={`text-sm font-black tracking-widest uppercase ${popular ? 'text-accent' : 'text-foreground/50'}`}>{name}</p>
+                  {(plan as any).originalPrice && (
+                    <motion.span 
+                      animate={{ scale: [1, 1.05, 1], opacity: [0.9, 1, 0.9] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className="text-[9px] font-black bg-emerald-500 text-white px-2 py-0.5 rounded-full shadow-lg shadow-emerald-500/20"
+                    >
+                      SPECIAL OFFER
+                    </motion.span>
+                  )}
+                </div>
+                <div className="flex items-end gap-3 flex-wrap">
+                  <p className={`text-5xl md:text-6xl font-black ${popular ? 'text-white' : 'text-primary'}`}>{price}</p>
+                  {(plan as any).originalPrice && (
+                    <div className="flex flex-col pb-1">
+                      <p className={`text-xl font-bold line-through ${popular ? 'text-white/40' : 'text-foreground/30'}`}>{(plan as any).originalPrice}</p>
+                      <span className={`text-[10px] font-black uppercase tracking-widest ${popular ? 'text-accent' : 'text-primary'}`}>Limited Time Offer</span>
+                    </div>
+                  )}
+                </div>
               </div>
               <ul className="space-y-3 flex-1">
                 {fs.map((f) => (
@@ -338,7 +359,7 @@ function PricingSection() {
               </Link>
             </motion.div>
           </Reveal>
-        ))}
+        )})}
       </div>
     </SectionShell>
   )

@@ -11,7 +11,7 @@ import Script from 'next/script'
 const plans = [
   { id: 'basic', name: 'Basic Plan', price: 7999, originalPrice: 7999 },
   { id: 'job-ready', name: 'Job Ready Plan', price: 14999, originalPrice: 14999 },
-  { id: 'premium', name: 'Premium Plan', price: 24999, originalPrice: 24999, recommended: true },
+  { id: 'premium', name: 'Premium Plan', price: 24999, originalPrice: 30000, recommended: true },
 ]
 
 export default function AdmissionPage() {
@@ -321,7 +321,12 @@ export default function AdmissionPage() {
                       </div>
                       <div className="text-right">
                         <span className="block text-xl font-black text-primary">₹{plan.price.toLocaleString()}</span>
-                        <span className="text-xs text-foreground/40 line-through">₹{plan.originalPrice.toLocaleString()}</span>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {plan.price < plan.originalPrice && (
+                            <span className="text-[8px] font-black bg-emerald-500 text-white px-1 py-0.5 rounded uppercase tracking-tighter">Limited</span>
+                          )}
+                          <span className="text-xs text-foreground/40 line-through">₹{plan.originalPrice.toLocaleString()}</span>
+                        </div>
                       </div>
                     </label>
                   ))}
