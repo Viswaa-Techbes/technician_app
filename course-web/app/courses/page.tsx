@@ -120,7 +120,7 @@ export default function CoursesPage() {
         </Reveal>
 
         <div className="space-y-8">
-          {modules.map(({ icon: Icon, color, title, badge, duration, topics, desc }, i) => (
+          {modules.map(({ icon: Icon, color, title, slug, badge, duration, topics, desc }, i) => (
             <GlassCard key={title} delay={i * 0.1}>
               <div className="p-8">
                 <div className="flex flex-col md:flex-row gap-8">
