@@ -58,13 +58,61 @@ const plans = [
   },
   {
     name: 'PREMIUM PLAN', price: '₹24,999', originalPrice: '₹30,000', popular: true,
-    features: ['Everything in Job Ready Plan', '2 Months Extended Internship', 'Live Project Experience (On Site)', 'Business & Entrepreneurship Training', 'How to Start Your Own CCTV Business', 'Quotation, Pricing & Marketing', 'Placement Assistance', 'Interview Preparation', 'Premium Certificate', 'Guidance & Support'],
+    features: ['Everything in Job Ready Plan', '2 Months Extended Internship', 'Live Project Experience (On Site)', 'Business & Entrepreneurship Training', 'How to Start Your Own CCTV Business', 'Quotation, Pricing & Marketing', 'Interview Preparation', 'Premium Certificate', 'Guidance & Support', '100% JOB ASSISTANCE'],
   },
   {
     name: 'JOB READY PLAN', price: '₹14,999', popular: false,
-    features: ['Everything in Basic Plan', '1 Month Real Project Internship', 'Advanced CCTV (IP Camera, NVR)', 'Advanced Networking (Router, Switch)', 'Troubleshooting & Maintenance', 'Mobile App Setup & Configuration', 'Soft Skills & Client Handling', 'Job Assistance & Guidance', 'Certificate + Internship Certificate'],
+    features: ['Everything in Basic Plan', '1 Month Real Project Internship', 'Advanced CCTV (IP Camera, NVR)', 'Advanced Networking (Router, Switch)', 'Troubleshooting & Maintenance', 'Mobile App Setup & Configuration', 'Soft Skills & Client Handling', 'Career Guidance & Support', 'Certificate + Internship Certificate'],
   },
 ]
+
+/* ─────────────── COMPONENTS ─────────────── */
+function JobAssistanceBadge() {
+  return (
+    <motion.div
+      initial={{ scale: 0.5, opacity: 0 }}
+      animate={{ 
+        scale: [1, 1.05, 1],
+        opacity: 1,
+        y: [0, -5, 0]
+      }}
+      transition={{ 
+        scale: { duration: 2, repeat: Infinity, ease: "easeInOut" },
+        y: { duration: 2.5, repeat: Infinity, ease: "easeInOut" },
+        opacity: { duration: 0.5 }
+      }}
+      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_25px_rgba(16,185,129,0.1)] group relative overflow-hidden cursor-default"
+    >
+      {/* GIF-like Shimmer Effect */}
+      <motion.div 
+        animate={{ x: ['-100%', '200%'] }}
+        transition={{ duration: 2, repeat: Infinity, ease: "linear", repeatDelay: 1 }}
+        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -skew-x-12"
+      />
+      
+      <div className="relative z-10 flex items-center gap-2">
+        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]">
+          <Zap size={14} className="text-white fill-white" />
+        </div>
+        <span className="text-base md:text-lg font-black text-emerald-600 tracking-tight flex items-center gap-1.5">
+          Job Assistance
+          <motion.span
+            animate={{ opacity: [1, 0.5, 1] }}
+            transition={{ duration: 1, repeat: Infinity }}
+            className="w-1.5 h-1.5 rounded-full bg-emerald-500"
+          />
+        </span>
+      </div>
+      
+      {/* Decorative pulse */}
+      <motion.div
+        animate={{ scale: [1, 1.5, 1], opacity: [0.2, 0, 0.2] }}
+        transition={{ duration: 2, repeat: Infinity }}
+        className="absolute inset-0 bg-emerald-500/20 rounded-[inherit]"
+      />
+    </motion.div>
+  )
+}
 
 /* ─────────────── HERO ─────────────── */
 function HeroSection() {
@@ -130,7 +178,10 @@ function HeroSection() {
             </motion.h1>
 
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}>
-              <p className="text-xl sm:text-2xl font-bold text-accent mb-4">2 Months Training + 1 Month Internship</p>
+              <div className="flex flex-col gap-4 mb-6">
+                <p className="text-xl sm:text-2xl font-bold text-accent">2 Months Training + 1 Month Internship</p>
+                <JobAssistanceBadge />
+              </div>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-base sm:text-lg text-foreground/60 font-medium">
                 <span>Get Job Ready</span>
                 <span className="text-primary/30 hidden sm:inline">•</span>
@@ -337,12 +388,27 @@ function PricingSection() {
                 </div>
               </div>
               <ul className="space-y-3 flex-1">
-                {fs.map((f) => (
-                  <li key={f} className="flex items-start gap-3 text-sm">
-                    <CheckCircle2 size={16} className={`mt-0.5 flex-shrink-0 ${popular ? 'text-accent' : 'text-primary'}`} />
-                    <span className={popular ? 'text-white/85' : 'text-foreground/70'}>{f}</span>
-                  </li>
-                ))}
+                {fs.map((f) => {
+                  const isJobAssistance = f.includes('JOB ASSISTANCE');
+                  return (
+                    <li key={f} className="flex items-start gap-3 text-sm">
+                      <CheckCircle2 size={16} className={`mt-0.5 flex-shrink-0 ${popular ? 'text-accent' : 'text-primary'}`} />
+                      <span className={`
+                        ${popular ? 'text-white/85' : 'text-foreground/70'}
+                        ${isJobAssistance ? 'font-black text-white bg-accent/20 px-2 py-0.5 rounded-lg border border-accent/30 flex items-center gap-1.5' : ''}
+                      `}>
+                        {f}
+                        {isJobAssistance && (
+                          <motion.span
+                            animate={{ scale: [1, 1.3, 1], opacity: [1, 0.5, 1] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="w-2 h-2 rounded-full bg-accent"
+                          />
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
               <Link href="/admission" className="mt-2">
                 <motion.button
