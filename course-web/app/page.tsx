@@ -173,7 +173,7 @@ function HeroSection() {
             </h1>
 
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}>
-              <div className="flex flex-col gap-4 mb-6">
+              <div className="flex flex-col items-start gap-4 mb-6">
                 <p className="text-xl sm:text-2xl font-bold text-accent">2 Months Training + 1 Month Internship</p>
                 <JobAssistanceBadge />
               </div>
@@ -388,10 +388,20 @@ function PricingSection() {
                   return (
                     <li key={f} className="flex items-start gap-3 text-sm">
                       <CheckCircle2 size={16} className={`mt-0.5 flex-shrink-0 ${popular ? 'text-accent' : 'text-primary'}`} />
-                      <span className={`
-                        ${popular ? 'text-white/85' : 'text-foreground/70'}
-                        ${isJobAssistance ? 'font-black text-white bg-accent/20 px-2 py-0.5 rounded-lg border border-accent/30 flex items-center gap-1.5' : ''}
-                      `}>
+                      <motion.span 
+                        animate={isJobAssistance ? { 
+                          scale: [1, 1.05, 1],
+                          y: [0, -2, 0]
+                        } : {}}
+                        transition={isJobAssistance ? {
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        } : {}}
+                        className={`
+                          ${popular ? 'text-white/85' : 'text-foreground/70'}
+                          ${isJobAssistance ? 'font-black text-white bg-accent/20 px-2 py-0.5 rounded-lg border border-accent/30 flex items-center gap-1.5 shadow-[0_0_15px_rgba(255,107,0,0.2)]' : ''}
+                        `}>
                         {f}
                         {isJobAssistance && (
                           <motion.span
@@ -400,7 +410,7 @@ function PricingSection() {
                             className="w-2 h-2 rounded-full bg-accent"
                           />
                         )}
-                      </span>
+                      </motion.span>
                     </li>
                   );
                 })}

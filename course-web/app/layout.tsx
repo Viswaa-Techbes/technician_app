@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Analytics } from '@vercel/analytics/next'
+import { GoogleTagManager } from '@next/third-parties/google'
 import Script from 'next/script'
 import { MouseGlow } from '@/components/premium-ui'
 import { WhatsAppFloatingButton } from '@/components/whatsapp-floating-button'
@@ -149,6 +150,7 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased bg-background text-foreground" style={{ fontFamily: "'Poppins', sans-serif" }}>
+        <GoogleTagManager gtmId="GTM-W2LHV9PC" />
         <MouseGlow />
         {children}
         <WhatsAppFloatingButton />
