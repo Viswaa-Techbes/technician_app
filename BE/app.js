@@ -24,6 +24,8 @@ const locationRoutesV2 = require('./routes/v2/locationRoutesV2');
 const adminRoutesV2 = require('./routes/v2/adminRoutesV2');
 const uploadRoutesV2 = require('./routes/v2/uploadRoutesV2');
 const analyticsRoutesV2 = require('./routes/v2/analyticsRoutesV2');
+// visitor analytics legacy routes are still required for compatibility but
+// have been disabled. Keep the import to avoid module resolution errors.
 const visitorAnalyticsRoutesV2 = require('./routes/v2/visitorAnalyticsRoutesV2');
 const careerRoutesV2 = require('./routes/v2/careerRoutesV2');
 const courseRoutesV2 = require('./routes/v2/courseRoutesV2');
@@ -72,6 +74,7 @@ app.use('/api/v2/location', locationRoutesV2);
 app.use('/api/v2/admin', adminRoutesV2);
 app.use('/api/v2/upload', uploadRoutesV2);
 app.use('/api/v2/analytics', analyticsRoutesV2);
+// Keep legacy visitor analytics route registered (handlers return 410).
 app.use('/api/v2/analytics/visitors', visitorAnalyticsRoutesV2);
 app.use('/api/v2/careers', careerRoutesV2);
 app.use('/api/v2', courseRoutesV2);

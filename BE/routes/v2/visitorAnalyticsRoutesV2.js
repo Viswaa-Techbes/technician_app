@@ -4,11 +4,9 @@ const { trackVisitor, getDashboard, getCityDetail } = require('../../controllers
 
 const router = express.Router();
 
-// Public ingestion endpoint
-router.post('/track', trackVisitor);
-
-// Admin-only analytics dashboard data
-router.get('/dashboard', authenticate, requireRoles('admin'), getDashboard);
-router.get('/city/:city', authenticate, requireRoles('admin'), getCityDetail);
+// Legacy visitor analytics endpoints disabled. Return 410 Gone to indicate removal.
+router.post('/track', (req, res) => res.status(410).json({ success: false, message: 'Legacy visitor analytics disabled. Use GA4.' }));
+router.get('/dashboard', authenticate, requireRoles('admin'), (req, res) => res.status(410).json({ success: false, message: 'Legacy visitor analytics disabled. Use GA4.' }));
+router.get('/city/:city', authenticate, requireRoles('admin'), (req, res) => res.status(410).json({ success: false, message: 'Legacy visitor analytics disabled. Use GA4.' }));
 
 module.exports = router;

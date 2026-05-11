@@ -15,33 +15,9 @@ function parseUserAgent(ua = '') {
   return { browser, device };
 }
 
+// Legacy visitor analytics disabled — now handled by GA4. Keep file for safety
+// to avoid breaking imports; middleware is intentionally a no-op.
 function visitorAnalyticsMiddleware(req, res, next) {
-  const shouldTrack =
-    req.method === 'GET' &&
-    !req.path.startsWith('/health') &&
-    !req.path.startsWith('/uploads') &&
-    !req.path.startsWith('/api/v2/analytics/visitors');
-
-  if (!shouldTrack) return next();
-
-  const { browser, device } = parseUserAgent(req.headers['user-agent']);
-  const ip = extractIp(req);
-  const page = req.originalUrl || req.path || '/';
-
-  setImmediate(() => {
-    VisitorAnalytics.create({
-      ip,
-      browser,
-      device,
-      page,
-      visitedAt: new Date(),
-      country: 'unknown',
-      state: 'unknown',
-      city: 'unknown',
-      eventType: 'page_view',
-    }).catch(() => {});
-  });
-
   return next();
 }
 
