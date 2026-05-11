@@ -14,6 +14,7 @@ const modules = [
   {
     icon: Camera, color: '#0B4DBA',
     title: 'CCTV Technology',
+    slug: 'cctv-technology',
     badge: 'Core Module',
     duration: '3 Weeks',
     topics: ['CCTV Basics', 'IP & Analog Cameras', 'Installation & Wiring', 'DVR/NVR Setup', 'Mobile Viewing', 'Troubleshooting'],
@@ -22,6 +23,7 @@ const modules = [
   {
     icon: Network, color: '#FF6B00',
     title: 'Networking',
+    slug: 'networking',
     badge: 'Core Module',
     duration: '2 Weeks',
     topics: ['Networking Basics', 'IP Addressing', 'Router Configuration', 'LAN & WiFi Setup', 'Switch Configuration'],
@@ -30,6 +32,7 @@ const modules = [
   {
     icon: Cpu, color: '#0B4DBA',
     title: 'Computer Hardware',
+    slug: 'computer-hardware',
     badge: 'Core Module',
     duration: '2 Weeks',
     topics: ['Desktop Assembling', 'Laptop Repair Basics', 'OS Installation', 'Software Installation', 'Virus Removal', 'System Maintenance'],
@@ -141,13 +144,18 @@ export default function CoursesPage() {
                       </span>
                     </div>
                     <p className="text-foreground/60 mb-5">{desc}</p>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 mb-6">
                       {topics.map((t) => (
                         <span key={t} className="flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-xl bg-white/80 border border-white/60 text-foreground/70">
                           <CheckCircle2 size={12} style={{ color }} /> {t}
                         </span>
                       ))}
                     </div>
+                    {slug && (
+                      <Link href={`/courses/${slug}`} className="inline-flex items-center gap-2 font-bold text-sm transition-colors hover:opacity-80" style={{ color }}>
+                        View Full Details <ChevronRight size={16} />
+                      </Link>
+                    )}
                   </div>
                 </div>
               </div>

@@ -156,12 +156,7 @@ function HeroSection() {
               <span className="text-sm font-bold text-primary">Admissions Open – Limited Seats</span>
             </motion.div>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 40 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.1 }}
-              className="text-4xl sm:text-5xl md:text-5xl lg:text-5xl xl:text-6xl font-black leading-tight"
-            >
+            <h1 className="text-4xl sm:text-5xl md:text-5xl lg:text-5xl xl:text-6xl font-black leading-tight">
               <span className="whitespace-nowrap" style={{ color: '#0B4DBA' }}>CCTV & Networking</span>{' '}
               <span className="relative inline-block">
                 <span style={{ color: '#FF6B00' }}>IT Skill</span>
@@ -175,7 +170,7 @@ function HeroSection() {
               <span style={{ color: '#0B4DBA' }}>Development</span>
               <br />
               <span style={{ color: '#083B8A' }}>Program</span>
-            </motion.h1>
+            </h1>
 
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}>
               <div className="flex flex-col gap-4 mb-6">
@@ -461,6 +456,37 @@ function AdmissionCTA() {
   )
 }
 
+/* ─────────────── FAQ ─────────────── */
+const faqs = [
+  { q: "Is this training 100% practical?", a: "Yes, our training is focuses on hands-on practical experience with real equipment in our lab and on-site field work." },
+  { q: "Do you provide job assistance?", a: "Absolutely. We provide 100% job assistance including interview preparation, resume building, and placement connections." },
+  { q: "What is the duration of the course?", a: "The total program is 3 months — 2 months of intensive classroom/lab training and 1 month of real-project internship." },
+  { q: "Will I get a certificate?", a: "Yes, you will receive an industry-recognized Certificate of Completion from TECHBES upon finishing the program." },
+]
+
+function FAQSection() {
+  return (
+    <SectionShell className="bg-white">
+      <Reveal>
+        <div className="text-center mb-12">
+          <h2 className="text-4xl font-black text-primary mb-4">Frequently Asked Questions</h2>
+          <p className="text-foreground/60">Everything you need to know about the TECHBES program</p>
+        </div>
+      </Reveal>
+      <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
+        {faqs.map((faq, i) => (
+          <GlassCard key={i} delay={i * 0.1}>
+            <div className="p-6">
+              <h3 className="text-lg font-bold text-primary mb-2">{faq.q}</h3>
+              <p className="text-foreground/70 text-sm leading-relaxed">{faq.a}</p>
+            </div>
+          </GlassCard>
+        ))}
+      </div>
+    </SectionShell>
+  )
+}
+
 /* ─────────────── PAGE ─────────────── */
 export default function HomePage() {
   return (
@@ -470,6 +496,7 @@ export default function HomePage() {
       <CoursesSection />
       <CareerSection />
       <PricingSection />
+      <FAQSection />
       <AdmissionCTA />
       <Footer />
     </main>

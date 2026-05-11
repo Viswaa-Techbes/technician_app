@@ -5,11 +5,11 @@ import { MouseGlow } from '@/components/premium-ui'
 import { WhatsAppFloatingButton } from '@/components/whatsapp-floating-button'
 import './globals.css'
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://techbes.in'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://skills.techbes.co.in'
 const siteName = 'TECHBES'
-const siteTitle = 'TECHBES - CCTV & Networking IT Skill Development Program'
+const siteTitle = 'CCTV Training & IT Skill Development Program | TECHBES India'
 const siteDescription =
-  'Join TECHBES for practical CCTV installation, networking, computer hardware, field service training, internship, certification, and job assistance in Bangalore.'
+  'Master CCTV installation, Networking, and IT skills with TECHBES. 100% practical training, 1-month internship, and job assistance. Start your technical career today.'
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -21,23 +21,22 @@ export const metadata: Metadata = {
   description: siteDescription,
   keywords: [
     'TECHBES',
-    'TECHBES Bangalore',
-    'CCTV training Bangalore',
-    'CCTV installation course Bangalore',
-    'networking course Bangalore',
-    'computer hardware course Bangalore',
+    'CCTV training India',
+    'CCTV installation course',
+    'Networking course',
+    'Computer hardware training',
     'IT skill development program',
-    'field service engineer training',
+    'Field service engineer training',
     'CCTV technician course',
-    'network technician course',
-    'job ready IT training',
-    'CCTV internship Bangalore',
+    'Network technician course',
+    'Job oriented technical courses',
+    'Skill development courses India',
   ],
   authors: [{ name: siteName }],
   creator: siteName,
   publisher: siteName,
   category: 'education',
-  classification: 'CCTV and IT skill development training institute',
+  classification: 'Professional Technical Training Institute',
   alternates: {
     canonical: '/',
   },
@@ -60,9 +59,9 @@ export const metadata: Metadata = {
     images: [
       {
         url: '/logo.png',
-        width: 1366,
-        height: 451,
-        alt: 'TECHBES logo',
+        width: 1200,
+        height: 630,
+        alt: 'TECHBES - CCTV & IT Training Excellence',
       },
     ],
     locale: 'en_IN',
@@ -99,32 +98,8 @@ const structuredData = {
         postalCode: '560072',
         addressCountry: 'IN',
       },
-      sameAs: [`https://wa.me/919591144949`],
-    },
-    {
-      '@type': 'Course',
-      '@id': `${siteUrl}/#cctv-it-course`,
-      name: 'CCTV & Networking IT Skill Development Program',
       description: siteDescription,
-      provider: {
-        '@id': `${siteUrl}/#organization`,
-      },
-      educationalCredentialAwarded: 'Certificate of Completion',
-      teaches: [
-        'CCTV installation',
-        'IP and analog cameras',
-        'Networking',
-        'Computer hardware',
-        'Field service',
-        'Client handling',
-      ],
-      offers: {
-        '@type': 'Offer',
-        url: `${siteUrl}/admission`,
-        priceCurrency: 'INR',
-        price: '1',
-        availability: 'https://schema.org/InStock',
-      },
+      sameAs: [`https://wa.me/919591144949`],
     },
     {
       '@type': 'WebSite',
@@ -134,6 +109,22 @@ const structuredData = {
       publisher: {
         '@id': `${siteUrl}/#organization`,
       },
+    },
+    {
+      '@type': 'LocalBusiness',
+      '@id': `${siteUrl}/#localbusiness`,
+      name: siteName,
+      image: `${siteUrl}/logo.png`,
+      telephone: '+919591144949',
+      url: siteUrl,
+      address: {
+        '@type': 'PostalAddress',
+        addressLocality: 'Bangalore',
+        addressRegion: 'Karnataka',
+        postalCode: '560072',
+        addressCountry: 'IN',
+      },
+      priceRange: '₹₹',
     },
   ],
 }
