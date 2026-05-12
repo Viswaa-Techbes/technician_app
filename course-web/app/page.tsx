@@ -5,6 +5,7 @@ import { useRef } from 'react'
 import Link from 'next/link'
 import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
+import EarnPopup from '@/components/earn-popup'
 import { CinematicVideoFrame, GlassCard, Reveal, SectionShell } from '@/components/premium-ui'
 import {
   Camera, Network, Cpu, Wrench, BriefcaseBusiness,
@@ -16,7 +17,7 @@ import {
 const features = [
   { icon: ShieldCheck, label: '100% Practical Training', color: '#0B4DBA' },
   { icon: Sparkles, label: 'Real Project Internship', color: '#FF6B00' },
-  { icon: Zap, label: 'Job Assistance', color: '#0B4DBA' },
+  { icon: Zap, label: '100% job support', color: '#0B4DBA' },
   { icon: Users, label: 'Industry Expert Trainers', color: '#FF6B00' },
   { icon: BadgeCheck, label: 'Certificate of Completion', color: '#0B4DBA' },
 ]
@@ -95,7 +96,7 @@ function JobAssistanceBadge() {
           <Zap size={14} className="text-white fill-white" />
         </div>
         <span className="text-base md:text-lg font-black text-emerald-600 tracking-tight flex items-center gap-1.5">
-          Job Assistance
+          100% job support
           <motion.span
             animate={{ opacity: [1, 0.5, 1] }}
             transition={{ duration: 1, repeat: Infinity }}
@@ -502,6 +503,7 @@ export default function HomePage() {
   return (
     <main className="min-h-screen overflow-x-hidden" style={{ background: '#F5F9FF' }}>
       <Header />
+      <EarnPopup />
       <HeroSection />
       <CoursesSection />
       <CareerSection />

@@ -41,11 +41,15 @@ export default function AdmissionPage() {
     if (!selectedPlanDetails) return
 
     try {
-      // 1. Create Order
+      // Configurable discount (NEXT_PUBLIC_ONLINE_DISCOUNT) — defaults to 10%
+      const DISCOUNT_PERCENT = Number(process.env.NEXT_PUBLIC_ONLINE_DISCOUNT) || 10
+      const discountedAmount = Math.round(selectedPlanDetails.price * (1 - DISCOUNT_PERCENT / 100))
+
+      // 1. Create Order with discounted amount
       const res = await fetch('/api/razorpay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: selectedPlanDetails.price })
+        body: JSON.stringify({ amount: discountedAmount })
       })
       const orderData = await res.json()
 
@@ -63,17 +67,18 @@ export default function AdmissionPage() {
           // Payment Successful
           setIsProcessing(true)
           
-          try {
+            try {
             // Save enrollment to API
             const enrollRes = await fetch('/api/enroll', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 ...formData,
-                amountPaid: selectedPlanDetails.price,
+                amountPaid: discountedAmount,
                 razorpayPaymentId: response.razorpay_payment_id,
                 razorpayOrderId: response.razorpay_order_id,
                 razorpaySignature: response.razorpay_signature,
+                paymentMethod: 'online',
               })
             })
             const enrollData = await enrollRes.json()
@@ -320,7 +325,14 @@ export default function AdmissionPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="block text-xl font-black text-primary">₹{plan.price.toLocaleString()}</span>
+                            <span className="block text-xl font-black text-primary">₹{plan.price.toLocaleString()}</span>
+                            {(() => {
+                              const DISCOUNT_PERCENT = Number(process.env.NEXT_PUBLIC_ONLINE_DISCOUNT) || 10
+                              const onlinePrice = Math.round(plan.price * (1 - DISCOUNT_PERCENT / 100))
+                              return (
+                                <span className="block text-sm text-emerald-600 font-bold">Online: ₹{onlinePrice.toLocaleString()} ({DISCOUNT_PERCENT}% off)</span>
+                              )
+                            })()}
                         <div className="flex items-center justify-end gap-1.5">
                           {plan.price < plan.originalPrice && (
                             <span className="text-[8px] font-black bg-emerald-500 text-white px-1 py-0.5 rounded uppercase tracking-tighter">Limited</span>
@@ -342,6 +354,7 @@ export default function AdmissionPage() {
                   {isProcessing ? <Loader2 className="animate-spin" /> : <Lock size={20} />}
                   {isProcessing ? 'Processing...' : 'Proceed to Secure Payment'}
                 </motion.button>
+                <p className="text-xs text-foreground/60 mt-2">Pay online to get a <span className="font-bold">{Number(process.env.NEXT_PUBLIC_ONLINE_DISCOUNT) || 10}% discount</span> applied automatically at checkout.</p>
               </motion.form>
             </div>
           </div>
