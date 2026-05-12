@@ -22,6 +22,8 @@ const features = [
   { icon: BadgeCheck, label: 'Certificate of Completion', color: '#0B4DBA' },
 ]
 
+const ONLINE_DISCOUNT = parseInt(process.env.NEXT_PUBLIC_ONLINE_DISCOUNT || '10', 10)
+
 const modules = [
   {
     icon: Camera, color: '#0B4DBA', title: 'CCTV Technology',
@@ -211,9 +213,14 @@ function HeroSection() {
               </Link>
             </motion.div>
 
+              {/* Pay online discount note (landing) */}
+              <div className="mt-4">
+                <p className="text-sm font-bold text-emerald-600">Pay online: 10% off</p>
+              </div>
+
             {/* Feature badges */}
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.7, delay: 0.6 }} className="flex flex-wrap gap-3 pt-2">
-              {features.map(({ icon: Icon, label, color }, i) => (
+                {features.map(({ icon: Icon, label, color }, i) => (
                 <motion.div
                   key={label}
                   initial={{ opacity: 0, scale: 0.8 }}
@@ -223,7 +230,12 @@ function HeroSection() {
                   className="glass-card flex items-center gap-2 px-4 py-2 rounded-xl cursor-default"
                 >
                   <Icon size={16} style={{ color }} />
-                  <span className="text-sm font-semibold text-foreground/80">{label}</span>
+                  <div>
+                    <span className="text-sm font-semibold text-foreground/80">{label}</span>
+                    {label.toLowerCase().includes('practical') && (
+                      <div className="text-[11px] text-emerald-600 font-semibold mt-1">Pay online: {ONLINE_DISCOUNT}% off</div>
+                    )}
+                  </div>
                 </motion.div>
               ))}
             </motion.div>

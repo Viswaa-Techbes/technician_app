@@ -166,7 +166,7 @@ export default function AdmissionPage() {
                 <p className="text-foreground/60 text-lg">
                   Join hundreds of successful technicians. Fill the form to complete your admission and secure your seat.
                 </p>
-              </motion.div>
+                        <p className="text-sm font-bold text-emerald-600 mt-1">Pay online: 10% off</p>
 
               <div className="space-y-4">
                 {[
@@ -187,6 +187,9 @@ export default function AdmissionPage() {
                     <div>
                       <h4 className="font-bold text-primary text-lg">{feature.title}</h4>
                       <p className="text-sm text-foreground/60">{feature.desc}</p>
+                      {feature.title.toLowerCase().includes('practical') && (
+                        <div className="text-[11px] text-emerald-600 font-semibold mt-1">Pay online: {process.env.NEXT_PUBLIC_ONLINE_DISCOUNT || 10}% off</div>
+                      )}
                     </div>
                   </motion.div>
                 ))}
