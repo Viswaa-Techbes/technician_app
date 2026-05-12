@@ -1,9 +1,20 @@
 'use client'
 
+import React, { useEffect } from 'react'
 import Link from 'next/link'
 import { CheckCircle, ArrowRight } from 'lucide-react'
 
 export default function EnrollmentSuccessPage() {
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && (window as any).fbq) {
+        ;(window as any).fbq('track', 'CompleteRegistration')
+      }
+    } catch (e) {
+      console.debug('fbq track error', e)
+    }
+  }, [])
+
   return (
     <main className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="max-w-md w-full">
