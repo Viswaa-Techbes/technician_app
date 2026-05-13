@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { event } from '@/lib/fpixel'
 import { useParams } from 'next/navigation'
 import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
@@ -55,6 +56,38 @@ export default function CourseDetailsPage() {
       fetchCourse()
     }
   }, [courseId])
+
+  // Fire ViewContent once the course is loaded (safe no-op if fbq isn't ready)
+  useEffect(() => {
+    if (course) {
+      try {
+        event('ViewContent', {
+          content_ids: [courseId],
+          content_name: course.title || '',
+          value: course.price || 0,
+          currency: 'INR',
+        })
+      } catch (e) {
+        console.debug('fb pixel viewcontent error', e)
+      }
+    }
+  }, [course, courseId])
+
+  // Fire CompleteRegistration only when enrollment completes
+  useEffect(() => {
+    if (enrollmentStep === 'success' && course) {
+      try {
+        event('CompleteRegistration', {
+          content_ids: [courseId],
+          content_name: course.title || '',
+          value: course.price || 0,
+          currency: 'INR',
+        })
+      } catch (e) {
+        console.debug('fb pixel complete registration error', e)
+      }
+    }
+  }, [enrollmentStep, course, courseId])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target

@@ -161,7 +161,13 @@ export default function RootLayout({
             'https://connect.facebook.net/en_US/fbevents.js');
 
             fbq('init', '1645190790022717');
-            fbq('track', 'PageView');`}
+            fbq('track', 'PageView');
+            if(window.__fbqQueue && window.__fbqQueue.length){
+              window.__fbqQueue.forEach(function(ev){
+                try{ fbq('track', ev.name, ev.options) }catch(e){}
+              });
+              window.__fbqQueue = []
+            }`}
         </Script>
       </head>
       <body className="antialiased bg-background text-foreground" style={{ fontFamily: "'Poppins', sans-serif" }}>

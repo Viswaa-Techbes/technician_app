@@ -1,15 +1,14 @@
-'use client'
+ 'use client'
 
 import React, { useEffect } from 'react'
+import { event } from '@/lib/fpixel'
 import Link from 'next/link'
 import { CheckCircle, ArrowRight } from 'lucide-react'
 
 export default function EnrollmentSuccessPage() {
   useEffect(() => {
     try {
-      if (typeof window !== 'undefined' && (window as any).fbq) {
-        ;(window as any).fbq('track', 'CompleteRegistration')
-      }
+      event('CompleteRegistration')
     } catch (e) {
       console.debug('fbq track error', e)
     }
