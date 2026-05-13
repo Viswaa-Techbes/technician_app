@@ -158,36 +158,32 @@ export default function AdmissionPage() {
               <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }}>
                 <span className="text-accent font-bold tracking-widest text-sm uppercase mb-3 block">Enrollment</span>
                 <h1 className="text-5xl md:text-6xl font-black text-primary leading-tight mb-4">
-                  Start Your <br/>
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF6B00] to-[#ff984d]">
-                    Tech Journey
-                  </span>
+                  Start Your <br />
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF6B00] to-[#ff984d]">Tech Journey</span>
                 </h1>
-                <p className="text-foreground/60 text-lg">
-                  Join hundreds of successful technicians. Fill the form to complete your admission and secure your seat.
-                </p>
-                        <p className="text-sm font-bold text-emerald-600 mt-1">Pay online: 10% off</p>
+                <p className="text-foreground/60 text-lg">Join hundreds of successful technicians. Fill the form to complete your admission and secure your seat.</p>
+              </motion.div>
 
-              <div className="space-y-4">
+              <div className="space-y-4 mt-6">
                 {[
                   { icon: ShieldCheck, title: 'Secure Payment', desc: '100% safe & encrypted checkout', color: '#0B4DBA' },
                   { icon: Briefcase, title: 'Job Guarantee', desc: 'Placement assistance included', color: '#FF6B00' },
                   { icon: GraduationCap, title: '100% Practical', desc: 'Learn on live sites with real projects', color: '#0B4DBA' }
-                ].map((feature, i) => (
-                  <motion.div 
+                ].map(({ icon: Icon, title, desc, color }, i) => (
+                  <motion.div
                     key={i}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 + (i * 0.1) }}
+                    transition={{ delay: 0.15 + i * 0.08 }}
                     className="flex items-start gap-4 p-5 rounded-2xl bg-white/60 border border-white/40 shadow-sm backdrop-blur-md"
                   >
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: `${feature.color}15` }}>
-                      <feature.icon size={24} style={{ color: feature.color }} />
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: color + '15' }}>
+                      <Icon size={24} style={{ color }} />
                     </div>
                     <div>
-                      <h4 className="font-bold text-primary text-lg">{feature.title}</h4>
-                      <p className="text-sm text-foreground/60">{feature.desc}</p>
-                      {feature.title.toLowerCase().includes('practical') && (
+                      <h4 className="font-bold text-primary text-lg">{title}</h4>
+                      <p className="text-sm text-foreground/60">{desc}</p>
+                      {title.toLowerCase().includes('practical') && (
                         <div className="text-[11px] text-emerald-600 font-semibold mt-1">Pay online: {process.env.NEXT_PUBLIC_ONLINE_DISCOUNT || 10}% off</div>
                       )}
                     </div>
@@ -195,13 +191,9 @@ export default function AdmissionPage() {
                 ))}
               </div>
 
-              {/* Stats Badge */}
-              <motion.div 
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
-                className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-[#0B4DBA] to-[#061f4f] text-white"
-              >
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-[#0B4DBA] to-[#061f4f] text-white">
                 <div className="flex -space-x-3">
-                  {[1,2,3].map(n => (
+                  {[1, 2, 3].map((n) => (
                     <div key={n} className="w-10 h-10 rounded-full border-2 border-[#0B4DBA] bg-white/20 backdrop-blur-md flex items-center justify-center">
                       <Star size={14} className="text-[#FF6B00] fill-[#FF6B00]" />
                     </div>
@@ -214,7 +206,6 @@ export default function AdmissionPage() {
               </motion.div>
             </div>
 
-            {/* RIGHT SIDE: Enrollment Form */}
             <div className="lg:col-span-7">
               <motion.form 
                 initial={{ opacity: 0, y: 40 }}

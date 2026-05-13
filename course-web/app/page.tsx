@@ -213,10 +213,6 @@ function HeroSection() {
               </Link>
             </motion.div>
 
-              {/* Pay online discount note (landing) */}
-              <div className="mt-4">
-                <p className="text-sm font-bold text-emerald-600">Pay online: 10% off</p>
-              </div>
 
             {/* Feature badges */}
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.7, delay: 0.6 }} className="flex flex-wrap gap-3 pt-2">
