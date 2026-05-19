@@ -227,11 +227,8 @@ function HeroSection() {
                 >
                   <Icon size={16} style={{ color }} />
                   <div>
-                    <span className="text-sm font-semibold text-foreground/80">{label}</span>
-                    {label.toLowerCase().includes('practical') && (
-                      <div className="text-[11px] text-emerald-600 font-semibold mt-1">Pay online: {ONLINE_DISCOUNT}% off</div>
-                    )}
-                  </div>
+                      <span className="text-sm font-semibold text-foreground/80">{label}</span>
+                    </div>
                 </motion.div>
               ))}
             </motion.div>

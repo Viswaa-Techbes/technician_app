@@ -348,7 +348,7 @@ export default function AdmissionPage() {
                   {isProcessing ? <Loader2 className="animate-spin" /> : <Lock size={20} />}
                   {isProcessing ? 'Processing...' : 'Proceed to Secure Payment'}
                 </motion.button>
-                <p className="text-xs text-foreground/60 mt-2">Pay online to get a <span className="font-bold">{Number(process.env.NEXT_PUBLIC_ONLINE_DISCOUNT) || 10}% discount</span> applied automatically at checkout.</p>
+                  <p className="text-xs text-foreground/60 mt-2">{/* Inline discount copy removed — offer is shown via the floating popup only. */}</p>
               </motion.form>
             </div>
           </div>
