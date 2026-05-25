@@ -36,6 +36,11 @@ async function verifyPayment(req, res, next) {
 
     // amount is expected in paise for advance verification
     const amountPaise = Number(amount) || 0;
+    const job = await Job.findById(jobId);
+    if (!job) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (job.client && job.client.toString() !== req.user.id && !['admin', 'manager'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Not authorized to verify this payment' });
+    }
 
     const result = await paymentService.verifyAdvancePayment(jobId, razorpay_order_id, razorpay_payment_id, razorpay_signature, amountPaise, req.user?.id);
     console.log(`[Payment] Verified advance payment for Job ${jobId}.`);
