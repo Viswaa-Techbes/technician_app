@@ -45,22 +45,9 @@ async function login(req, res, next) {
 async function register(req, res, next) {
   try {
     const email = normalizeEmail(req.body.email);
-    const verificationToken = String(req.body.emailVerificationToken || '');
 
-    if (!email || !verificationToken) {
-      return res.status(400).json({ success: false, message: 'Verified email token is required' });
-    }
-
-    const verifiedOtp = await OtpVerification.findOne({
-      email,
-      purpose: 'register',
-      verifiedAt: { $ne: null },
-      verificationTokenHash: hashValue(verificationToken),
-      verificationTokenExpiresAt: { $gt: new Date() },
-    }).select('+verificationTokenHash');
-
-    if (!verifiedOtp) {
-      return res.status(400).json({ success: false, message: 'Please verify your email before creating an account' });
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
     }
 
     const { token, user } = await authService.registerUser({ ...req.body, email, userType: 'web_user', role: 'client' });
