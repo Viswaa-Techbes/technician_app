@@ -81,6 +81,14 @@ async function start() {
       // We don't exit here so the process stays alive and Render doesn't restart it immediately
       // This allows us to see the error in logs more easily.
     }
+
+    try {
+      console.log("Validating SMTP Email Configuration...");
+      const { verifySmtpConfig } = require('./services/emailService');
+      await verifySmtpConfig();
+    } catch (err) {
+      console.error('SMTP Validation Error during startup:', err.message || err);
+    }
   });
 }
 

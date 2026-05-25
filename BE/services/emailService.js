@@ -49,6 +49,43 @@ async function sendOtpEmail(email, otp) {
   });
 }
 
+async function verifySmtpConfig() {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || 587);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  const isPlaceholder = !user || !pass || 
+    user.includes('your-email@gmail.com') || 
+    user.includes('your_email@gmail.com') || 
+    pass.includes('your-app-password') || 
+    pass.includes('your_app_password');
+
+  if (!host || !user || !pass || isPlaceholder) {
+    console.warn('⚠️ WARNING: SMTP email environment variables are missing, incomplete, or contain placeholder values. Email service will be unavailable.');
+    return false;
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || port === 465,
+      auth: { user, pass },
+      connectionTimeout: 5000,
+      greetingTimeout: 5000,
+    });
+
+    await transporter.verify();
+    console.log('✅ SMTP email transporter configured and verified successfully.');
+    return true;
+  } catch (error) {
+    console.warn(`⚠️ WARNING: SMTP verification failed during startup: ${error.message}. The server will remain active but email delivery might fail.`);
+    return false;
+  }
+}
+
 module.exports = {
   sendOtpEmail,
+  verifySmtpConfig,
 };
