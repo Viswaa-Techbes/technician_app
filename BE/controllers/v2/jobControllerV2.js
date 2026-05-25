@@ -49,9 +49,9 @@ async function createBooking(req, res, next) {
     if (req.user && req.user.id) {
       await notificationService.createNotification(
         req.user.id,
-        'Booking Confirmed',
-        `Your booking for ${job.serviceName || job.title} has been confirmed.`,
-        'booking_confirmed',
+        'Booking Requested',
+        `Your booking request for ${job.serviceName || job.title} has been received. Please complete the advance payment to confirm the booking.`,
+        'booking_requested',
         io,
         {
           bookingId: job._id ? job._id.toString() : '',

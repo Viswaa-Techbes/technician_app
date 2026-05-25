@@ -13,10 +13,18 @@ async function createOrder(req, res, next) {
 
 async function verifyPayment(req, res, next) {
   try {
-    const { jobId, razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-    const job = await paymentService.verifyRazorpayPayment(jobId, razorpay_order_id, razorpay_payment_id, razorpay_signature);
-    console.log(`[Payment] Verified payment for Job ${jobId}. Status: ${job.paymentStatus}`);
-    res.json({ success: true, data: job });
+    const { jobId, razorpay_order_id, razorpay_payment_id, razorpay_signature, amount } = req.body;
+
+    if (!jobId || !razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ success: false, message: 'jobId, razorpay_order_id, razorpay_payment_id and razorpay_signature are required' });
+    }
+
+    // amount is expected in paise for advance verification
+    const amountPaise = Number(amount) || 0;
+
+    const result = await paymentService.verifyAdvancePayment(jobId, razorpay_order_id, razorpay_payment_id, razorpay_signature, amountPaise, req.user?.id);
+    console.log(`[Payment] Verified advance payment for Job ${jobId}.`);
+    res.json({ success: true, data: result });
   } catch (err) {
     next(err);
   }

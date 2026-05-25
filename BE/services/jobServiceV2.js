@@ -34,6 +34,11 @@ async function createBookingV2(bookingData) {
     timeSlot: timeSlot || '',
     serviceId: serviceId || service || '',
     serviceName: serviceName || service || '',
+    // Pricing fields
+    price: Number(bookingData.totalAmount || bookingData.priceValue || 0),
+    amount: Number(bookingData.totalAmount || bookingData.priceValue || 0),
+    advanceAmount: Math.round((Number(bookingData.totalAmount || bookingData.priceValue || 0) || 0) / 2),
+    remainingAmount: Math.max((Number(bookingData.totalAmount || bookingData.priceValue || 0) || 0) - Math.round((Number(bookingData.totalAmount || bookingData.priceValue || 0) || 0) / 2), 0),
     v2Metadata: {
       lat: String(lat || ''),
       lng: String(lng || ''),

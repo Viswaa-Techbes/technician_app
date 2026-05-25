@@ -70,6 +70,10 @@ app.use('/api/v2/payment', paymentRoutesV2);
 app.use('/api/v2/attendance', attendanceRoutesV2);
 app.use('/api/v2/notifications', notificationRoutesV2);
 app.use('/api/v2/bookings', bookingRoutesV2);
+
+// Backwards-compatible API aliases used by frontends
+app.use('/api/bookings', bookingRoutesV2);
+app.use('/api/payments', paymentRoutesV2);
 app.use('/api/v2/location', locationRoutesV2);
 app.use('/api/v2/admin', adminRoutesV2);
 app.use('/api/v2/upload', uploadRoutesV2);

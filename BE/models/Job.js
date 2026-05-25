@@ -5,6 +5,8 @@ const JOB_STATUSES = [
   'not_visited',
   'site_visited',
   'assigned',
+  'advance_paid',
+  'confirmed',
   'in_progress',
   'started',
   'work_uploaded',
@@ -165,6 +167,14 @@ const jobSchema = new mongoose.Schema(
     advanceAmount: {
       type: Number,
       default: 0,
+    },
+    remainingAmount: {
+      type: Number,
+      default: 0,
+    },
+    transactionId: {
+      type: String,
+      default: '',
     },
     // Business logic module routing
     module: {

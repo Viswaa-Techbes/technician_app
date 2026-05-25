@@ -58,6 +58,46 @@ async function verifyRazorpayPayment(jobId, orderId, paymentId, signature) {
   return job;
 }
 
+async function verifyAdvancePayment(jobId, orderId, paymentId, signature, amountPaise, userId) {
+  const { keySecret } = getRazorpayCredentials();
+  const expectedSignature = crypto
+    .createHmac('sha256', keySecret)
+    .update(`${orderId}|${paymentId}`)
+    .digest('hex');
+
+  if (expectedSignature !== signature) {
+    throw new Error('Payment signature verification failed');
+  }
+
+  const Job = require('../models/Job');
+  const Payment = require('../models/Payment');
+
+  const job = await Job.findById(jobId);
+  if (!job) throw new Error('Job not found');
+
+  // Record payment
+  const pay = await Payment.create({
+    jobId: job._id,
+    userId: userId || null,
+    razorpayOrderId: orderId,
+    razorpayPaymentId: paymentId,
+    razorpaySignature: signature,
+    amount: amountPaise,
+    status: 'verified',
+  });
+
+  job.advancePaid = true;
+  job.advancePaymentId = paymentId;
+  job.advanceAmount = Math.round((job.advanceAmount || 0));
+  job.remainingAmount = Math.max((job.amount || job.price || 0) - (job.advanceAmount || 0), 0);
+  job.paymentStatus = 'advance_paid';
+  job.status = 'advance_paid';
+  job.transactionId = paymentId;
+  await job.save();
+
+  return { job, payment: pay };
+}
+
 module.exports = {
   createRazorpayOrder,
   verifyRazorpayPayment,
