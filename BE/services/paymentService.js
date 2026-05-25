@@ -41,6 +41,9 @@ async function verifyRazorpayPayment(jobId, orderId, paymentId, signature) {
 
   const job = await Job.findById(jobId);
   if (!job) throw new Error('Job not found');
+  if (job.client && userId && job.client.toString() !== userId) {
+    throw new Error('Not authorized to verify this payment');
+  }
 
   job.orderId = orderId;
   job.paymentId = paymentId;
@@ -91,7 +94,7 @@ async function verifyAdvancePayment(jobId, orderId, paymentId, signature, amount
   job.advanceAmount = Math.round((job.advanceAmount || 0));
   job.remainingAmount = Math.max((job.amount || job.price || 0) - (job.advanceAmount || 0), 0);
   job.paymentStatus = 'advance_paid';
-  job.status = 'advance_paid';
+  job.status = 'confirmed';
   job.transactionId = paymentId;
   await job.save();
 
@@ -101,4 +104,5 @@ async function verifyAdvancePayment(jobId, orderId, paymentId, signature, amount
 module.exports = {
   createRazorpayOrder,
   verifyRazorpayPayment,
+  verifyAdvancePayment,
 };

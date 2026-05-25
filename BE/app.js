@@ -35,8 +35,18 @@ const errorHandler = require('./middlewares/errorHandler');
 
 const app = express();
 
+const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:3000')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 app.use(cors({
-  origin: '*',
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -50,6 +60,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/', authRoutes);
 app.use('/admin', adminRoutes);
 app.use('/managers', managerRoutes);

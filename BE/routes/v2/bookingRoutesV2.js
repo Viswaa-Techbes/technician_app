@@ -1,12 +1,11 @@
 const express = require('express');
 const jobControllerV2 = require('../../controllers/v2/jobControllerV2');
-const { authenticate, optionalAuthenticate, requireRoles } = require('../../middlewares/auth');
+const { authenticate, requireRoles } = require('../../middlewares/auth');
 
 const router = express.Router();
 
-// Public booking creation (works for guests AND logged-in users)
-router.post('/', optionalAuthenticate, jobControllerV2.createBooking);
-router.post('/create', optionalAuthenticate, jobControllerV2.createBooking); // alias
+router.post('/', authenticate, jobControllerV2.createBooking);
+router.post('/create', authenticate, jobControllerV2.createBooking); // alias
 
 // List bookings — requires login (role-filtered in controller)
 router.get('/', authenticate, jobControllerV2.listBookings);

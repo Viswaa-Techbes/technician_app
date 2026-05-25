@@ -1,9 +1,14 @@
 const User = require('../models/User');
 const { signToken } = require('../utils/jwt');
 
-async function loginUser(mobileNumber, password) {
-  const normalizedMobile = mobileNumber.trim();
-  const user = await User.findOne({ mobileNumber: normalizedMobile }).select('+password');
+async function loginUser(identifier, password) {
+  const normalizedIdentifier = identifier.trim().toLowerCase();
+  const user = await User.findOne({
+    $or: [
+      { mobileNumber: normalizedIdentifier },
+      { email: normalizedIdentifier },
+    ],
+  }).select('+password');
   if (!user) {
     throw new Error('Invalid credentials');
   }
@@ -25,13 +30,17 @@ async function loginUser(mobileNumber, password) {
 }
 
 async function registerUser(userData) {
-  const { name, mobileNumber, email, password, role = 'technician', phone, specialty, assignedManager, userType } = userData;
+  const { name, mobileNumber, email, password, role = 'client', phone, specialty, assignedManager, userType } = userData;
 
-  if (!mobileNumber || !password) {
-    throw new Error('mobileNumber and password are required');
+  if (!mobileNumber && !phone) {
+    throw new Error('phone is required');
   }
 
-  const normalizedMobile = mobileNumber.trim();
+  if (!email || !password) {
+    throw new Error('email and password are required');
+  }
+
+  const normalizedMobile = String(mobileNumber || phone).trim();
   const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
   const existing = await User.findOne({ mobileNumber: normalizedMobile });
@@ -51,11 +60,14 @@ async function registerUser(userData) {
     mobileNumber: normalizedMobile,
     ...(normalizedEmail ? { email: normalizedEmail } : {}),
     password,
-    role,
+    role: ['admin', 'manager', 'technician'].includes(role) ? role : 'client',
     phone: phone ?? normalizedMobile,
     specialty,
     assignedManager,
     userType,
+    isOnline: true,
+    sessionActive: true,
+    lastSeen: new Date(),
   });
 
   const token = signToken(user._id, user.role);

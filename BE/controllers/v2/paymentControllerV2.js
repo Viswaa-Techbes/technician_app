@@ -3,8 +3,23 @@ const Job = require('../../models/Job');
 
 async function createOrder(req, res, next) {
   try {
-    const { amount, description, receipt } = req.body;
-    const orderData = await paymentService.createRazorpayOrder(amount, description, receipt, req.user?.id);
+    const { jobId, amount, description, receipt } = req.body;
+    let payableAmount = Number(amount);
+    let paymentDescription = description;
+    let paymentReceipt = receipt;
+
+    if (jobId) {
+      const job = await Job.findById(jobId);
+      if (!job) return res.status(404).json({ success: false, message: 'Booking not found' });
+      if (job.client && job.client.toString() !== req.user.id && !['admin', 'manager'].includes(req.user.role)) {
+        return res.status(403).json({ success: false, message: 'Not authorized to pay for this booking' });
+      }
+      payableAmount = Math.round(Number(job.advanceAmount || Math.round((job.amount || job.price || 0) / 2)) * 100);
+      paymentDescription = paymentDescription || `Advance for booking ${job._id}`;
+      paymentReceipt = paymentReceipt || `job_${job._id}`;
+    }
+
+    const orderData = await paymentService.createRazorpayOrder(payableAmount, paymentDescription, paymentReceipt, req.user.id);
     res.status(201).json({ success: true, data: orderData });
   } catch (err) {
     next(err);
