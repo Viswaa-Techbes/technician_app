@@ -1,5 +1,6 @@
 const express = require('express');
 const adminControllerV2 = require('../../controllers/v2/adminControllerV2');
+const cctvControllerV2 = require('../../controllers/v2/cctvControllerV2');
 const { authenticate, requireRoles } = require('../../middlewares/auth');
 
 const router = express.Router();
@@ -43,6 +44,26 @@ router.get('/bookings', adminControllerV2.getBookings);
 router.put('/bookings/:id/assign', adminControllerV2.assignBooking);
 router.patch('/service-requests/:id', adminControllerV2.updateServiceRequest);
 router.delete('/service-requests/:id', adminControllerV2.deleteServiceRequest);
+
+// Services Management: CCTV catalog and pricing
+router.get('/services/cctv/categories', cctvControllerV2.listCategories);
+router.post('/services/cctv/categories', cctvControllerV2.categoryAdmin.create);
+router.put('/services/cctv/categories/:id', cctvControllerV2.categoryAdmin.update);
+router.delete('/services/cctv/categories/:id', cctvControllerV2.categoryAdmin.remove);
+router.get('/services/cctv/subcategories', cctvControllerV2.listSubcategories);
+router.post('/services/cctv/subcategories', cctvControllerV2.subcategoryAdmin.create);
+router.put('/services/cctv/subcategories/:id', cctvControllerV2.subcategoryAdmin.update);
+router.delete('/services/cctv/subcategories/:id', cctvControllerV2.subcategoryAdmin.remove);
+router.get('/services/cctv/camera-types', cctvControllerV2.listCameraTypes);
+router.post('/services/cctv/camera-types', cctvControllerV2.cameraTypeAdmin.create);
+router.put('/services/cctv/camera-types/:id', cctvControllerV2.cameraTypeAdmin.update);
+router.delete('/services/cctv/camera-types/:id', cctvControllerV2.cameraTypeAdmin.remove);
+router.get('/services/cctv/addons', cctvControllerV2.listAddons);
+router.post('/services/cctv/addons', cctvControllerV2.addonAdmin.create);
+router.put('/services/cctv/addons/:id', cctvControllerV2.addonAdmin.update);
+router.delete('/services/cctv/addons/:id', cctvControllerV2.addonAdmin.remove);
+router.get('/services/cctv/pricing-config', cctvControllerV2.getPricingConfig);
+router.put('/services/cctv/pricing-config', cctvControllerV2.upsertPricingConfig);
 
 // Requests & Approvals
 router.get('/completion-requests', adminControllerV2.getCompletionRequests);

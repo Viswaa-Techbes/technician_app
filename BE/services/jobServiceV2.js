@@ -17,7 +17,11 @@ async function createBookingV2(bookingData) {
     lng,
     customerName,
     customerPhone,
+    cctvDetails,
   } = bookingData;
+  const grandTotal = Number(
+    cctvDetails?.priceBreakdown?.grandTotal ?? bookingData.totalAmount ?? bookingData.priceValue ?? 0
+  ) || 0;
 
   const job = await Job.create({
     title: serviceName || service || 'Service Request',
@@ -35,10 +39,11 @@ async function createBookingV2(bookingData) {
     serviceId: serviceId || service || '',
     serviceName: serviceName || service || '',
     // Pricing fields
-    price: Number(bookingData.totalAmount || bookingData.priceValue || 0),
-    amount: Number(bookingData.totalAmount || bookingData.priceValue || 0),
-    advanceAmount: Math.round((Number(bookingData.totalAmount || bookingData.priceValue || 0) || 0) / 2),
-    remainingAmount: Math.max((Number(bookingData.totalAmount || bookingData.priceValue || 0) || 0) - Math.round((Number(bookingData.totalAmount || bookingData.priceValue || 0) || 0) / 2), 0),
+    price: grandTotal,
+    amount: grandTotal,
+    advanceAmount: Math.round(grandTotal / 2),
+    remainingAmount: Math.max(grandTotal - Math.round(grandTotal / 2), 0),
+    cctvDetails: cctvDetails || undefined,
     v2Metadata: {
       lat: String(lat || ''),
       lng: String(lng || ''),

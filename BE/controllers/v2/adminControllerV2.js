@@ -13,6 +13,10 @@ async function getBookings(req, res, next) {
     const { status } = req.query;
     const query = { useNewFlow: true };
     if (status && status !== 'all') query.status = status;
+    if (req.query.paymentStatus && req.query.paymentStatus !== 'all') query.paymentStatus = req.query.paymentStatus;
+    if (req.query.cctvCategory && req.query.cctvCategory !== 'all') query['cctvDetails.category.slug'] = req.query.cctvCategory;
+    if (req.query.cctvSubcategory && req.query.cctvSubcategory !== 'all') query['cctvDetails.subcategory.slug'] = req.query.cctvSubcategory;
+    if (req.query.cameraType && req.query.cameraType !== 'all') query['cctvDetails.cameraType.slug'] = req.query.cameraType;
 
     const bookings = await Job.find(query)
       .sort({ createdAt: -1 })
@@ -33,7 +37,10 @@ async function getBookings(req, res, next) {
         timeSlot: b.timeSlot || '',
         address: b.location || '',
         status: b.status,
+        paymentStatus: b.paymentStatus,
         description: b.description || '',
+        cctvDetails: b.cctvDetails || null,
+        grandTotal: b.cctvDetails?.priceBreakdown?.grandTotal || b.amount || b.price || 0,
         technicianName: b.assignedTechnician?.name || null,
         technicianId: b.assignedTechnician?._id || null,
         createdAt: b.createdAt,

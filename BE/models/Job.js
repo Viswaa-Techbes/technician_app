@@ -127,6 +127,57 @@ const jobSchema = new mongoose.Schema(
       of: String,
       default: {},
     },
+    cctvDetails: {
+      category: {
+        id: { type: mongoose.Schema.Types.ObjectId, ref: 'CctvCategory', default: null },
+        name: { type: String, default: '', trim: true },
+        slug: { type: String, default: '', trim: true },
+      },
+      subcategory: {
+        id: { type: mongoose.Schema.Types.ObjectId, ref: 'CctvSubcategory', default: null },
+        name: { type: String, default: '', trim: true },
+        slug: { type: String, default: '', trim: true },
+      },
+      cameraType: {
+        id: { type: mongoose.Schema.Types.ObjectId, ref: 'CctvCameraType', default: null },
+        name: { type: String, default: '', trim: true },
+        slug: { type: String, default: '', trim: true },
+        unitPrice: { type: Number, default: 0, min: 0 },
+      },
+      cameraCount: { type: Number, default: 0, min: 0 },
+      installationArea: { type: String, enum: ['indoor', 'outdoor', ''], default: '' },
+      wireLength: { type: Number, default: 0, min: 0 },
+      addons: [
+        {
+          id: { type: mongoose.Schema.Types.ObjectId, ref: 'CctvAddon', default: null },
+          name: { type: String, default: '', trim: true },
+          slug: { type: String, default: '', trim: true },
+          price: { type: Number, default: 0, min: 0 },
+          quantity: { type: Number, default: 1, min: 1 },
+          total: { type: Number, default: 0, min: 0 },
+        },
+      ],
+      priceBreakdown: {
+        baseCharge: { type: Number, default: 0, min: 0 },
+        cameraUnitPrice: { type: Number, default: 0, min: 0 },
+        cameraCount: { type: Number, default: 0, min: 0 },
+        cameraTotal: { type: Number, default: 0, min: 0 },
+        indoorCharge: { type: Number, default: 0, min: 0 },
+        outdoorCharge: { type: Number, default: 0, min: 0 },
+        areaCharge: { type: Number, default: 0, min: 0 },
+        wireLength: { type: Number, default: 0, min: 0 },
+        wirePricePerMeter: { type: Number, default: 0, min: 0 },
+        wireTotal: { type: Number, default: 0, min: 0 },
+        addonsTotal: { type: Number, default: 0, min: 0 },
+        discountTotal: { type: Number, default: 0, min: 0 },
+        couponTotal: { type: Number, default: 0, min: 0 },
+        offerAdjustment: { type: Number, default: 0, min: 0 },
+        taxableAmount: { type: Number, default: 0, min: 0 },
+        taxTotal: { type: Number, default: 0, min: 0 },
+        grandTotal: { type: Number, default: 0, min: 0 },
+      },
+      notes: { type: String, default: '', trim: true },
+    },
     appId: {
       type: String,
       default: 'technician-v1',
@@ -195,6 +246,8 @@ const jobSchema = new mongoose.Schema(
 
 jobSchema.index({ assignedTechnician: 1, status: 1 });
 jobSchema.index({ assignedManager: 1, createdAt: -1 });
+jobSchema.index({ 'cctvDetails.category.slug': 1, 'cctvDetails.subcategory.slug': 1 });
+jobSchema.index({ 'cctvDetails.cameraType.slug': 1, status: 1, paymentStatus: 1 });
 
 module.exports = mongoose.model('Job', jobSchema);
 module.exports.JOB_STATUSES = JOB_STATUSES;
