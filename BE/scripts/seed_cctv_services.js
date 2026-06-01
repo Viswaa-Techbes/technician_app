@@ -53,6 +53,20 @@ const addons = [
   ['Connector Set', 150],
 ];
 
+const products = [
+  ['Dome Camera', 'camera', 1200],
+  ['Bullet Camera', 'camera', 1400],
+  ['PTZ Camera', 'camera', 4800],
+  ['IP Camera', 'camera', 2000],
+  ['Wireless Camera', 'camera', 1800],
+  ['DVR', 'recorder', 8500],
+  ['NVR', 'recorder', 12000],
+  ['SMPS', 'power', 650],
+  ['Cable Roll', 'cable', 1800],
+  ['Connector Kit', 'accessory', 150],
+  ['Hard Disk', 'storage', 3800],
+];
+
 async function upsertBySlug(Model, payload) {
   return Model.findOneAndUpdate(
     { slug: payload.slug },
@@ -84,6 +98,17 @@ async function run() {
   await Promise.all(addons.map(([name, price], index) => upsertBySlug(CctvAddon, {
     name,
     slug: slugify(name),
+    price,
+    status: 'active',
+    sortOrder: index + 1,
+  })));
+
+  // Create products/spare parts
+  const CctvProduct = require('../models/CctvProduct');
+  await Promise.all(products.map(([name, type, price], index) => upsertBySlug(CctvProduct, {
+    name,
+    slug: slugify(name),
+    type,
     price,
     status: 'active',
     sortOrder: index + 1,
@@ -131,6 +156,24 @@ async function run() {
     status: 'active',
     sortOrder: index + 1,
   })));
+
+  // Map supported products/addons to subcategories
+  const allAddons = await CctvAddon.find({ status: 'active' }).lean();
+  const allProducts = await require('../models/CctvProduct').find({ status: 'active' }).lean();
+  const subcategories = await CctvSubcategory.find({}).sort({ sortOrder: 1 });
+  for (let i = 0; i < subcategories.length; i++) {
+    const sub = subcategories[i];
+    // simple mapping rules
+    let productNames = ['Dome Camera', 'Bullet Camera', 'DVR', 'SMPS', 'Cable Roll', 'Connector Kit'];
+    if (i === 1) productNames = ['IP Camera', 'NVR', 'PoE Switch', 'Network Rack', 'Cable Roll'];
+    if (i === 12) productNames = ['PTZ Camera', 'PTZ Camera', 'NVR', 'SMPS'];
+    const matchedProducts = allProducts.filter(p => productNames.includes(p.name)).map(p => p._id);
+    const matchedAddons = allAddons.filter(a => productNames.includes(a.name) || ['PVC Casing','Junction Box','Connector Set'].includes(a.name)).map(a => a._id);
+    sub.supportedProducts = matchedProducts;
+    sub.supportedAddons = matchedAddons;
+    sub.supportedSpareParts = matchedProducts;
+    await sub.save();
+  }
 
   await CctvPricingConfig.findOneAndUpdate(
     { name: 'Default CCTV Pricing' },

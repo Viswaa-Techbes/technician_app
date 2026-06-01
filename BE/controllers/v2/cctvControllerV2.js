@@ -2,6 +2,7 @@ const CctvCategory = require('../../models/CctvCategory');
 const CctvSubcategory = require('../../models/CctvSubcategory');
 const CctvCameraType = require('../../models/CctvCameraType');
 const CctvAddon = require('../../models/CctvAddon');
+const CctvProduct = require('../../models/CctvProduct');
 const CctvPricingConfig = require('../../models/CctvPricingConfig');
 const { calculateCctvPrice, getActivePricingConfig } = require('../../services/cctvPricingService');
 
@@ -25,14 +26,25 @@ async function listSubcategories(req, res, next) {
   try {
     const query = req.user?.role === 'admin' ? {} : { status: 'active' };
     if (req.query.categoryId) query.categoryId = req.query.categoryId;
-    const data = await CctvSubcategory.find(query).populate('categoryId', 'name slug').sort({ sortOrder: 1, name: 1 }).lean();
+    const data = await CctvSubcategory.find(query)
+      .populate('categoryId', 'name slug')
+      .populate('supportedProducts')
+      .populate('supportedAddons')
+      .populate('supportedSpareParts')
+      .sort({ sortOrder: 1, name: 1 })
+      .lean();
     res.json({ success: true, data });
   } catch (err) { next(err); }
 }
 
 async function getSubcategoryBySlug(req, res, next) {
   try {
-    const item = await CctvSubcategory.findOne({ slug: req.params.slug, status: 'active' }).populate('categoryId', 'name slug').lean();
+    const item = await CctvSubcategory.findOne({ slug: req.params.slug, status: 'active' })
+      .populate('categoryId', 'name slug')
+      .populate('supportedProducts')
+      .populate('supportedAddons')
+      .populate('supportedSpareParts')
+      .lean();
     if (!item) return res.status(404).json({ success: false, message: 'CCTV service not found' });
     res.json({ success: true, data: item });
   } catch (err) { next(err); }
@@ -50,6 +62,14 @@ async function listAddons(req, res, next) {
   try {
     const query = req.user?.role === 'admin' ? {} : { status: 'active' };
     const data = await CctvAddon.find(query).sort({ sortOrder: 1, name: 1 }).lean();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+async function listProducts(req, res, next) {
+  try {
+    const query = req.user?.role === 'admin' ? {} : { status: 'active' };
+    const data = await CctvProduct.find(query).sort({ sortOrder: 1, name: 1 }).lean();
     res.json({ success: true, data });
   } catch (err) { next(err); }
 }
@@ -116,5 +136,6 @@ module.exports = {
   subcategoryAdmin: crud(CctvSubcategory),
   cameraTypeAdmin: crud(CctvCameraType),
   addonAdmin: crud(CctvAddon),
+  productAdmin: crud(CctvProduct),
   upsertPricingConfig,
 };

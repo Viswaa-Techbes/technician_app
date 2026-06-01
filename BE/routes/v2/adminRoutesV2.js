@@ -62,6 +62,10 @@ router.get('/services/cctv/addons', cctvControllerV2.listAddons);
 router.post('/services/cctv/addons', cctvControllerV2.addonAdmin.create);
 router.put('/services/cctv/addons/:id', cctvControllerV2.addonAdmin.update);
 router.delete('/services/cctv/addons/:id', cctvControllerV2.addonAdmin.remove);
+router.get('/services/cctv/products', cctvControllerV2.listProducts);
+router.post('/services/cctv/products', cctvControllerV2.productAdmin.create);
+router.put('/services/cctv/products/:id', cctvControllerV2.productAdmin.update);
+router.delete('/services/cctv/products/:id', cctvControllerV2.productAdmin.remove);
 router.get('/services/cctv/pricing-config', cctvControllerV2.getPricingConfig);
 router.put('/services/cctv/pricing-config', cctvControllerV2.upsertPricingConfig);
 

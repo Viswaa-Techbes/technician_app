@@ -8,6 +8,7 @@ router.get('/subcategories', cctvController.listSubcategories);
 router.get('/subcategories/:slug', cctvController.getSubcategoryBySlug);
 router.get('/camera-types', cctvController.listCameraTypes);
 router.get('/addons', cctvController.listAddons);
+router.get('/products', cctvController.listProducts);
 router.get('/pricing-config', cctvController.getPricingConfig);
 router.post('/calculate-price', cctvController.calculatePrice);
 
