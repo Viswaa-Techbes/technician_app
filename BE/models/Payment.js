@@ -9,7 +9,7 @@ const paymentSchema = new mongoose.Schema(
     razorpaySignature: { type: String, required: false },
     amount: { type: Number, required: true }, // in paise
     currency: { type: String, default: 'INR' },
-    status: { type: String, enum: ['created','paid','failed','verified'], default: 'created' },
+    status: { type: String, enum: ['created','pending','processing','paid','failed','cancelled','refunded','verified'], default: 'created' },
     meta: { type: Object, default: {} },
   },
   { timestamps: true }
