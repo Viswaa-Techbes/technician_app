@@ -1,5 +1,43 @@
 const Attendance = require('../../models/Attendance');
 const User = require('../../models/User');
+
+function todayDateStr() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
+async function adminClockIn(req, res, next) {
+  try {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ success: false, message: 'userId required' });
+    const user = await User.findById(userId).lean();
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    const date = todayDateStr();
+    const existing = await Attendance.findOne({ userId, date });
+    if (existing) return res.status(400).json({ success: false, message: 'Already clocked in today' });
+    const rec = await Attendance.create({ userId, name: user.name, role: user.role, date, loginTime: new Date() });
+    res.status(201).json({ success: true, data: rec });
+  } catch (err) { next(err); }
+}
+
+async function adminClockOut(req, res, next) {
+  try {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ success: false, message: 'userId required' });
+    const date = todayDateStr();
+    const rec = await Attendance.findOne({ userId, date });
+    if (!rec) return res.status(404).json({ success: false, message: 'Attendance record not found' });
+    if (rec.logoutTime) return res.status(400).json({ success: false, message: 'Already clocked out' });
+    rec.logoutTime = new Date();
+    rec.workingHours = Math.max(0, (rec.logoutTime - rec.loginTime) / (1000 * 60 * 60));
+    await rec.save();
+    res.json({ success: true, data: rec });
+  } catch (err) { next(err); }
+}
+
+module.exports = { adminClockIn, adminClockOut };
+const Attendance = require('../../models/Attendance');
+const User = require('../../models/User');
 const moment = require('moment');
 
 /**

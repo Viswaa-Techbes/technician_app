@@ -43,14 +43,14 @@ const cameraTypes = [
 ];
 
 const addons = [
-  ['PVC Casing', 180],
-  ['Junction Box', 220],
-  ['Power Supply', 450],
-  ['SMPS', 650],
-  ['PoE Switch', 2200],
-  ['Network Rack', 3200],
-  ['Hard Disk', 3800],
-  ['Connector Set', 150],
+  ['PVC Casing', 180, 'meter'],
+  ['Junction Box', 220, 'each'],
+  ['Power Supply', 450, 'each'],
+  ['SMPS', 650, 'each'],
+  ['PoE Switch', 2200, 'each'],
+  ['Network Rack', 3200, 'each'],
+  ['Hard Disk', 3800, 'each'],
+  ['Connector Set', 150, 'each'],
 ];
 
 const products = [
@@ -95,10 +95,13 @@ async function run() {
     sortOrder: index + 1,
   })));
 
-  await Promise.all(addons.map(([name, price], index) => upsertBySlug(CctvAddon, {
+  await Promise.all(addons.map(([name, price, unit], index) => upsertBySlug(CctvAddon, {
     name,
     slug: slugify(name),
     price,
+    unit: unit || 'each',
+    description: '',
+    image: '',
     status: 'active',
     sortOrder: index + 1,
   })));

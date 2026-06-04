@@ -1,6 +1,9 @@
 const express = require('express');
 const adminControllerV2 = require('../../controllers/v2/adminControllerV2');
 const cctvControllerV2 = require('../../controllers/v2/cctvControllerV2');
+const materialControllerV2 = require('../../controllers/v2/materialControllerV2');
+const technicianControllerV2 = require('../../controllers/v2/technicianControllerV2');
+const attendanceControllerV2 = require('../../controllers/v2/attendanceControllerV2');
 const { authenticate, requireRoles } = require('../../middlewares/auth');
 
 const router = express.Router();
@@ -62,11 +65,25 @@ router.get('/services/cctv/addons', cctvControllerV2.listAddons);
 router.post('/services/cctv/addons', cctvControllerV2.addonAdmin.create);
 router.put('/services/cctv/addons/:id', cctvControllerV2.addonAdmin.update);
 router.delete('/services/cctv/addons/:id', cctvControllerV2.addonAdmin.remove);
+// Material master (global)
+router.get('/materials', materialControllerV2.listMaterials);
+router.post('/materials', materialControllerV2.admin.create);
+router.put('/materials/:id', materialControllerV2.admin.update);
+router.delete('/materials/:id', materialControllerV2.admin.remove);
 router.get('/services/cctv/products', cctvControllerV2.listProducts);
 router.post('/services/cctv/products', cctvControllerV2.productAdmin.create);
 router.put('/services/cctv/products/:id', cctvControllerV2.productAdmin.update);
 router.delete('/services/cctv/products/:id', cctvControllerV2.productAdmin.remove);
 router.get('/services/cctv/pricing-config', cctvControllerV2.getPricingConfig);
+
+// Technicians
+router.get('/technicians', technicianControllerV2.listTechnicians);
+router.put('/technicians/:id/status', technicianControllerV2.updateStatus);
+router.put('/technicians/:id/assign', technicianControllerV2.assignManager);
+
+// Attendance (admin)
+router.post('/attendance/clock-in', attendanceControllerV2.adminClockIn);
+router.post('/attendance/clock-out', attendanceControllerV2.adminClockOut);
 router.put('/services/cctv/pricing-config', cctvControllerV2.upsertPricingConfig);
 
 // Requests & Approvals

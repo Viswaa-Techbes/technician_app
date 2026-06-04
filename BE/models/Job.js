@@ -6,8 +6,10 @@ const JOB_STATUSES = [
   'not_visited',
   'site_visited',
   'assigned',
-  'advance_paid',
-  'confirmed',
+  'accepted',
+  'travelling',
+  'arrived',
+  'working',
   'in_progress',
   'started',
   'work_uploaded',
@@ -16,7 +18,8 @@ const JOB_STATUSES = [
   'payment_requested',
   'payment_pending',
   'payment_done',
-  'completed'
+  'completed',
+  'closed'
 ];
 const PAYMENT_STATUSES = ['pending', 'advance_paid', 'requested', 'pending_payment', 'verification_pending', 'paid', 'rejected'];
 

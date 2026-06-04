@@ -21,6 +21,9 @@ const attendanceRoutesV2 = require('./routes/v2/attendanceRoutesV2');
 const notificationRoutesV2 = require('./routes/v2/notificationRoutesV2');
 const bookingRoutesV2 = require('./routes/v2/bookingRoutesV2');
 const cctvRoutesV2 = require('./routes/v2/cctvRoutesV2');
+const materialRoutesV2 = require('./routes/v2/materialRoutesV2');
+const leadRoutesV2 = require('./routes/v2/leadRoutesV2');
+const attendanceRoutesV2 = require('./routes/v2/attendanceRoutesV2');
 const locationRoutesV2 = require('./routes/v2/locationRoutesV2');
 const adminRoutesV2 = require('./routes/v2/adminRoutesV2');
 const uploadRoutesV2 = require('./routes/v2/uploadRoutesV2');
@@ -83,6 +86,9 @@ app.use('/api/v2/attendance', attendanceRoutesV2);
 app.use('/api/v2/notifications', notificationRoutesV2);
 app.use('/api/v2/bookings', bookingRoutesV2);
 app.use('/api/v2/cctv', cctvRoutesV2);
+app.use('/api/v2/materials', materialRoutesV2);
+app.use('/api/v2/leads', leadRoutesV2);
+app.use('/api/v2/attendance', attendanceRoutesV2);
 
 // Backwards-compatible API aliases used by frontends
 app.use('/api/bookings', bookingRoutesV2);
