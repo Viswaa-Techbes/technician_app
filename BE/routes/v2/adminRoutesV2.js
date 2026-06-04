@@ -96,5 +96,6 @@ router.put('/payment-requests/:id', adminControllerV2.updatePaymentRequest);
 router.get('/tracking', adminControllerV2.getTracking);
 router.get('/reviews', adminControllerV2.getReviews);
 router.get('/attendance', adminControllerV2.getAttendance);
+router.get('/addresses', adminControllerV2.getAddresses);
 
 module.exports = router;

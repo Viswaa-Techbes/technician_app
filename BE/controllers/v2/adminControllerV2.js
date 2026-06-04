@@ -4,6 +4,8 @@ const Job = require('../../models/Job');
 const Review = require('../../models/Review');
 const Attendance = require('../../models/Attendance');
 const Career = require('../../models/Career');
+const Payment = require('../../models/Payment');
+const Address = require('../../models/Address');
 
 /**
  * Bookings (v2 service requests)
@@ -56,7 +58,7 @@ async function getBookings(req, res, next) {
  */
 async function getDashboard(req, res, next) {
   try {
-    const [userCounts, jobCounts, leadsCount, liveTechnicians, pendingRequests, paymentQueue, reviews] = await Promise.all([
+    const [userCounts, jobCounts, leadsCount, liveTechnicians, pendingRequests, paymentQueue, reviews, revenueAgg, upcomingJobs] = await Promise.all([
       User.aggregate([
         { $match: { isDeleted: { $ne: true } } },
         { $group: { _id: '$role', count: { $sum: 1 } } },
@@ -69,6 +71,12 @@ async function getDashboard(req, res, next) {
       Job.find({ status: { $in: ['completion_requested', 'pending_approval'] } }).limit(5).populate('assignedTechnician', 'name').lean(),
       Job.find({ paymentStatus: 'verification_pending' }).limit(5).lean(),
       Review.find().limit(5).populate('technicianId', 'name').sort({ createdAt: -1 }).lean()
+      ,
+      Payment.aggregate([
+        { $match: { status: { $in: ['paid', 'verified'] } } },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]),
+      Job.find({ status: { $in: ['confirmed', 'assigned', 'travelling', 'arrived'] } }).limit(5).populate('assignedTechnician', 'name').lean(),
     ]);
 
     const usersByRole = userCounts.reduce((acc, row) => {
@@ -88,11 +96,16 @@ async function getDashboard(req, res, next) {
       data: {
         summary: {
           totalLeads: leadsCount,
+          totalUsers: Object.values(usersByRole).reduce((a, b) => a + b, 0),
+          totalBookings: totalJobs,
+          totalRevenue: Math.round((revenueAgg[0]?.total || 0) / 100),
           totalJobs,
           completedJobs: (jobsByStatus.completed || 0) + (jobsByStatus.payment_done || 0),
           activeTechnicians: liveTechnicians.length,
           approvalQueue: pendingRequests.length,
           paymentQueue: paymentQueue.length,
+          pendingPayments: paymentQueue.length,
+          upcomingJobs: upcomingJobs.length,
         },
         usersByRole,
         jobsByStatus,
@@ -128,11 +141,42 @@ async function getDashboard(req, res, next) {
           comment: r.comment,
           createdAt: r.createdAt
         }))
+        ,
+        upcomingJobs: upcomingJobs.map(j => ({
+          id: j._id,
+          customerName: j.customerName,
+          title: j.title,
+          status: j.status,
+          technicianName: j.assignedTechnician?.name,
+          bookingDate: j.bookingDate,
+          timeSlot: j.timeSlot,
+        })),
       }
     });
   } catch (err) {
     next(err);
   }
+}
+
+async function getAddresses(req, res, next) {
+  try {
+    const data = await Address.find()
+      .populate('userId', 'name phone mobileNumber email')
+      .sort({ createdAt: -1 })
+      .lean();
+    res.json({ success: true, data: data.map((item) => ({
+      id: item._id,
+      customerName: item.userId?.name || 'Customer',
+      phone: item.userId?.phone || item.userId?.mobileNumber || '',
+      email: item.userId?.email || '',
+      address: [item.addressLine1, item.addressLine2, item.landmark].filter(Boolean).join(', '),
+      city: item.city,
+      state: item.state,
+      pincode: item.pincode,
+      isDefault: item.isDefault,
+      createdAt: item.createdAt,
+    })) });
+  } catch (err) { next(err); }
 }
 
 /**
@@ -634,6 +678,7 @@ module.exports = {
   getReviews,
   getTracking,
   getAttendance,
+  getAddresses,
   getCompletionRequests,
   updateCompletionRequest,
   getPaymentRequests,
