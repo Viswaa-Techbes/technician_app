@@ -1,5 +1,6 @@
 const Attendance = require('../../models/Attendance');
 const User = require('../../models/User');
+const moment = require('moment');
 
 function todayDateStr() {
   const d = new Date();
@@ -34,11 +35,6 @@ async function adminClockOut(req, res, next) {
     res.json({ success: true, data: rec });
   } catch (err) { next(err); }
 }
-
-module.exports = { adminClockIn, adminClockOut };
-const Attendance = require('../../models/Attendance');
-const User = require('../../models/User');
-const moment = require('moment');
 
 /**
  * Mark Attendance (Login)
@@ -325,5 +321,7 @@ module.exports = {
   getAttendanceRange,
   handleMarkAttendance,
   handleLogoutAttendance,
-  updateAttendanceRecord
+  updateAttendanceRecord,
+  adminClockIn,
+  adminClockOut,
 };

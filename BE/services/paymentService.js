@@ -2,11 +2,13 @@ const crypto = require('crypto');
 const Job = require('../models/Job');
 const { getRazorpayCredentials, getRazorpayInstance } = require('../config/razorpay');
 const Payment = require('../models/Payment');
+const Lead = require('../models/Lead');
 const jobServiceV2 = require('./jobServiceV2');
 const PaymentAudit = require('../models/PaymentAudit');
 const notificationService = require('./notificationService');
 
 async function createRazorpayOrder(amount, description, receipt, userId) {
+  console.log('[Razorpay] Creating order', { amount, receipt, userId, hasDescription: Boolean(description) });
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new Error('Valid amount is required in paise');
   }
@@ -21,6 +23,7 @@ async function createRazorpayOrder(amount, description, receipt, userId) {
       createdBy: userId,
     },
   });
+  console.log('[Razorpay] Order response received', { orderId: order.id, amount: order.amount, currency: order.currency });
 
   return {
     orderId: order.id,
@@ -113,6 +116,7 @@ module.exports = {
 };
 
 async function verifyPaymentForBooking(orderId, paymentId, signature, userId) {
+  console.log('[Razorpay] Verifying payment for booking', { orderId, paymentId, userId });
   const { keySecret } = getRazorpayCredentials();
   const expectedSignature = crypto
     .createHmac('sha256', keySecret)
@@ -137,6 +141,28 @@ async function verifyPaymentForBooking(orderId, paymentId, signature, userId) {
   };
 
   const job = await jobServiceV2.createBookingV2(bookingData);
+  console.log('[Payment] Booking created from verified payment', { jobId: job._id, paymentId: payment._id });
+
+  let lead = null;
+  try {
+    if (bookingData.customerName && bookingData.customerPhone) {
+      lead = await Lead.create({
+        name: bookingData.customerName,
+        phone: bookingData.customerPhone,
+        address: bookingData.address || '',
+        source: 'checkout-payment',
+        requiredService: bookingData.serviceName || bookingData.service || 'Service Booking',
+        budget: Number(bookingData.totalAmount || bookingData.cctvDetails?.priceBreakdown?.grandTotal || 0) || 0,
+        status: 'Won',
+        remarks: `Created automatically after Razorpay payment ${paymentId}. Job: ${job._id}`,
+      });
+      console.log('[Lead] Created from payment checkout', { leadId: lead._id, jobId: job._id });
+    } else {
+      console.warn('[Lead] Skipped checkout lead creation because customer name/phone was missing', { jobId: job._id });
+    }
+  } catch (err) {
+    console.error('[Lead] Failed to create checkout lead', err.message);
+  }
 
   // Update payment record
   payment.razorpayPaymentId = paymentId;
@@ -156,5 +182,5 @@ async function verifyPaymentForBooking(orderId, paymentId, signature, userId) {
     console.error('Failed to create audit/notification for booking:', err.message);
   }
 
-  return { job, payment };
+  return { job, payment, lead };
 }

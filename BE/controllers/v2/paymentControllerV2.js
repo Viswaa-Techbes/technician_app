@@ -5,6 +5,12 @@ const PaymentAudit = require('../../models/PaymentAudit');
 async function createOrder(req, res, next) {
   try {
     const { jobId, amount, description, receipt, bookingPayload } = req.body;
+    console.log('[Payment] create-order requested', {
+      userId: req.user?.id,
+      jobId: jobId || null,
+      hasBookingPayload: Boolean(bookingPayload),
+      requestedAmount: amount || null,
+    });
     let payableAmount = Number(amount || 0);
     let paymentDescription = description;
     let paymentReceipt = receipt;
@@ -26,9 +32,15 @@ async function createOrder(req, res, next) {
       payableAmount = Math.round(grand * 100);
       paymentDescription = paymentDescription || `Advance for new booking`;
       paymentReceipt = paymentReceipt || `booking_${Date.now()}`;
+      console.log('[Payment] Derived booking payable amount', { grandTotal: grand, payableAmount });
     }
 
     const orderData = await paymentService.createRazorpayOrder(payableAmount, paymentDescription, paymentReceipt, req.user.id);
+    console.log('[Payment] Razorpay order created', {
+      orderId: orderData.orderId,
+      amount: orderData.amount,
+      currency: orderData.currency,
+    });
 
     // Create Payment record when bookingPayload exists or when jobId not provided
     if (bookingPayload || !jobId) {
@@ -55,6 +67,13 @@ async function createOrder(req, res, next) {
 async function verifyPayment(req, res, next) {
   try {
     const { jobId, razorpay_order_id, razorpay_payment_id, razorpay_signature, amount } = req.body;
+    console.log('[Payment] verify-payment requested', {
+      userId: req.user?.id,
+      jobId: jobId || null,
+      orderId: razorpay_order_id || null,
+      paymentId: razorpay_payment_id || null,
+      hasSignature: Boolean(razorpay_signature),
+    });
 
     // If jobId provided -> legacy flow (verify advance for existing job)
     if (jobId) {
@@ -340,6 +359,5 @@ module.exports = {
   myPayments,
   getPaymentById,
 };
-
 
 

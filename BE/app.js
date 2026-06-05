@@ -23,13 +23,11 @@ const bookingRoutesV2 = require('./routes/v2/bookingRoutesV2');
 const cctvRoutesV2 = require('./routes/v2/cctvRoutesV2');
 const materialRoutesV2 = require('./routes/v2/materialRoutesV2');
 const leadRoutesV2 = require('./routes/v2/leadRoutesV2');
-const attendanceRoutesV2 = require('./routes/v2/attendanceRoutesV2');
 const locationRoutesV2 = require('./routes/v2/locationRoutesV2');
 const adminRoutesV2 = require('./routes/v2/adminRoutesV2');
 const userRoutesV2 = require('./routes/v2/userRoutesV2');
 const uploadRoutesV2 = require('./routes/v2/uploadRoutesV2');
 const analyticsRoutesV2 = require('./routes/v2/analyticsRoutesV2');
-const userRoutesV2 = require('./routes/v2/userRoutesV2');
 // visitor analytics legacy routes are still required for compatibility but
 // have been disabled. Keep the import to avoid module resolution errors.
 const visitorAnalyticsRoutesV2 = require('./routes/v2/visitorAnalyticsRoutesV2');
@@ -96,12 +94,11 @@ app.use('/api/v2/bookings', bookingRoutesV2);
 app.use('/api/v2/cctv', cctvRoutesV2);
 app.use('/api/v2/materials', materialRoutesV2);
 app.use('/api/v2/leads', leadRoutesV2);
-app.use('/api/v2/attendance', attendanceRoutesV2);
-app.use('/api/v2/user', userRoutesV2);
 
 // Backwards-compatible API aliases used by frontends
 app.use('/api/bookings', bookingRoutesV2);
 app.use('/api/payments', paymentRoutesV2);
+app.use('/api/v2/payments', paymentRoutesV2);
 app.use('/api/v2/location', locationRoutesV2);
 app.use('/api/v2/admin', adminRoutesV2);
 app.use('/api/v2/user', userRoutesV2);
