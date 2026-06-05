@@ -358,6 +358,11 @@ module.exports = {
   webhookHandler,
   myPayments,
   getPaymentById,
+  getPaymentAudit,
+  getAllPayments,
+  refundPayment,
+  retryPayment,
 };
+
 
 

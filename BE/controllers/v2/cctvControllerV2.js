@@ -130,6 +130,7 @@ module.exports = {
   getSubcategoryBySlug,
   listCameraTypes,
   listAddons,
+  listProducts,
   getPricingConfig,
   calculatePrice,
   categoryAdmin: crud(CctvCategory),
