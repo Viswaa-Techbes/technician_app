@@ -69,6 +69,13 @@ app.get('/health', (req, res) => {
   res.json({ success: true, status: 'ok', timestamp: new Date().toISOString() });
 });
 
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'API Running'
+  });
+});
+
 app.use('/auth', authRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/', authRoutes);
@@ -86,6 +93,8 @@ app.use('/', paymentRoutes);
 app.use('/attendance', attendanceRoutes);
 
 // V2 APIs
+app.use('/api/v2/auth', authRoutes);
+app.use('/api/v2/services', cctvRoutesV2);
 app.use('/api/v2/jobs', jobRoutesV2);
 app.use('/api/v2/payment', paymentRoutesV2);
 app.use('/api/v2/attendance', attendanceRoutesV2);

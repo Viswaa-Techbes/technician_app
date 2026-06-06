@@ -83,6 +83,13 @@ async function start() {
     console.log(`--------------------------------------------------`);
 
     try {
+      const { printMountedRoutes } = require('./utils/routePrinter');
+      printMountedRoutes(app);
+    } catch (routeErr) {
+      console.error('Failed to print routes:', routeErr);
+    }
+
+    try {
       console.log("Connecting to Database...");
       await connectDB();
       console.log("Database connected successfully.");

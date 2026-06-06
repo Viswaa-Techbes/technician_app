@@ -3,6 +3,7 @@ const cctvController = require('../../controllers/v2/cctvControllerV2');
 
 const router = express.Router();
 
+router.get('/', cctvController.listSubcategories);
 router.get('/categories', cctvController.listCategories);
 router.get('/subcategories', cctvController.listSubcategories);
 router.get('/subcategories/:slug', cctvController.getSubcategoryBySlug);
