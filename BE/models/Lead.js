@@ -27,7 +27,9 @@ const leadSchema = new mongoose.Schema(
 
 leadSchema.pre('validate', function(next) {
   if (!this.leadId) {
-    this.leadId = `LD${Date.now().toString().slice(-8)}`;
+    const timestamp = Math.floor(Date.now() / 1000);
+    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    this.leadId = `LD-${timestamp}-${randomSuffix}`;
   }
   next();
 });

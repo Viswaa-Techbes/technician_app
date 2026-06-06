@@ -11,8 +11,22 @@ const paymentSchema = new mongoose.Schema(
     currency: { type: String, default: 'INR' },
     status: { type: String, enum: ['created','pending','processing','paid','failed','cancelled','refunded','verified'], default: 'created' },
     meta: { type: Object, default: {} },
+    orderNumber: { type: String, unique: true, sparse: true },
+    paymentReference: { type: String, unique: true, sparse: true },
   },
   { timestamps: true }
 );
+
+paymentSchema.pre('validate', function(next) {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+  if (!this.orderNumber) {
+    this.orderNumber = `ORD-${timestamp}-${randomSuffix}`;
+  }
+  if (!this.paymentReference) {
+    this.paymentReference = `PAY-${timestamp}-${randomSuffix}`;
+  }
+  next();
+});
 
 module.exports = mongoose.model('Payment', paymentSchema);

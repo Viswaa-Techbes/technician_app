@@ -45,6 +45,7 @@ async function getBookings(req, res, next) {
         grandTotal: b.cctvDetails?.priceBreakdown?.grandTotal || b.amount || b.price || 0,
         technicianName: b.assignedTechnician?.name || null,
         technicianId: b.assignedTechnician?._id || null,
+        bookingNumber: b.bookingNumber || null,
         createdAt: b.createdAt,
       }))
     });

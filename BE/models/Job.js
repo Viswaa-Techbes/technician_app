@@ -243,9 +243,23 @@ const jobSchema = new mongoose.Schema(
       ref: 'User',
       default: null,
     },
+    bookingNumber: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
   },
   { timestamps: true }
 );
+
+jobSchema.pre('validate', function(next) {
+  if (!this.bookingNumber) {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+    this.bookingNumber = `BOOK-${timestamp}-${randomSuffix}`;
+  }
+  next();
+});
 
 jobSchema.index({ assignedTechnician: 1, status: 1 });
 jobSchema.index({ assignedManager: 1, createdAt: -1 });

@@ -45,6 +45,22 @@ async function createOrder(req, res, next) {
     // Create Payment record when bookingPayload exists or when jobId not provided
     if (bookingPayload || !jobId) {
       const Payment = require('../../models/Payment');
+      const existingPending = await Payment.findOne({
+        userId: req.user.id,
+        status: 'pending',
+      }).sort({ createdAt: -1 });
+
+      if (existingPending) {
+        console.log('[Payment] Reusing existing pending payment record', existingPending._id);
+        existingPending.razorpayOrderId = orderData.orderId;
+        existingPending.amount = orderData.amount;
+        existingPending.meta = { bookingPayload: bookingPayload || null };
+        await existingPending.save();
+
+        await PaymentAudit.create({ paymentId: existingPending._id, orderId: orderData.orderId, event: 'order_updated', payload: { orderData } });
+        return res.status(201).json({ success: true, data: { ...orderData, paymentId: existingPending._id } });
+      }
+
       const pay = await Payment.create({
         jobId: jobId || null,
         userId: req.user.id,
@@ -60,6 +76,14 @@ async function createOrder(req, res, next) {
 
     res.status(201).json({ success: true, data: orderData });
   } catch (err) {
+    console.error('[Payment createOrder Error]', err);
+    if (err && err.code === 11000) {
+      console.error('[Payment createOrder Duplicate Key]', {
+        code: err.code,
+        keyPattern: err.keyPattern,
+        keyValue: err.keyValue
+      });
+    }
     next(err);
   }
 }

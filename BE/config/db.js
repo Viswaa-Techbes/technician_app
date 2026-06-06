@@ -48,6 +48,20 @@ async function connectDB() {
   } catch (err) {
     console.warn('[db] Failed to synchronize User indexes:', err?.message ?? err);
   }
+
+  try {
+    const db = mongoose.connection.db;
+    const paymentCollection = db.collection('payments');
+    const indexes = await paymentCollection.indexes();
+    const hasPaymentIdIndex = indexes.some(idx => idx.name === 'paymentId_1');
+    if (hasPaymentIdIndex) {
+      console.log('[db] Found stale unique index paymentId_1. Dropping it...');
+      await paymentCollection.dropIndex('paymentId_1');
+      console.log('[db] paymentId_1 index dropped successfully.');
+    }
+  } catch (err) {
+    console.warn('[db] Failed to check/drop payments index:', err?.message ?? err);
+  }
 }
 
 module.exports = connectDB;

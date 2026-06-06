@@ -130,6 +130,26 @@ async function verifyPaymentForBooking(orderId, paymentId, signature, userId) {
   const payment = await Payment.findOne({ razorpayOrderId: orderId });
   if (!payment) throw new Error('Payment record not found');
 
+  if (payment.jobId) {
+    console.log('[Payment] Booking already exists for this payment. Reusing it.', { jobId: payment.jobId });
+    const existingJob = await Job.findById(payment.jobId);
+    if (existingJob) {
+      existingJob.paymentStatus = 'paid';
+      existingJob.status = 'completed';
+      existingJob.orderId = orderId;
+      existingJob.paymentId = paymentId;
+      existingJob.paymentSignature = signature;
+      await existingJob.save();
+
+      payment.razorpayPaymentId = paymentId;
+      payment.razorpaySignature = signature;
+      payment.status = 'verified';
+      await payment.save();
+
+      return { job: existingJob, payment };
+    }
+  }
+
   // Ensure booking payload exists
   const bookingPayload = payment.meta && payment.meta.bookingPayload;
   if (!bookingPayload) throw new Error('No booking payload found for this payment');
@@ -171,12 +191,45 @@ async function verifyPaymentForBooking(orderId, paymentId, signature, userId) {
   payment.jobId = job._id;
   await payment.save();
 
+  // Update job payment status
+  job.paymentStatus = 'paid';
+  job.status = 'pending';
+  await job.save();
+
   // Audit and notifications
   try {
     await PaymentAudit.create({ paymentId: payment._id, orderId, event: 'booking_created', payload: { jobId: job._id } });
-    // Notify user
+    
+    // 1. Notify Customer
     if (bookingData.clientId) {
-      await notificationService.createNotification(bookingData.clientId, 'Booking Confirmed', `Your booking ${job._id} has been confirmed.`, 'booking_created');
+      await notificationService.createNotification(
+        bookingData.clientId,
+        'Booking Confirmed',
+        `Your booking ${job._id} has been confirmed.`,
+        'booking_created'
+      );
+    }
+
+    // 2. Notify Admins
+    const User = require('../models/User');
+    const admins = await User.find({ role: 'admin' }).select('_id');
+    for (const admin of admins) {
+      await notificationService.createNotification(
+        admin._id,
+        'New Booking Placed',
+        `A new booking ${job._id} has been created by customer ${bookingData.customerName || 'Customer'}.`,
+        'booking_created'
+      );
+    }
+
+    // 3. Notify Technician (if assigned)
+    if (job.assignedTechnician) {
+      await notificationService.createNotification(
+        job.assignedTechnician,
+        'Job Payment Received',
+        `Payment has been received for assigned Job ${job._id}.`,
+        'status_update'
+      );
     }
   } catch (err) {
     console.error('Failed to create audit/notification for booking:', err.message);
