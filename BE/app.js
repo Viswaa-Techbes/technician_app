@@ -34,6 +34,7 @@ const visitorAnalyticsRoutesV2 = require('./routes/v2/visitorAnalyticsRoutesV2')
 const careerRoutesV2 = require('./routes/v2/careerRoutesV2');
 const courseRoutesV2 = require('./routes/v2/courseRoutesV2');
 const admissionRoutesV2 = require('./routes/v2/admissionRoutesV2');
+const cartRoutesV2 = require('./routes/v2/cartRoutesV2');
 
 const errorHandler = require('./middlewares/errorHandler');
 
@@ -135,6 +136,7 @@ app.use('/api/v2/bookings', bookingRoutesV2);
 app.use('/api/v2/cctv', cctvRoutesV2);
 app.use('/api/v2/materials', materialRoutesV2);
 app.use('/api/v2/leads', leadRoutesV2);
+app.use('/api/v2/cart', cartRoutesV2);
 
 // Backwards-compatible API aliases used by frontends
 app.use('/api/bookings', bookingRoutesV2);

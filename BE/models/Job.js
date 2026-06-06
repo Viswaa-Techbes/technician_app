@@ -248,6 +248,46 @@ const jobSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
     },
+    // New Booking Collection Schema Fields
+    bookingId: {
+      type: String,
+      default: '',
+    },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      index: true,
+    },
+    materials: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    addressId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Address',
+      default: null,
+    },
+    bookingStatus: {
+      type: String,
+      default: 'pending',
+    },
+    totalAmount: {
+      type: Number,
+      default: 0,
+    },
+    technicianId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    scheduledDate: {
+      type: String,
+      default: '',
+    },
+    scheduledTime: {
+      type: String,
+      default: 'ASAP',
+    },
   },
   { timestamps: true }
 );
@@ -258,6 +298,19 @@ jobSchema.pre('validate', function(next) {
     const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
     this.bookingNumber = `BOOK-${timestamp}-${randomSuffix}`;
   }
+  
+  // Synchronize Booking Collection schema fields
+  this.bookingId = this.bookingNumber;
+  if (this.client) this.userId = this.client;
+  if (this.assignedTechnician) this.technicianId = this.assignedTechnician;
+  if (this.bookingDate) this.scheduledDate = this.bookingDate;
+  if (this.timeSlot) this.scheduledTime = this.timeSlot;
+  if (this.price || this.amount) this.totalAmount = this.price || this.amount;
+  if (this.status) this.bookingStatus = this.status;
+  if (this.cctvDetails && !this.materials) {
+    this.materials = this.cctvDetails;
+  }
+  
   next();
 });
 

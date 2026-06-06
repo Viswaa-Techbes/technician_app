@@ -6,6 +6,7 @@ const Lead = require('../models/Lead');
 const jobServiceV2 = require('./jobServiceV2');
 const PaymentAudit = require('../models/PaymentAudit');
 const notificationService = require('./notificationService');
+const Cart = require('../models/Cart');
 
 async function createRazorpayOrder(amount, description, receipt, userId) {
   console.log('[Razorpay] Creating order', { amount, receipt, userId, hasDescription: Boolean(description) });
@@ -196,6 +197,16 @@ async function verifyPaymentForBooking(orderId, paymentId, signature, userId) {
   job.paymentStatus = 'paid';
   job.status = 'pending';
   await job.save();
+
+  // Clear user's persistent database cart
+  try {
+    if (userId) {
+      await Cart.updateOne({ userId }, { $set: { items: [], totalAmount: 0 } });
+      console.log('[Cart] Cleared database cart for user', userId);
+    }
+  } catch (cartErr) {
+    console.error('[Cart] Failed to clear user cart after payment success', cartErr.message);
+  }
 
   // Audit and notifications
   try {

@@ -18,10 +18,15 @@ async function createBookingV2(bookingData) {
     customerName,
     customerPhone,
     cctvDetails,
+    addressId,
+    googleMapsLink,
+    googleMapLink,
   } = bookingData;
   const grandTotal = Number(
     cctvDetails?.priceBreakdown?.grandTotal ?? bookingData.totalAmount ?? bookingData.priceValue ?? 0
   ) || 0;
+
+  const derivedMapsLink = googleMapsLink || googleMapLink || cctvDetails?.mapLink || '';
 
   const job = await Job.create({
     title: serviceName || service || 'Service Request',
@@ -38,6 +43,8 @@ async function createBookingV2(bookingData) {
     timeSlot: timeSlot || '',
     serviceId: serviceId || service || '',
     serviceName: serviceName || service || '',
+    addressId: addressId || undefined,
+    googleMapsLink: derivedMapsLink,
     // Pricing fields
     price: grandTotal,
     amount: grandTotal,
