@@ -32,6 +32,7 @@ async function createRazorpayOrder(amount, description, receipt, userId) {
     receipt: order.receipt,
     description,
     keyId: getRazorpayCredentials().keyId,
+    razorpayKey: getRazorpayCredentials().keyId,
   };
 }
 

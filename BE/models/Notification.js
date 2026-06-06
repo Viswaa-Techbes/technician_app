@@ -17,7 +17,7 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['job_assigned', 'status_update', 'expense_status', 'general'],
+      enum: ['job_assigned', 'status_update', 'expense_status', 'general', 'booking_created'],
       default: 'general',
     },
     isRead: {
