@@ -44,14 +44,46 @@ const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+// Add default local dev ports if not present
+if (!allowedOrigins.includes('http://localhost:3000')) {
+  allowedOrigins.push('http://localhost:3000');
+}
+if (!allowedOrigins.includes('http://localhost:5173')) {
+  allowedOrigins.push('http://localhost:5173');
+}
+
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin) {
       return callback(null, true);
     }
-    return callback(new Error('Not allowed by CORS'));
+    
+    // Check exact match
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // Check wildcard *.vercel.app (e.g. preview deployments)
+    const isVercelApp = /^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(origin);
+    if (isVercelApp) {
+      return callback(null, true);
+    }
+    
+    // Check custom wildcard matching if allowedOrigins contains a wildcard pattern
+    for (const pattern of allowedOrigins) {
+      if (pattern.includes('*')) {
+        const regex = new RegExp('^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '[a-zA-Z0-9-]+') + '$');
+        if (regex.test(origin)) {
+          return callback(null, true);
+        }
+      }
+    }
+    
+    return callback(new Error('Not allowed by CORS: ' + origin));
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
 }));
 // capture raw body for webhook signature verification
 app.use(express.json({
