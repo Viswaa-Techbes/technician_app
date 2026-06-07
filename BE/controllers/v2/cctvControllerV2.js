@@ -124,6 +124,59 @@ async function upsertPricingConfig(req, res, next) {
   } catch (err) { next(err); }
 }
 
+async function getServiceConfig(req, res, next) {
+  try {
+    const mongoose = require('mongoose');
+    const ServiceSubcategory = require('../../models/ServiceSubcategory');
+    const ServiceMaterial = require('../../models/ServiceMaterial');
+    const { serviceId } = req.params;
+
+    let query = {};
+    if (mongoose.Types.ObjectId.isValid(serviceId)) {
+      query = { _id: serviceId };
+    } else {
+      // support aliases (e.g. laptop-desktop-repair matches laptop-service)
+      let lookupSlug = serviceId.toLowerCase();
+      if (lookupSlug === 'laptop-desktop-repair') {
+        lookupSlug = 'laptop-service';
+      }
+      query = { slug: lookupSlug };
+    }
+
+    const subcategory = await ServiceSubcategory.findOne(query).lean();
+    if (!subcategory) {
+      return res.status(404).json({ success: false, message: 'Service configuration not found' });
+    }
+
+    const materials = await ServiceMaterial.find({ subcategoryId: subcategory._id, status: 'active' }).lean();
+
+    const result = {
+      serviceTypes: subcategory.serviceTypes || [],
+      materials: materials.map(m => ({
+        id: String(m._id),
+        name: m.name,
+        slug: m.slug,
+        price: m.price,
+        unit: m.unit || 'each',
+        image: m.image || '',
+        description: m.description || '',
+        isLabour: m.isLabour || false
+      })),
+      labourCharges: materials.filter(m => m.isLabour).map(m => ({
+        id: String(m._id),
+        name: m.name,
+        price: m.price,
+        unit: m.unit || 'each'
+      })),
+      pricingRules: subcategory.pricingRules || {}
+    };
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   listCategories,
   listSubcategories,
@@ -133,6 +186,7 @@ module.exports = {
   listProducts,
   getPricingConfig,
   calculatePrice,
+  getServiceConfig,
   categoryAdmin: crud(CctvCategory),
   subcategoryAdmin: crud(CctvSubcategory),
   cameraTypeAdmin: crud(CctvCameraType),
@@ -140,3 +194,4 @@ module.exports = {
   productAdmin: crud(CctvProduct),
   upsertPricingConfig,
 };
+

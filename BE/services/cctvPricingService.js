@@ -31,43 +31,130 @@ async function getActivePricingConfig() {
 }
 
 async function calculateCctvPrice(input = {}) {
-  const [config, category, subcategory, cameraType] = await Promise.all([
+  const Material = require('../models/Material');
+  const slugify = (val = '') => String(val).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+  const [config, category, subcategory] = await Promise.all([
     getActivePricingConfig(),
     input.categoryId ? CctvCategory.findById(input.categoryId).lean() : null,
     input.subcategoryId ? CctvSubcategory.findById(input.subcategoryId).lean() : null,
-    input.cameraTypeId ? CctvCameraType.findById(input.cameraTypeId).lean() : null,
   ]);
 
-  if (!cameraType || cameraType.status !== 'active') {
-    const error = new Error('Active camera type is required');
+  let cameraType = null;
+  let selectedServiceType = null;
+
+  if (subcategory && subcategory.serviceTypes && subcategory.serviceTypes.length > 0) {
+    selectedServiceType = subcategory.serviceTypes.find(
+      (t) => String(t._id) === String(input.cameraTypeId) || t.name === input.cameraTypeId || slugify(t.name) === input.cameraTypeId
+    );
+  }
+
+  if (!selectedServiceType && input.cameraTypeId) {
+    cameraType = await CctvCameraType.findById(input.cameraTypeId).lean();
+    if (!cameraType) {
+      cameraType = await CctvCameraType.findOne({ slug: input.cameraTypeId }).lean();
+    }
+  }
+
+  if (!cameraType && !selectedServiceType) {
+    const defaultCameraType = await CctvCameraType.findOne({ status: 'active' }).sort({ sortOrder: 1 }).lean();
+    if (defaultCameraType) {
+      cameraType = defaultCameraType;
+    }
+  }
+
+  let cameraUnitPrice = 0;
+  let serviceTypeName = '';
+  let serviceTypeSlug = '';
+  let serviceTypeId = '';
+
+  if (selectedServiceType) {
+    cameraUnitPrice = roundAmount(selectedServiceType.price);
+    serviceTypeName = selectedServiceType.name;
+    serviceTypeSlug = slugify(selectedServiceType.name);
+    serviceTypeId = String(selectedServiceType._id);
+  } else if (cameraType) {
+    cameraUnitPrice = roundAmount(cameraType.installationPrice);
+    serviceTypeName = cameraType.name;
+    serviceTypeSlug = cameraType.slug;
+    serviceTypeId = String(cameraType._id);
+  } else {
+    const error = new Error('Active service type is required');
     error.statusCode = 400;
     throw error;
   }
 
-  const cameraCount = Math.max(Number(input.cameraCount) || 1, 1);
+  const cameraCount = Math.max(Number(input.cameraCount) || 0, 0);
   const wireLength = Math.max(Number(input.wireLength) || 0, 0);
   const installationArea = input.installationArea === 'outdoor' ? 'outdoor' : 'indoor';
   const addonIds = Array.isArray(input.addonIds) ? input.addonIds : [];
-  const addons = addonIds.length
-    ? await CctvAddon.find({ _id: { $in: addonIds }, status: 'active' }).lean()
-    : [];
+  
+  const ServiceMaterial = require('../models/ServiceMaterial');
+  const addons = [];
+  if (addonIds.length) {
+    const [cctvAddons, dbMaterials, serviceMaterials] = await Promise.all([
+      CctvAddon.find({ _id: { $in: addonIds }, status: 'active' }).lean(),
+      Material.find({ _id: { $in: addonIds }, status: 'active' }).lean(),
+      ServiceMaterial.find({ _id: { $in: addonIds }, status: 'active' }).lean(),
+    ]);
+    const combined = [...cctvAddons, ...dbMaterials, ...serviceMaterials];
+    const seen = new Set();
+    for (const item of combined) {
+      const idStr = String(item._id);
+      if (!seen.has(idStr)) {
+        seen.add(idStr);
+        addons.push(item);
+      }
+    }
+  }
 
-  const baseCharge = roundAmount(config.baseCharge);
-  const cameraUnitPrice = roundAmount(cameraType.installationPrice);
+
+  // Load custom quantity mappings if provided in input
+  const addonQtyMap = {};
+  const inputMaterials = input.materials || input.selectedMaterials || [];
+  if (Array.isArray(inputMaterials)) {
+    for (const m of inputMaterials) {
+      const idVal = m.addonId || m.id;
+      if (idVal) {
+        addonQtyMap[String(idVal)] = Number(m.qty) || 1;
+      }
+    }
+  }
+
+  // Set default pricing configuration
+  let baseCharge = roundAmount(config.baseCharge);
+  let taxPercentage = config.tax?.status === 'active' ? Number(config.tax.percentage) || 0 : 0;
+  let wirePricePerMeter = roundAmount(config.wirePricePerMeter);
+  let indoorCharge = roundAmount(config.indoorCharge);
+  let outdoorCharge = roundAmount(config.outdoorCharge);
+
+  // Apply subcategory pricing rules overrides if present
+  if (subcategory && subcategory.pricingRules) {
+    const r = subcategory.pricingRules;
+    if (typeof r.baseCharge === 'number') baseCharge = roundAmount(r.baseCharge);
+    if (typeof r.taxPercentage === 'number') taxPercentage = Number(r.taxPercentage);
+    if (typeof r.wirePricePerMeter === 'number') wirePricePerMeter = roundAmount(r.wirePricePerMeter);
+    if (typeof r.indoorCharge === 'number') indoorCharge = roundAmount(r.indoorCharge);
+    if (typeof r.outdoorCharge === 'number') outdoorCharge = roundAmount(r.outdoorCharge);
+  }
+
   const cameraTotal = roundAmount(cameraCount * cameraUnitPrice);
-  const indoorCharge = roundAmount(config.indoorCharge);
-  const outdoorCharge = roundAmount(config.outdoorCharge);
   const areaCharge = installationArea === 'outdoor' ? outdoorCharge : indoorCharge;
-  const wirePricePerMeter = roundAmount(config.wirePricePerMeter);
   const wireTotal = roundAmount(wireLength * wirePricePerMeter);
-  const selectedAddons = addons.map((addon) => ({
-    id: addon._id,
-    name: addon.name,
-    slug: addon.slug,
-    price: roundAmount(addon.price),
-    quantity: 1,
-    total: roundAmount(addon.price),
-  }));
+
+  const selectedAddons = addons.map((addon) => {
+    const qty = addonQtyMap[String(addon._id)] || 1;
+    const price = roundAmount(addon.price);
+    return {
+      id: addon._id,
+      name: addon.name,
+      slug: addon.slug,
+      price: price,
+      quantity: qty,
+      total: roundAmount(price * qty),
+    };
+  });
+  
   const addonsTotal = roundAmount(selectedAddons.reduce((sum, addon) => sum + addon.total, 0));
   const subtotal = roundAmount(baseCharge + cameraTotal + areaCharge + wireTotal + addonsTotal);
   const discountTotal = Math.min(adjustmentAmount(config.discount, subtotal), subtotal);
@@ -80,8 +167,8 @@ async function calculateCctvPrice(input = {}) {
     ? roundAmount(afterCoupon - Number(config.offer.offerPrice))
     : 0;
   const taxableAmount = roundAmount(afterCoupon - offerAdjustment);
-  const taxTotal = config.tax?.status === 'active'
-    ? roundAmount((taxableAmount * (Number(config.tax.percentage) || 0)) / 100)
+  const taxTotal = taxPercentage > 0
+    ? roundAmount((taxableAmount * taxPercentage) / 100)
     : 0;
   const grandTotal = roundAmount(taxableAmount + taxTotal);
 
@@ -89,9 +176,9 @@ async function calculateCctvPrice(input = {}) {
     category: category ? { id: category._id, name: category.name, slug: category.slug } : undefined,
     subcategory: subcategory ? { id: subcategory._id, name: subcategory.name, slug: subcategory.slug } : undefined,
     cameraType: {
-      id: cameraType._id,
-      name: cameraType.name,
-      slug: cameraType.slug,
+      id: serviceTypeId,
+      name: serviceTypeName,
+      slug: serviceTypeSlug,
       unitPrice: cameraUnitPrice,
     },
     cameraCount,

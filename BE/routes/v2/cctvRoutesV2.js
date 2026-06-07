@@ -13,4 +13,7 @@ router.get('/products', cctvController.listProducts);
 router.get('/pricing-config', cctvController.getPricingConfig);
 router.post('/calculate-price', cctvController.calculatePrice);
 
+router.get('/:serviceId/config', cctvController.getServiceConfig);
+
 module.exports = router;
+
