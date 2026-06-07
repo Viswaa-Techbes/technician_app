@@ -33,6 +33,10 @@ const serviceSubcategorySchema = new mongoose.Schema(
         description: { type: String, default: '' },
       }
     ],
+
+    supportedProducts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'CctvProduct' }],
+    supportedAddons: [{ type: mongoose.Schema.Types.ObjectId, ref: 'CctvAddon' }],
+    supportedSpareParts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'CctvProduct' }],
     
     formSchema: { type: mongoose.Schema.Types.Mixed, default: null },
     pricingRules: { type: mongoose.Schema.Types.Mixed, default: null },

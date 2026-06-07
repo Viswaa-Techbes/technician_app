@@ -20,6 +20,7 @@ async function connectDB() {
   }
 
   mongoose.set('strictQuery', true);
+  mongoose.set('strictPopulate', false);
 
   try {
     await mongoose.connect(uri, {

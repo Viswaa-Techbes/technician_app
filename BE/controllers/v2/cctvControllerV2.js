@@ -135,12 +135,20 @@ async function getServiceConfig(req, res, next) {
     if (mongoose.Types.ObjectId.isValid(serviceId)) {
       query = { _id: serviceId };
     } else {
-      // support aliases (e.g. laptop-desktop-repair matches laptop-service)
       let lookupSlug = serviceId.toLowerCase();
-      if (lookupSlug === 'laptop-desktop-repair') {
-        lookupSlug = 'laptop-service';
+      if (lookupSlug === 'laptop-desktop-repair' || lookupSlug === 'laptop-service') {
+        query = { slug: { $in: ['laptop-desktop-repair', 'laptop-service'] } };
+      } else if (lookupSlug === 'cyber-security' || lookupSlug === 'managed-firewall-setup') {
+        query = { slug: { $in: ['cyber-security', 'managed-firewall-setup'] } };
+      } else if (lookupSlug === 'fire-safety' || lookupSlug === 'fire-safety-services' || lookupSlug === 'fire-alarm-installation') {
+        query = { slug: { $in: ['fire-safety', 'fire-safety-services', 'fire-alarm-installation'] } };
+      } else if (lookupSlug === 'network-setup' || lookupSlug === 'office-network-deployment') {
+        query = { slug: { $in: ['network-setup', 'office-network-deployment'] } };
+      } else if (lookupSlug === 'amc-services' || lookupSlug === 'business-amc-plan') {
+        query = { slug: { $in: ['amc-services', 'business-amc-plan'] } };
+      } else {
+        query = { slug: lookupSlug };
       }
-      query = { slug: lookupSlug };
     }
 
     const subcategory = await ServiceSubcategory.findOne(query).lean();
@@ -177,6 +185,47 @@ async function getServiceConfig(req, res, next) {
   }
 }
 
+async function getServiceById(req, res, next) {
+  try {
+    const mongoose = require('mongoose');
+    const ServiceSubcategory = require('../../models/ServiceSubcategory');
+    const { id } = req.params;
+
+    let query = {};
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      query = { _id: id };
+    } else {
+      let lookupSlug = id.toLowerCase();
+      if (lookupSlug === 'laptop-desktop-repair' || lookupSlug === 'laptop-service') {
+        query = { slug: { $in: ['laptop-desktop-repair', 'laptop-service'] } };
+      } else if (lookupSlug === 'cyber-security' || lookupSlug === 'managed-firewall-setup') {
+        query = { slug: { $in: ['cyber-security', 'managed-firewall-setup'] } };
+      } else if (lookupSlug === 'fire-safety' || lookupSlug === 'fire-safety-services' || lookupSlug === 'fire-alarm-installation') {
+        query = { slug: { $in: ['fire-safety', 'fire-safety-services', 'fire-alarm-installation'] } };
+      } else if (lookupSlug === 'network-setup' || lookupSlug === 'office-network-deployment') {
+        query = { slug: { $in: ['network-setup', 'office-network-deployment'] } };
+      } else if (lookupSlug === 'amc-services' || lookupSlug === 'business-amc-plan') {
+        query = { slug: { $in: ['amc-services', 'business-amc-plan'] } };
+      } else {
+        query = { slug: lookupSlug };
+      }
+    }
+
+    const subcategory = await ServiceSubcategory.findOne(query)
+      .populate('serviceId', 'name slug')
+      .populate('categoryId', 'name slug')
+      .lean();
+
+    if (!subcategory) {
+      return res.status(404).json({ success: false, message: 'Service configuration not found' });
+    }
+
+    res.json({ success: true, data: subcategory });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   listCategories,
   listSubcategories,
@@ -187,6 +236,7 @@ module.exports = {
   getPricingConfig,
   calculatePrice,
   getServiceConfig,
+  getServiceById,
   categoryAdmin: crud(CctvCategory),
   subcategoryAdmin: crud(CctvSubcategory),
   cameraTypeAdmin: crud(CctvCameraType),

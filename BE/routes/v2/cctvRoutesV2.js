@@ -15,5 +15,9 @@ router.post('/calculate-price', cctvController.calculatePrice);
 
 router.get('/:serviceId/config', cctvController.getServiceConfig);
 
+// Keep this at the end to avoid matching static endpoints
+router.get('/:id', cctvController.getServiceById);
+
 module.exports = router;
+
 
