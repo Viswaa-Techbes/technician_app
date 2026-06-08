@@ -45,6 +45,9 @@ router.delete('/jobs/:id', adminControllerV2.deleteJob);
 // Bookings (v2 Service Requests)
 router.get('/bookings', adminControllerV2.getBookings);
 router.put('/bookings/:id/assign', adminControllerV2.assignBooking);
+router.get('/service-requests', adminControllerV2.getServiceRequests);
+router.get('/service-requests/:id', adminControllerV2.getServiceRequestById);
+router.put('/service-requests/:id', adminControllerV2.updateServiceRequest);
 router.patch('/service-requests/:id', adminControllerV2.updateServiceRequest);
 router.delete('/service-requests/:id', adminControllerV2.deleteServiceRequest);
 

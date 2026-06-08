@@ -7,47 +7,149 @@ const Career = require('../../models/Career');
 const Payment = require('../../models/Payment');
 const Address = require('../../models/Address');
 
+function getV2Metadata(job) {
+  if (!job?.v2Metadata) return {};
+  if (job.v2Metadata instanceof Map) return Object.fromEntries(job.v2Metadata);
+  return job.v2Metadata;
+}
+
+function formatServiceRequest(job, { address = null, payment = null, lead = null } = {}) {
+  const client = job.client || {};
+  const tech = job.assignedTechnician || {};
+  const cctv = job.cctvDetails || {};
+  const priceBreakdown = cctv.priceBreakdown || {};
+  const meta = getV2Metadata(job);
+  const selectedMaterials = cctv.selectedMaterials || cctv.addons || [];
+  const labourCharges = priceBreakdown.baseCharge || priceBreakdown.areaCharge || 0;
+  const totalAmount = priceBreakdown.grandTotal || job.totalAmount || job.amount || job.price || 0;
+  const addr = address && typeof address === 'object' ? address : null;
+
+  return {
+    id: job._id,
+    customerName: client.name || job.customerName || 'Customer',
+    customerPhone: client.phone || job.customerPhone || '',
+    customerEmail: client.email || '',
+    userId: client._id || job.userId || job.client || null,
+    serviceName: job.serviceName || job.title || 'Service',
+    serviceId: job.serviceId || '',
+    serviceCategory: cctv.category?.name || '',
+    serviceSubcategory: cctv.subcategory?.name || '',
+    selectedMaterials,
+    labourCharges,
+    totalAmount,
+    grandTotal: totalAmount,
+    description: job.description || cctv.notes || '',
+    cctvDetails: cctv || null,
+    address: addr?.address || addr?.addressLine1 || job.location || '',
+    city: addr?.city || '',
+    state: addr?.state || '',
+    pincode: addr?.pincode || '',
+    mapLink: addr?.googleMapLink || job.googleMapsLink || cctv.mapLink || '',
+    addressId: addr?._id || job.addressId?._id || job.addressId || null,
+    date: job.bookingDate || job.scheduledDate || '',
+    timeSlot: job.timeSlot || job.scheduledTime || '',
+    paymentStatus: job.paymentStatus || 'pending',
+    razorpayOrderId: payment?.razorpayOrderId || job.orderId || '',
+    razorpayPaymentId: payment?.razorpayPaymentId || job.paymentId || '',
+    amountPaid: ['paid', 'verified'].includes(payment?.status)
+      ? Math.round((payment.amount || 0) / 100)
+      : (job.advancePaid ? job.advanceAmount : 0),
+    advancePaid: job.advancePaid || false,
+    advanceAmount: job.advanceAmount || 0,
+    remainingAmount: job.remainingAmount || 0,
+    bookingId: job.bookingId || job.bookingNumber || '',
+    bookingNumber: job.bookingNumber || '',
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+    status: job.status,
+    technicianName: tech.name || null,
+    technicianId: tech._id || job.technicianId || null,
+    internalNotes: meta.internalNotes || meta.notes || cctv.notes || '',
+    priority: meta.priority || lead?.priority || 'medium',
+    tags: meta.tags || '',
+    lead: lead ? { id: lead._id, leadId: lead.leadId, status: lead.status } : null,
+  };
+}
+
+function buildServiceRequestQuery(req) {
+  const query = { useNewFlow: true };
+  if (req.query.status && req.query.status !== 'all') query.status = req.query.status;
+  if (req.query.paymentStatus && req.query.paymentStatus !== 'all') query.paymentStatus = req.query.paymentStatus;
+  if (req.query.cctvCategory && req.query.cctvCategory !== 'all') query['cctvDetails.category.slug'] = req.query.cctvCategory;
+  if (req.query.cctvSubcategory && req.query.cctvSubcategory !== 'all') query['cctvDetails.subcategory.slug'] = req.query.cctvSubcategory;
+  if (req.query.cameraType && req.query.cameraType !== 'all') query['cctvDetails.cameraType.slug'] = req.query.cameraType;
+  return query;
+}
+
+async function fetchLeadForJob(job) {
+  const orConditions = [];
+  if (job.client?.phone) orConditions.push({ phone: job.client.phone });
+  if (job.customerPhone) orConditions.push({ phone: job.customerPhone });
+  if (job.client?.email) orConditions.push({ email: job.client.email });
+  if (!orConditions.length) return null;
+  return Lead.findOne({ $or: orConditions, isDeleted: { $ne: true } }).sort({ createdAt: -1 }).lean();
+}
+
 /**
- * Bookings (v2 service requests)
+ * Bookings (v2 service requests) — legacy alias
  */
 async function getBookings(req, res, next) {
-  try {
-    const { status } = req.query;
-    const query = { useNewFlow: true };
-    if (status && status !== 'all') query.status = status;
-    if (req.query.paymentStatus && req.query.paymentStatus !== 'all') query.paymentStatus = req.query.paymentStatus;
-    if (req.query.cctvCategory && req.query.cctvCategory !== 'all') query['cctvDetails.category.slug'] = req.query.cctvCategory;
-    if (req.query.cctvSubcategory && req.query.cctvSubcategory !== 'all') query['cctvDetails.subcategory.slug'] = req.query.cctvSubcategory;
-    if (req.query.cameraType && req.query.cameraType !== 'all') query['cctvDetails.cameraType.slug'] = req.query.cameraType;
+  return getServiceRequests(req, res, next);
+}
 
-    const bookings = await Job.find(query)
+/**
+ * Service Requests — list with populated related data
+ */
+async function getServiceRequests(req, res, next) {
+  try {
+    const bookings = await Job.find(buildServiceRequestQuery(req))
       .sort({ createdAt: -1 })
       .populate('client', 'name phone email')
       .populate('assignedTechnician', 'name email specialty')
+      .populate('addressId')
       .lean();
+
+    const jobIds = bookings.map((b) => b._id);
+    const payments = await Payment.find({ jobId: { $in: jobIds } }).sort({ createdAt: -1 }).lean();
+    const paymentMap = {};
+    for (const p of payments) {
+      const key = String(p.jobId);
+      if (!paymentMap[key]) paymentMap[key] = p;
+    }
 
     return res.json({
       success: true,
-      data: bookings.map(b => ({
-        id: b._id,
-        customerName: b.client?.name || b.customerName || 'Customer',
-        customerPhone: b.client?.phone || b.customerPhone || '',
-        customerEmail: b.client?.email || '',
-        serviceName: b.serviceName || b.title || 'Service',
-        serviceId: b.serviceId || '',
-        date: b.bookingDate || '',
-        timeSlot: b.timeSlot || '',
-        address: b.location || '',
-        status: b.status,
-        paymentStatus: b.paymentStatus,
-        description: b.description || '',
-        cctvDetails: b.cctvDetails || null,
-        grandTotal: b.cctvDetails?.priceBreakdown?.grandTotal || b.amount || b.price || 0,
-        technicianName: b.assignedTechnician?.name || null,
-        technicianId: b.assignedTechnician?._id || null,
-        bookingNumber: b.bookingNumber || null,
-        createdAt: b.createdAt,
-      }))
+      data: bookings.map((b) => formatServiceRequest(b, {
+        address: b.addressId || null,
+        payment: paymentMap[String(b._id)] || null,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Service Request — single record with full related data
+ */
+async function getServiceRequestById(req, res, next) {
+  try {
+    const job = await Job.findOne({ _id: req.params.id, useNewFlow: true })
+      .populate('client', 'name phone email')
+      .populate('assignedTechnician', 'name email specialty')
+      .populate('addressId')
+      .lean();
+
+    if (!job) return res.status(404).json({ success: false, message: 'Service request not found' });
+
+    const [payment, lead] = await Promise.all([
+      Payment.findOne({ jobId: job._id }).sort({ createdAt: -1 }).lean(),
+      fetchLeadForJob(job),
+    ]);
+
+    return res.json({
+      success: true,
+      data: formatServiceRequest(job, { address: job.addressId, payment, lead }),
     });
   } catch (err) {
     next(err);
@@ -589,9 +691,118 @@ async function assignBooking(req, res, next) {
 
 async function updateServiceRequest(req, res, next) {
   try {
-    const job = await Job.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const { id } = req.params;
+    const job = await Job.findOne({ _id: id, useNewFlow: true });
     if (!job) return res.status(404).json({ success: false, message: 'Service request not found' });
-    return res.json({ success: true, data: job });
+
+    const {
+      customerName,
+      customerPhone,
+      customerEmail,
+      status,
+      technicianId,
+      assignedTechnician,
+      date,
+      bookingDate,
+      timeSlot,
+      address,
+      city,
+      state,
+      pincode,
+      mapLink,
+      internalNotes,
+      priority,
+      tags,
+      paymentStatus,
+    } = req.body;
+
+    if (customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) {
+      return res.status(400).json({ success: false, message: 'Invalid email format' });
+    }
+    if (customerPhone && customerPhone.replace(/\D/g, '').length < 10) {
+      return res.status(400).json({ success: false, message: 'Phone must be at least 10 digits' });
+    }
+
+    if (customerName !== undefined) job.customerName = String(customerName).trim();
+    if (customerPhone !== undefined) job.customerPhone = String(customerPhone).trim();
+    if (status !== undefined) job.status = status;
+    if (paymentStatus !== undefined) job.paymentStatus = paymentStatus;
+
+    const techId = technicianId ?? assignedTechnician;
+    if (techId !== undefined) {
+      job.assignedTechnician = techId || null;
+      job.technicianId = techId || null;
+    }
+
+    const schedDate = bookingDate ?? date;
+    if (schedDate !== undefined) job.bookingDate = schedDate;
+    if (timeSlot !== undefined) job.timeSlot = timeSlot;
+    if (address !== undefined) job.location = address;
+    if (mapLink !== undefined) job.googleMapsLink = mapLink;
+
+    const meta = getV2Metadata(job);
+    if (internalNotes !== undefined) meta.internalNotes = internalNotes;
+    if (priority !== undefined) meta.priority = priority;
+    if (tags !== undefined) meta.tags = tags;
+    job.v2Metadata = meta;
+    job.markModified('v2Metadata');
+
+    await job.save();
+
+    if (job.client && (customerName || customerPhone || customerEmail)) {
+      const userUpdates = {};
+      if (customerName !== undefined) userUpdates.name = customerName;
+      if (customerPhone !== undefined) userUpdates.phone = customerPhone;
+      if (customerEmail !== undefined) userUpdates.email = customerEmail;
+      await User.findByIdAndUpdate(job.client, userUpdates);
+    }
+
+    if (job.addressId) {
+      const addrUpdates = {};
+      if (address !== undefined) {
+        addrUpdates.address = address;
+        addrUpdates.addressLine1 = address;
+      }
+      if (city !== undefined) addrUpdates.city = city;
+      if (state !== undefined) addrUpdates.state = state;
+      if (pincode !== undefined) addrUpdates.pincode = pincode;
+      if (mapLink !== undefined) addrUpdates.googleMapLink = mapLink;
+      if (Object.keys(addrUpdates).length) {
+        await Address.findByIdAndUpdate(job.addressId, addrUpdates);
+      }
+    } else if (address || city || state || pincode || mapLink) {
+      const ownerId = job.client || job.userId;
+      if (ownerId) {
+        const newAddr = await Address.create({
+          userId: ownerId,
+          address: address || job.location || '',
+          addressLine1: address || job.location || '',
+          city: city || '',
+          state: state || '',
+          pincode: pincode || '',
+          googleMapLink: mapLink || '',
+        });
+        job.addressId = newAddr._id;
+        await job.save();
+      }
+    }
+
+    const updated = await Job.findById(id)
+      .populate('client', 'name phone email')
+      .populate('assignedTechnician', 'name email specialty')
+      .populate('addressId')
+      .lean();
+
+    const [payment, lead] = await Promise.all([
+      Payment.findOne({ jobId: id }).sort({ createdAt: -1 }).lean(),
+      fetchLeadForJob(updated),
+    ]);
+
+    return res.json({
+      success: true,
+      message: 'Service request updated successfully',
+      data: formatServiceRequest(updated, { address: updated.addressId, payment, lead }),
+    });
   } catch (err) {
     next(err);
   }
@@ -662,6 +873,8 @@ async function updateApplicationStatus(req, res, next) {
 
 module.exports = {
   getBookings,
+  getServiceRequests,
+  getServiceRequestById,
   assignBooking,
   getDashboard,
   getLeads,
