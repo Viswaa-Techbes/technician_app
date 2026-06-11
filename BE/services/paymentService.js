@@ -196,7 +196,24 @@ async function verifyPaymentForBooking(orderId, paymentId, signature, userId) {
   // Update job payment status
   job.paymentStatus = 'paid';
   job.status = 'pending';
+  job.dispatchStatus = 'pending_dispatch';
   await job.save();
+
+  // ─── AUTO DISPATCH: Fire auto-assignment after payment ────────────────────
+  // Non-blocking: runs in background so payment response is instant
+  setImmediate(async () => {
+    try {
+      console.log(`[Payment] Triggering auto-dispatch for job ${job._id}`);
+      const dispatchService = require('./dispatchService');
+      // Get io from global if available (set by server.js)
+      const io = global._socketIo || null;
+      const dispatchResult = await dispatchService.autoAssignTechnician(job._id, io);
+      console.log(`[Payment] Dispatch result for job ${job._id}:`, dispatchResult.method || dispatchResult.reason);
+    } catch (dispatchErr) {
+      console.error('[Payment] Auto-dispatch failed (non-critical):', dispatchErr.message);
+    }
+  });
+
 
   // Clear user's persistent database cart
   try {

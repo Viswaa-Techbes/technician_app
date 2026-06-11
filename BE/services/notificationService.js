@@ -16,9 +16,24 @@ const channelService = require('./channelNotificationService');
  */
 async function createNotification(userId, title, message, type = 'general', io = null, extraData = {}, channels = null) {
   try {
+    const user = await User.findById(userId).select('role').lean();
+    let recipientType = 'customer';
+    if (user) {
+      if (user.role === 'admin' || user.role === 'manager') {
+        recipientType = 'admin';
+      } else if (user.role === 'technician') {
+        recipientType = 'technician';
+      }
+    }
+
+    const bookingId = extraData?.jobId || extraData?.bookingId || null;
+
     // Persist to DB
     const notification = await Notification.create({
       userId,
+      recipientId: userId,
+      recipientType,
+      bookingId,
       title,
       message,
       type,

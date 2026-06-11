@@ -11,6 +11,8 @@ import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 import 'providers/live_technicians_provider.dart';
 import 'providers/job_providers.dart';
+import 'providers/incoming_requests_provider.dart';
+import 'job_request_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -124,8 +126,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       // Update via Socket
       ref.read(realtimeServiceProvider).updateLocation(pos.latitude, pos.longitude);
       
-      // Update via REST API
-      await ref.read(apiServiceProvider).updateLocation(pos.latitude, pos.longitude, isOnline: true);
+      // Update via REST API (New Phase 2 dispatch endpoint)
+      await ref.read(apiServiceProvider).updateLiveLocation(pos.latitude, pos.longitude);
       
       ref.invalidate(liveTechniciansProvider);
     } catch (e) {
@@ -159,6 +161,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final pendingCount = jobs.where((j) => j.status == JobStatus.completionRequested || j.status == JobStatus.workUploaded || j.status == JobStatus.approvedByManager || j.status == JobStatus.paymentPending).length;
 
     final screenWidth = MediaQuery.of(context).size.width;
+    final requests = ref.watch(incomingRequestsProvider);
 
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
@@ -171,6 +174,52 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildAnimatedDutyToggle(),
+                if (requests.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const JobRequestScreen()),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF4F46E5), Color(0xFF6366F1)],
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8)),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.flash_on_rounded, color: Colors.amberAccent, size: 32),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${requests.length} New Job Dispatch(es) Available!',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                                const SizedBox(height: 4),
+                                const Text(
+                                  'Tap here to view and accept requests before they expire.',
+                                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right_rounded, color: Colors.white),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 32),
                 _buildProductionSummary(completedCount, assignedCount, pendingCount),
                 const SizedBox(height: 48),
@@ -247,16 +296,64 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   fit: BoxFit.contain,
                                 ),
                               ),
-                              IconButton(
-                                onPressed: () {
-                                  ref.read(authProvider.notifier).logout();
-                                  Navigator.pushAndRemoveUntil(
-                                    context,
-                                    MaterialPageRoute(builder: (context) => const LoginScreen()),
-                                    (route) => false,
-                                  );
-                                },
-                                icon: const Icon(Icons.logout_rounded, color: Colors.white70),
+                              Row(
+                                children: [
+                                  Consumer(
+                                    builder: (context, ref, child) {
+                                      final requests = ref.watch(incomingRequestsProvider);
+                                      if (requests.isEmpty) return const SizedBox.shrink();
+                                      return Stack(
+                                        clipBehavior: Clip.none,
+                                        children: [
+                                          IconButton(
+                                            onPressed: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(builder: (context) => const JobRequestScreen()),
+                                              );
+                                            },
+                                            icon: const Icon(Icons.notifications_active_rounded, color: Colors.amberAccent, size: 28),
+                                          ),
+                                          Positioned(
+                                            right: 4,
+                                            top: 4,
+                                            child: Container(
+                                              padding: const EdgeInsets.all(4),
+                                              decoration: const BoxDecoration(
+                                                color: Colors.red,
+                                                shape: BoxShape.circle,
+                                              ),
+                                              constraints: const BoxConstraints(
+                                                minWidth: 16,
+                                                minHeight: 16,
+                                              ),
+                                              child: Text(
+                                                '${requests.length}',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                  IconButton(
+                                    onPressed: () {
+                                      ref.read(authProvider.notifier).logout();
+                                      Navigator.pushAndRemoveUntil(
+                                        context,
+                                        MaterialPageRoute(builder: (context) => const LoginScreen()),
+                                        (route) => false,
+                                      );
+                                    },
+                                    icon: const Icon(Icons.logout_rounded, color: Colors.white70),
+                                  ),
+                                ],
                               ),
                             ],
                           ),

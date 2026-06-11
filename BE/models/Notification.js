@@ -7,6 +7,20 @@ const notificationSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
+    recipientId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    recipientType: {
+      type: String,
+      enum: ['customer', 'technician', 'admin'],
+      required: true,
+    },
+    bookingId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Job',
+    },
     title: {
       type: String,
       required: true,
@@ -17,7 +31,6 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['job_assigned', 'status_update', 'expense_status', 'general', 'booking_created'],
       default: 'general',
     },
     isRead: {

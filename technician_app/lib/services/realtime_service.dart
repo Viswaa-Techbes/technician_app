@@ -7,6 +7,7 @@ import '../core/network/api_config.dart';
 import '../providers/job_providers.dart';
 import '../providers/live_technicians_provider.dart';
 import '../features/attendance/presentation/providers/attendance_provider.dart';
+import '../providers/incoming_requests_provider.dart';
 
 class RealtimeService {
   final String baseUrl = ApiConfig.baseUrl; 
@@ -33,11 +34,26 @@ class RealtimeService {
       debugPrint('[RealtimeService] New Notification: $data');
     });
 
+    _socket?.on('newJobRequest', (data) {
+      debugPrint('[RealtimeService] newJobRequest received: $data');
+      try {
+        final req = IncomingJobRequest.fromJson(Map<String, dynamic>.from(data));
+        _ref.read(incomingRequestsProvider.notifier).addRequest(req);
+      } catch (e) {
+        debugPrint('[RealtimeService] Error parsing newJobRequest: $e');
+      }
+    });
+
+    _socket?.on('bookingAssigned', (data) {
+      debugPrint('[RealtimeService] bookingAssigned received: $data');
+      _ref.invalidate(jobsProvider(null));
+    });
+
     _socket?.on('refresh_data', (data) {
       debugPrint('[RealtimeService] Refreshing data: $data');
       final type = data['type'];
       if (type == 'status_update' || type == 'job_assigned' || type == 'payment_completed') {
-        _ref.invalidate(jobsProvider);
+        _ref.invalidate(jobsProvider(null));
       }
       if (type == 'location_update') {
         _ref.invalidate(liveTechniciansProvider);

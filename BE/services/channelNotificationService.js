@@ -118,6 +118,56 @@ async function sendPush({ userId, title, body, data = {} }) {
 // ─── Notification Types & Templates ────────────────────────────────────────────
 
 const NOTIFICATION_TEMPLATES = {
+  booking_requested: {
+    subject: 'Booking Requested – TechBes',
+    getBody: (data) =>
+      `Hi ${data.customerName || 'Customer'}, your booking request for ${data.serviceName || 'service'} has been received. Please complete advance payment to confirm. Reference: #${data.bookingId || ''}`,
+  },
+  new_job_request: {
+    subject: '📲 New Job Request – TechBes',
+    getBody: (data) =>
+      `Hi ${data.technicianName || 'Technician'}, there is a new service request near you: ${data.serviceName || ''}. Customer: ${data.customerName || ''}. Distance: ${data.distanceKm || ''} km.`,
+  },
+  dispatch_update: {
+    subject: '🤖 Dispatch Update – TechBes',
+    getBody: (data) =>
+      `Admin Dispatch Alert: Job #${data.jobId || ''} update received.`,
+  },
+  penalty_applied: {
+    subject: '⚠️ Cancellation Penalty Applied – TechBes',
+    getBody: (data) =>
+      `Hi ${data.technicianName || 'Technician'}, a cancellation penalty of ₹${data.penaltyAmount || 50} was applied for cancelling job #${data.jobId || ''}.`,
+  },
+  technician_cancelled: {
+    subject: '⚠️ Technician Cancelled – TechBes',
+    getBody: (data) =>
+      `Hi ${data.customerName || 'Customer'}, your assigned technician has cancelled. We are dispatching another technician immediately for your request #${data.jobId || ''}.`,
+  },
+  cancellation_request: {
+    subject: '🚫 Cancellation Request – TechBes',
+    getBody: (data) =>
+      `Admin Alert: Customer requested cancellation for job #${data.jobId || ''}.`,
+  },
+  cancellation_approved: {
+    subject: '✅ Cancellation Approved – TechBes',
+    getBody: (data) =>
+      `Hi ${data.customerName || 'Customer'}, your cancellation request for job #${data.jobId || ''} has been approved by admin.`,
+  },
+  cancellation_rejected: {
+    subject: '❌ Cancellation Rejected – TechBes',
+    getBody: (data) =>
+      `Hi ${data.customerName || 'Customer'}, your cancellation request for job #${data.jobId || ''} has been rejected by admin.`,
+  },
+  refund_processed: {
+    subject: '💳 Refund Processed – TechBes',
+    getBody: (data) =>
+      `Hi ${data.customerName || 'Customer'}, a refund has been processed successfully for your booking #${data.jobId || ''}.`,
+  },
+  job_cancelled: {
+    subject: '❌ Job Cancelled – TechBes',
+    getBody: (data) =>
+      `Hi ${data.technicianName || 'Technician'}, the job #${data.jobId || ''} has been cancelled.`,
+  },
   booking_confirmed: {
     subject: 'Booking Confirmed – TechBes',
     getBody: (data) =>

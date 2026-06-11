@@ -333,6 +333,86 @@ class ApiService {
     }
     throw Exception('Failed to upload files: $resBody');
   }
+
+  // --- Phase 2 Dispatch Endpoints ---
+  Future<Map<String, dynamic>> acceptJobRequest(String jobId) async {
+    debugPrint('[ApiService] POST $baseUrl/api/v2/dispatch/accept/$jobId');
+    final res = await http.post(
+      Uri.parse("$baseUrl/api/v2/dispatch/accept/$jobId"),
+      headers: _headers,
+    );
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode < 200 || res.statusCode >= 300 || json['success'] != true) {
+      throw Exception(json['message'] ?? 'Failed to accept job request');
+    }
+    return json;
+  }
+
+  Future<Map<String, dynamic>> rejectJobRequest(String jobId, {String? reason}) async {
+    debugPrint('[ApiService] POST $baseUrl/api/v2/dispatch/reject/$jobId');
+    final res = await http.post(
+      Uri.parse("$baseUrl/api/v2/dispatch/reject/$jobId"),
+      headers: _headers,
+      body: jsonEncode({"reason": reason ?? ''}),
+    );
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode < 200 || res.statusCode >= 300 || json['success'] != true) {
+      throw Exception(json['message'] ?? 'Failed to reject job request');
+    }
+    return json;
+  }
+
+  Future<Map<String, dynamic>> updateAvailabilityStatus(String status) async {
+    debugPrint('[ApiService] PUT $baseUrl/api/v2/dispatch/availability status=$status');
+    final res = await http.put(
+      Uri.parse("$baseUrl/api/v2/dispatch/availability"),
+      headers: _headers,
+      body: jsonEncode({"status": status}),
+    );
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode < 200 || res.statusCode >= 300 || json['success'] != true) {
+      throw Exception(json['message'] ?? 'Failed to update availability');
+    }
+    return json;
+  }
+
+  Future<void> updateLiveLocation(double lat, double lng) async {
+    debugPrint('[ApiService] PUT $baseUrl/api/v2/dispatch/location lat=$lat, lng=$lng');
+    final res = await http.put(
+      Uri.parse("$baseUrl/api/v2/dispatch/location"),
+      headers: _headers,
+      body: jsonEncode({"lat": lat, "lng": lng}),
+    );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      final json = jsonDecode(res.body) as Map<String, dynamic>;
+      throw Exception(json['message'] ?? 'Failed to update location');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getJobRequests() async {
+    debugPrint('[ApiService] GET $baseUrl/api/v2/dispatch/my-requests');
+    final res = await http.get(Uri.parse("$baseUrl/api/v2/dispatch/my-requests"), headers: _headers);
+    if (res.statusCode == 200) {
+      final json = jsonDecode(res.body);
+      final List data = json['data'] ?? [];
+      return List<Map<String, dynamic>>.from(data);
+    }
+    return [];
+  }
+
+  Future<Map<String, dynamic>> techCancelJob(String jobId, String reason) async {
+    debugPrint('[ApiService] POST $baseUrl/api/v2/dispatch/tech-cancel/$jobId reason=$reason');
+    final res = await http.post(
+      Uri.parse("$baseUrl/api/v2/dispatch/tech-cancel/$jobId"),
+      headers: _headers,
+      body: jsonEncode({"reason": reason}),
+    );
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode < 200 || res.statusCode >= 300 || json['success'] != true) {
+      throw Exception(json['message'] ?? 'Failed to cancel job');
+    }
+    return json;
+  }
 }
 
 final apiServiceProvider = Provider<ApiService>((ref) {

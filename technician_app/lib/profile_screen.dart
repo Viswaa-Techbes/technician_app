@@ -35,106 +35,134 @@ class ProfileScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          children: [
-            _buildProductionProfileHeader(context, userName, userRole),
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                   _buildSectionLabel(context, "Performance Metrics"),
-                  const SizedBox(height: 20),
-                  Row(
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: api.getCurrentUserProfile(),
+        builder: (context, snapshot) {
+          final profile = snapshot.data ?? {};
+          final completedJobs = profile['completedJobs'] ?? 0;
+          final rating = (profile['rating'] as num?)?.toDouble() ?? (avgRating > 0 ? avgRating : 5.0);
+          final totalEarnings = profile['totalEarnings'] ?? 0;
+          final penaltyPoints = profile['penaltyPoints'] ?? 0;
+
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              children: [
+                _buildProductionProfileHeader(context, userName, userRole),
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: _buildMetricTile(
-                          context,
-                          avgRating > 0 ? avgRating.toStringAsFixed(1) : "N/A",
-                          "Rating",
-                          Icons.auto_awesome_rounded,
-                          const Color(0xFFF59E0B),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: FutureBuilder<List<Job>>(
-                          future: api.getJobs(),
-                          builder: (context, snapshot) {
-                            final allJobs = snapshot.data ?? [];
-                            final count = allJobs.where((j) => j.status == JobStatus.completed).length;
-                            return _buildMetricTile(
+                      _buildSectionLabel(context, "Performance Metrics"),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildMetricTile(
                               context,
-                              count.toString(),
-                              "Projects",
+                              "★ ${rating.toStringAsFixed(1)}",
+                              "Rating",
+                              Icons.auto_awesome_rounded,
+                              const Color(0xFFF59E0B),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildMetricTile(
+                              context,
+                              completedJobs.toString(),
+                              "Completed Jobs",
                               Icons.rocket_launch_rounded,
-                              const Color(0xFF2563EB),
-                            );
-                          },
+                              const Color(0xFF10B981),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildMetricTile(
+                              context,
+                              "₹$totalEarnings",
+                              "Earnings",
+                              Icons.payments_rounded,
+                              const Color(0xFF6366F1),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildMetricTile(
+                              context,
+                              penaltyPoints.toString(),
+                              "Penalties",
+                              Icons.warning_amber_rounded,
+                              penaltyPoints > 0 ? const Color(0xFFEF4444) : const Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
+                      _buildSectionLabel(context, "Preferences & Security"),
+                      const SizedBox(height: 16),
+                      _buildMenuAction(
+                        Icons.rate_review_outlined,
+                        "Client Reviews",
+                        "View what customers are saying ($totalReviews)",
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => TechnicianReviewsScreen(
+                              technicianId: techId,
+                              technicianName: userName,
+                            ),
+                          ),
                         ),
                       ),
+                      _buildMenuAction(
+                        Icons.person_outline_rounded,
+                        "Account Details",
+                        "Manage your personal profile",
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const AccountDetailsScreen()),
+                        ),
+                      ),
+                      _buildMenuAction(Icons.lock_outline_rounded, "Privacy & Security", "Password and biometric lock"),
+                      _buildMenuAction(Icons.notifications_active_outlined, "Notification Center", "Real-time alert preferences"),
+                      _buildMenuAction(Icons.support_agent_rounded, "Technical Support", "24/7 priority live assistance"),
+                      const SizedBox(height: 48),
+                      CustomButton(
+                        label: "SIGN OUT",
+                        onPressed: () async {
+                          await ref.read(authProvider.notifier).logout();
+                          if (context.mounted) {
+                            Navigator.pushAndRemoveUntil(
+                              context,
+                              MaterialPageRoute(builder: (context) => const LoginScreen()),
+                              (route) => false,
+                            );
+                          }
+                        },
+                        color: const Color(0xFFF43F5E),
+                        icon: Icons.power_settings_new_rounded,
+                      ),
+                      const SizedBox(height: 12),
+                      const Center(
+                        child: Text(
+                          "App Version v2.4.0 (Production Build)",
+                          style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      const SizedBox(height: 40),
                     ],
                   ),
-                  const SizedBox(height: 32),
-                  _buildSectionLabel(context, "Preferences & Security"),
-                  const SizedBox(height: 16),
-                  _buildMenuAction(
-                    Icons.rate_review_outlined,
-                    "Client Reviews",
-                    "View what customers are saying ($totalReviews)",
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => TechnicianReviewsScreen(
-                          technicianId: techId,
-                          technicianName: userName,
-                        ),
-                      ),
-                    ),
-                  ),
-                  _buildMenuAction(
-                    Icons.person_outline_rounded,
-                    "Account Details",
-                    "Manage your personal profile",
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const AccountDetailsScreen()),
-                    ),
-                  ),
-                  _buildMenuAction(Icons.lock_outline_rounded, "Privacy & Security", "Password and biometric lock"),
-                  _buildMenuAction(Icons.notifications_active_outlined, "Notification Center", "Real-time alert preferences"),
-                  _buildMenuAction(Icons.support_agent_rounded, "Technical Support", "24/7 priority live assistance"),
-                  const SizedBox(height: 48),
-                  CustomButton(
-                    label: "SIGN OUT",
-                    onPressed: () async {
-                      await ref.read(authProvider.notifier).logout();
-                      if (context.mounted) {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(builder: (context) => const LoginScreen()),
-                          (route) => false,
-                        );
-                      }
-                    },
-                    color: const Color(0xFFF43F5E),
-                    icon: Icons.power_settings_new_rounded,
-                  ),
-                  const SizedBox(height: 12),
-                  const Center(
-                    child: Text(
-                      "App Version v2.4.0 (Production Build)",
-                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

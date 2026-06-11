@@ -179,7 +179,12 @@ async function updateJobStatus(req, res, next) {
     const { id } = req.params;
     const { status, note } = req.body;
 
-    const VALID_STATUSES = ['pending','not_visited','site_visited','assigned','in_progress','started','work_uploaded','completion_requested','approved_by_manager','payment_requested','payment_pending','payment_done','completed'];
+    const VALID_STATUSES = [
+      'pending', 'otp_verified', 'not_visited', 'site_visited', 'assigned', 'accepted',
+      'travelling', 'arrived', 'working', 'in_progress', 'started', 'work_uploaded',
+      'completion_requested', 'approved_by_manager', 'payment_requested', 'payment_pending',
+      'payment_done', 'completed', 'closed'
+    ];
     if (!VALID_STATUSES.includes(status)) {
       return res.status(400).json({ success: false, message: `Invalid status. Valid: ${VALID_STATUSES.join(', ')}` });
     }
@@ -194,23 +199,55 @@ async function updateJobStatus(req, res, next) {
     const io = req.app.get('io');
     io.emit('jobStatusUpdated', { jobId: id, status, note });
 
-    // Notify client on key status changes
-    const clientNotifyStatuses = ['in_progress', 'started', 'completion_requested', 'completed'];
+    // Notify client and admin on key status changes
+    const clientNotifyStatuses = ['site_visited', 'reached', 'arrived', 'travelling', 'in_progress', 'started', 'completion_requested', 'completed'];
     if (job.client && clientNotifyStatuses.includes(status)) {
       const statusMessages = {
-        in_progress: 'Work has started on your service request.',
-        started: 'Your technician has started work.',
-        completion_requested: 'Work completed — awaiting manager approval.',
-        completed: 'Your service request has been completed!',
+        site_visited: 'Your technician has reached your location.',
+        reached: 'Your technician has reached your location.',
+        arrived: 'Your technician has arrived at your location.',
+        travelling: 'Your technician has started traveling to your location.',
+        in_progress: 'Your service has started.',
+        started: 'Your service has started.',
+        completion_requested: 'Technician has requested service completion. Awaiting approval.',
+        completed: 'Your service request has been successfully completed!',
+      };
+      const statusTitles = {
+        site_visited: 'Technician Reached Location',
+        reached: 'Technician Reached Location',
+        arrived: 'Technician Reached Location',
+        travelling: 'Technician Started Travel',
+        in_progress: 'Service Started',
+        started: 'Service Started',
+        completion_requested: 'Service Awaiting Approval',
+        completed: 'Service Completed',
       };
       await notificationService.createNotification(
         job.client,
-        'Job Status Update',
+        statusTitles[status] || 'Job Status Update',
         statusMessages[status] || `Status updated to: ${status}`,
-        status === 'completed' ? 'job_completed' : 'job_started',
+        status === 'completed' ? 'job_completed' : 'status_update',
         io,
         { jobId: id }
       );
+    }
+
+    // Also notify admins if technician updates status
+    if (req.user && req.user.role === 'technician') {
+      const adminNotifyStatuses = ['started', 'in_progress', 'completion_requested', 'completed'];
+      if (adminNotifyStatuses.includes(status)) {
+        const admins = await User.find({ role: { $in: ['admin', 'manager'] }, isDeleted: { $ne: true } }).select('_id');
+        for (const admin of admins) {
+          await notificationService.createNotification(
+            admin._id,
+            'Job Status Updated by Technician',
+            `Technician has updated job "${job.serviceName || job.title}" status to: ${status.replace(/_/g, ' ').toUpperCase()}`,
+            'dispatch_update',
+            io,
+            { jobId: id }
+          );
+        }
+      }
     }
 
     res.json({ success: true, data: job });

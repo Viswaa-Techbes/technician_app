@@ -53,7 +53,68 @@ const userSchema = new mongoose.Schema(
       enum: ['available', 'busy', 'offline'],
       default: 'offline',
     },
+    // ─── Dispatch Status (replaces isOnline for technicians) ──────────────────
+    availabilityStatus: {
+      type: String,
+      enum: ['ONLINE', 'OFFLINE', 'BUSY'],
+      default: 'OFFLINE',
+    },
+    // ─── Technician Profile Fields ────────────────────────────────────────────
+    profilePhoto: {
+      type: String,
+      default: '',
+    },
     specialty: String,
+    serviceCategories: {
+      type: [String],
+      default: [],
+    },
+    pincodeCoverage: {
+      type: [String],
+      default: [],
+    },
+    rating: {
+      type: Number,
+      default: 5.0,
+      min: 0,
+      max: 5,
+    },
+    completedJobs: {
+      type: Number,
+      default: 0,
+    },
+    totalEarnings: {
+      type: Number,
+      default: 0,
+    },
+    penaltyPoints: {
+      type: Number,
+      default: 0,
+    },
+    performanceScore: {
+      type: Number,
+      default: 100,
+    },
+    activeJobId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Job',
+      default: null,
+    },
+    penalties: {
+      type: [{
+        amount: { type: Number, default: 0 },
+        reason: { type: String, default: '' },
+        penaltyDate: { type: Date, default: Date.now },
+        jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', default: null },
+      }],
+      default: [],
+    },
+    // ─── Location (updated by app in real-time) ───────────────────────────────
+    locationUpdatedAt: {
+      type: Date,
+      default: null,
+    },
+    // ─── Legacy / Auth Fields ─────────────────────────────────────────────────
     permissions: {
       type: [String],
       default: []

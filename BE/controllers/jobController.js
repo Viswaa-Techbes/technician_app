@@ -138,7 +138,7 @@ async function updateJobStatus(req, res, next) {
         }
         
         // Technician can only set specific statuses
-        const techAllowed = ['started', 'work_uploaded', 'completion_requested', 'payment_done'];
+        const techAllowed = ['started', 'work_uploaded', 'completion_requested', 'payment_done', 'travelling', 'arrived', 'accepted'];
         if (!techAllowed.includes(status)) {
             return res.status(403).json({ success: false, message: 'Technician cannot move job to this status' });
         }
@@ -168,14 +168,50 @@ async function updateJobStatus(req, res, next) {
     await job.save();
 
     const io = req.app.get('io');
+    // Notify customer
+    const clientNotifyStatuses = ['site_visited', 'reached', 'arrived', 'travelling', 'in_progress', 'started', 'completion_requested', 'completed'];
+    if (job.client && clientNotifyStatuses.includes(status)) {
+      const statusMessages = {
+        site_visited: 'Your technician has reached your location.',
+        reached: 'Your technician has reached your location.',
+        arrived: 'Your technician has arrived at your location.',
+        travelling: 'Your technician has started traveling to your location.',
+        in_progress: 'Your service has started.',
+        started: 'Your service has started.',
+        completion_requested: 'Technician has requested service completion. Awaiting approval.',
+        completed: 'Your service request has been successfully completed!',
+      };
+      const statusTitles = {
+        site_visited: 'Technician Reached Location',
+        reached: 'Technician Reached Location',
+        arrived: 'Technician Reached Location',
+        travelling: 'Technician Started Travel',
+        in_progress: 'Service Started',
+        started: 'Service Started',
+        completion_requested: 'Service Awaiting Approval',
+        completed: 'Service Completed',
+      };
+      await notificationService.createNotification(
+        job.client,
+        statusTitles[status] || 'Job Status Update',
+        statusMessages[status] || `Status updated to: ${status}`,
+        status === 'completed' ? 'job_completed' : 'status_update',
+        io,
+        { jobId: jobId.toString() }
+      );
+    }
+
     if (req.user.role === 'technician') {
-        await notificationService.createNotification(
-            job.assignedManager.toString(),
-            'Job Update',
-            `Technician updated job status to ${status}`,
-            'status_update',
-            io
-        );
+        if (job.assignedManager) {
+            await notificationService.createNotification(
+                job.assignedManager.toString(),
+                'Job Update',
+                `Technician updated job status to ${status}`,
+                'status_update',
+                io,
+                { jobId: jobId.toString() }
+            );
+        }
     } else {
         if (job.assignedTechnician) {
             await notificationService.createNotification(
@@ -183,7 +219,8 @@ async function updateJobStatus(req, res, next) {
                 'Job Update',
                 `Manager updated job status to ${status}`,
                 'status_update',
-                io
+                io,
+                { jobId: jobId.toString() }
             );
         }
     }

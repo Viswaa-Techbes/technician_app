@@ -35,6 +35,8 @@ const careerRoutesV2 = require('./routes/v2/careerRoutesV2');
 const courseRoutesV2 = require('./routes/v2/courseRoutesV2');
 const admissionRoutesV2 = require('./routes/v2/admissionRoutesV2');
 const cartRoutesV2 = require('./routes/v2/cartRoutesV2');
+const dispatchRoutesV2 = require('./routes/v2/dispatchRoutesV2');
+const cancellationRoutesV2 = require('./routes/v2/cancellationRoutesV2');
 
 const errorHandler = require('./middlewares/errorHandler');
 
@@ -154,6 +156,10 @@ app.use('/api/v2/analytics/visitors', visitorAnalyticsRoutesV2);
 app.use('/api/v2/careers', careerRoutesV2);
 app.use('/api/v2', courseRoutesV2);
 app.use('/api/v2/admission', admissionRoutesV2);
+
+// ─── Phase 2: Dispatch & Cancellation ────────────────────────────────────────
+app.use('/api/v2/dispatch', dispatchRoutesV2);
+app.use('/api/v2/cancellations', cancellationRoutesV2);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });

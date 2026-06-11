@@ -42,35 +42,93 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: "*",
-    methods: ["GET", "POST"]
-  }
+    methods: ["GET", "POST", "PUT"]
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000,
 });
 
-// Store io in app to use in controllers if needed
+// Store io in app AND global so services can access it without circular deps
 app.set('io', io);
+global._socketIo = io;
 
 io.on('connection', (socket) => {
-  console.log('Socket Client connected:', socket.id);
+  console.log('[Socket] Client connected:', socket.id);
 
+  // User joins their personal room (userId = MongoDB _id string)
   socket.on('join', (userId) => {
-    socket.join(userId);
-    console.log(`User ${userId} joined room`);
+    if (!userId) return;
+    socket.join(userId.toString());
+    console.log(`[Socket] User ${userId} joined personal room`);
   });
 
+  // Admin joins admin_room for dispatch monitor broadcasts
+  socket.on('join_admin', () => {
+    socket.join('admin_room');
+    console.log(`[Socket] Admin joined admin_room (socket: ${socket.id})`);
+  });
+
+  // Technician updates location in real-time
   socket.on('update_location', (data) => {
-    io.emit('technicianLocationUpdate', {
-        technicianId: data.userId,
-        lat: data.lat,
-        lng: data.lng,
-        name: data.name,
-        isOnline: true
+    const { userId, lat, lng, name, availabilityStatus } = data;
+    if (!userId || lat === undefined || lng === undefined) return;
+
+    // Broadcast to admin_room (fleet tracking)
+    io.to('admin_room').emit('technicianLocationUpdate', {
+      technicianId: userId,
+      lat,
+      lng,
+      name: name || 'Technician',
+      isOnline: availabilityStatus === 'ONLINE',
+      availabilityStatus: availabilityStatus || 'ONLINE',
+      lastUpdate: new Date().toISOString(),
+    });
+
+    // Persist to DB asynchronously (non-blocking)
+    setImmediate(async () => {
+      try {
+        const User = require('./models/User');
+        await User.findByIdAndUpdate(userId, {
+          lat: parseFloat(lat),
+          lng: parseFloat(lng),
+          locationUpdatedAt: new Date(),
+          ...(availabilityStatus ? { availabilityStatus } : {}),
+        });
+      } catch (err) {
+        console.error('[Socket] Failed to update location in DB:', err.message);
+      }
     });
   });
 
+  // Technician updates availability
+  socket.on('update_availability', async (data) => {
+    const { userId, status } = data;
+    if (!userId || !status) return;
+
+    try {
+      const User = require('./models/User');
+      await User.findByIdAndUpdate(userId, {
+        availabilityStatus: status,
+        isOnline: status === 'ONLINE',
+        ...(status === 'OFFLINE' ? { activeJobId: null } : {}),
+      });
+
+      io.to('admin_room').emit('technicianStatusUpdate', {
+        technicianId: userId,
+        availabilityStatus: status,
+        isOnline: status === 'ONLINE',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.error('[Socket] Failed to update availability:', err.message);
+    }
+  });
+
   socket.on('disconnect', () => {
-    console.log('Socket Client disconnected');
+    console.log('[Socket] Client disconnected:', socket.id);
   });
 });
+
 
 async function start() {
   // Start listening IMMEDIATELY so Render detects the open port

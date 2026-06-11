@@ -19,7 +19,9 @@ const JOB_STATUSES = [
   'payment_pending',
   'payment_done',
   'completed',
-  'closed'
+  'closed',
+  'cancellation_requested',
+  'cancelled'
 ];
 const PAYMENT_STATUSES = ['pending', 'advance_paid', 'requested', 'pending_payment', 'verification_pending', 'paid', 'rejected'];
 
@@ -287,6 +289,45 @@ const jobSchema = new mongoose.Schema(
     scheduledTime: {
       type: String,
       default: 'ASAP',
+    },
+    // ─── Dispatch Fields ──────────────────────────────────────────────────────
+    assignmentMethod: {
+      type: String,
+      enum: ['AUTO', 'MANUAL', 'ACCEPTED', 'FALLBACK', null],
+      default: null,
+    },
+    assignmentTime: {
+      type: Date,
+      default: null,
+    },
+    dispatchStatus: {
+      type: String,
+      enum: ['pending_dispatch', 'dispatching', 'assigned', 'no_tech_found', null],
+      default: null,
+    },
+    dispatchAttempts: {
+      type: Number,
+      default: 0,
+    },
+    broadcastedTo: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    }],
+    // ─── Cancellation Policy ──────────────────────────────────────────────────
+    cancellation: {
+      cancelledBy: { type: String, enum: ['customer', 'technician', 'admin', null], default: null },
+      reason: { type: String, default: '' },
+      validReason: { type: Boolean, default: null },
+      approvedByAdmin: { type: Boolean, default: null },
+      penaltyAmount: { type: Number, default: 0 },
+      cancelledAt: { type: Date, default: null },
+      adminNote: { type: String, default: '' },
+    },
+    // ─── Technician Penalty (when tech cancels after accepting) ───────────────
+    technicianPenalty: {
+      amount: { type: Number, default: 0 },
+      reason: { type: String, default: '' },
+      penaltyDate: { type: Date, default: null },
     },
   },
   { timestamps: true }
