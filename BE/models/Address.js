@@ -18,6 +18,7 @@ const addressSchema = new mongoose.Schema(
     addressLine2: { type: String, default: '', trim: true },
     latitude: { type: Number, default: null },
     longitude: { type: Number, default: null },
+    formattedAddress: { type: String, default: '', trim: true },
   },
   { timestamps: true }
 );
@@ -31,6 +32,16 @@ addressSchema.pre('validate', function(next) {
   if (this.name && (!this.label || this.label === 'Address')) {
     this.label = this.name;
   }
+  
+  this.formattedAddress = [
+    this.address || this.addressLine1,
+    this.addressLine2,
+    this.landmark,
+    this.city,
+    this.state,
+    this.pincode
+  ].filter(Boolean).join(', ');
+  
   next();
 });
 

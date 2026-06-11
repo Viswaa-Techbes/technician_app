@@ -54,6 +54,11 @@ async function createBookingV2(bookingData) {
     v2Metadata: {
       lat: String(lat || ''),
       lng: String(lng || ''),
+      latitude: String(bookingData.latitude || lat || ''),
+      longitude: String(bookingData.longitude || lng || ''),
+      city: String(bookingData.city || ''),
+      state: String(bookingData.state || ''),
+      pincode: String(bookingData.pincode || ''),
     }
   });
 

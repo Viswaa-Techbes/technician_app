@@ -73,6 +73,12 @@ app.use(cors({
       return callback(null, true);
     }
     
+    // Allow any local development origin (localhost, 127.0.0.1, or local IP on any port)
+    const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?$/.test(origin);
+    if (isLocal) {
+      return callback(null, true);
+    }
+    
     // Check custom wildcard matching if allowedOrigins contains a wildcard pattern
     for (const pattern of allowedOrigins) {
       if (pattern.includes('*')) {
