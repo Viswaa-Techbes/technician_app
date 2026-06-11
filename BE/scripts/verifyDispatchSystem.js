@@ -48,6 +48,8 @@ async function run() {
   await JobRequest.deleteMany({});
   await Notification.deleteMany({});
   await Job.deleteMany({ title: /Test Job/ });
+  await mongoose.model('Payment').deleteMany({});
+  await mongoose.model('PaymentAudit').deleteMany({});
 
   // 1. Seed pincode
   console.log('Seeding Bangalore pincode 560001...');
@@ -443,6 +445,124 @@ async function run() {
   const updatedJobOverride = await Job.findById(jobOverride._id).populate('assignedTechnician');
   console.log('Overridden Job assignedTechnician:', updatedJobOverride.assignedTechnician.name);
   console.log('Overridden Job assignmentMethod:', updatedJobOverride.assignmentMethod);
+
+  console.log('\n==================================================');
+  console.log('TEST 7: RAZORPAY → DISPATCH END-TO-END FLOW');
+  console.log('==================================================');
+
+  // Seed online status for Near Tech to receive the assignment
+  await User.findByIdAndUpdate(techNear._id, { availabilityStatus: 'ONLINE' });
+  console.log('Set Near Technician back to ONLINE.');
+
+  const Payment = require('../models/Payment');
+  const orderId = 'order_test_e2e_123';
+  const paymentId = 'pay_test_e2e_123';
+  const amount = 300000; // ₹3000 in paise
+  const crypto = require('crypto');
+
+  // Create fake payment in database
+  const paymentRecord = await Payment.create({
+    razorpayOrderId: orderId,
+    amount,
+    currency: 'INR',
+    status: 'created',
+    userId: customer._id,
+    meta: {
+      bookingPayload: {
+        title: 'Test Job - E2E CCTV Installation',
+        serviceName: 'CCTV Installation',
+        serviceId: 'cctv',
+        customerName: customer.name,
+        customerPhone: customer.mobileNumber,
+        location: 'Bangalore Central, 560001',
+        price: 3000,
+        amount: 3000,
+        v2Metadata: {
+          pincode: '560001',
+          lat: '12.9716',
+          lng: '77.5946',
+        }
+      }
+    }
+  });
+  console.log(`Mock Payment created: ${paymentRecord._id} with orderId ${orderId}`);
+
+  // Generate signature using keySecret from env
+  const keySecret = process.env.RAZORPAY_KEY_SECRET || 'SYeuAE0Liu6jNSvwaOVxTISm';
+  const signature = crypto
+    .createHmac('sha256', keySecret)
+    .update(`${orderId}|${paymentId}`)
+    .digest('hex');
+
+  // Call payment verification controller
+  const paymentControllerV2 = require('../controllers/v2/paymentControllerV2');
+  const payReq = {
+    body: {
+      razorpay_order_id: orderId,
+      razorpay_payment_id: paymentId,
+      razorpay_signature: signature,
+    },
+    user: { id: customer._id.toString() },
+    app: { get: () => ioServer }
+  };
+  const payRes = {
+    json: (data) => console.log('- Payment verification controller response success:', data.success),
+    status: (code) => ({ json: (data) => console.error('- Payment verification error:', data) })
+  };
+
+  console.log('Invoking verifyPayment controller endpoint...');
+  await paymentControllerV2.verifyPayment(payReq, payRes, (err) => console.error(err));
+
+  // Let the setImmediate dispatch task run
+  await sleep(3500);
+
+  // Check if booking was created and auto-assigned
+  const e2eJob = await Job.findOne({ title: 'CCTV Installation', client: customer._id }).populate('assignedTechnician');
+  if (e2eJob) {
+    console.log('\n--- E2E Flow MongoDB Verifications ---');
+    console.log('Created Job ID:', e2eJob._id);
+    console.log('Payment Status:', e2eJob.paymentStatus);
+    console.log('Assigned Technician:', e2eJob.assignedTechnician?.name || 'None');
+    console.log('Assignment Method:', e2eJob.assignmentMethod);
+    console.log('Dispatch Status:', e2eJob.dispatchStatus);
+  } else {
+    console.error('E2E Job was not created!');
+  }
+
+  console.log('\n==================================================');
+  console.log('TEST 8: TECHNICIAN PERFORMANCE & SUSPENSION RULES');
+  console.log('==================================================');
+
+  // Increment Near Tech's penalty points to 3 (which triggers suspension)
+  console.log('Incrementing Near Technician penalty points to 3...');
+  await User.findByIdAndUpdate(techNear._id, { availabilityStatus: 'OFFLINE', penaltyPoints: 3, performanceScore: 65 });
+
+  // Attempt to toggle availability to ONLINE via PUT /availability route
+  console.log('Attempting to toggle Near Technician to ONLINE...');
+  const toggleReq = {
+    body: { status: 'ONLINE' },
+    user: { id: techNear._id.toString(), _id: techNear._id },
+    app: { get: () => ioServer }
+  };
+  const toggleRes = {
+    json: (data) => console.error('Error: Toggle succeeded but should have been blocked!', data),
+    status: (code) => ({
+      json: (data) => {
+        console.log(`Toggle response: Code=${code}, Message="${data.message}"`);
+      }
+    })
+  };
+
+  const dispatchRoutesV2 = require('../routes/v2/dispatchRoutesV2');
+  const routeHandlers = dispatchRoutesV2.stack.filter(s => s.route && s.route.path === '/availability');
+  if (routeHandlers.length > 0) {
+    const stack = routeHandlers[0].route.stack;
+    await stack[stack.length - 1].handle(toggleReq, toggleRes, (err) => console.error(err));
+  }
+
+  // Double check user status remains OFFLINE (or is blocked from ONLINE)
+  const finalTechNear = await User.findById(techNear._id);
+  console.log('Near Technician final availabilityStatus in DB:', finalTechNear.availabilityStatus);
 
   // Clean up sockets
   console.log('\nDisconnecting socket clients...');

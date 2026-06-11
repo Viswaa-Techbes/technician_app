@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:io';
 import 'models.dart';
 import 'widgets.dart';
 import 'job_timer_widget.dart';
@@ -17,17 +18,23 @@ class ProjectDetailScreen extends ConsumerWidget {
   const ProjectDetailScreen({super.key, required this.job});
 
   Future<void> _openGoogleMapsNavigation(BuildContext context) async {
-    const double lat = 13.0827;
-    const double lng = 80.2707;
-    final Uri url = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
-    );
+    final double lat = job.latitude ?? 13.0827;
+    final double lng = job.longitude ?? 80.2707;
+    Uri url;
+    if (Platform.isIOS) {
+      url = Uri.parse('https://maps.apple.com/?saddr=&daddr=$lat,$lng');
+    } else {
+      url = Uri.parse('google.navigation:q=$lat,$lng');
+      if (!await canLaunchUrl(url)) {
+        url = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+      }
+    }
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open Google Maps')),
+          const SnackBar(content: Text('Could not open map navigation application')),
         );
       }
     }

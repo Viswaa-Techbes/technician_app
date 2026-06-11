@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart';
 import 'services/api_service.dart';
 import 'models.dart';
 import 'widgets.dart';
@@ -10,7 +13,10 @@ import 'features/job_description/widgets/job_description_section.dart';
 import 'features/reviews/screens/submit_review_screen.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong2.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
+import 'dart:math' as math;
 
 class JobDetailScreen extends ConsumerStatefulWidget {
   final Job job;
@@ -29,6 +35,14 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   bool _isRunning = false;
   bool _isProcessingPayment = false;
 
+  // OSM Map and Route state
+  List<LatLng> _routePoints = [];
+  double _distance = 0.0;
+  double _eta = 0.0;
+  LatLng? _technicianCoords;
+  bool _loadingRoute = false;
+  final MapController _mapController = MapController();
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +51,87 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
     if (_currentStatus == JobStatus.started) {
       _startTimer();
     }
+    _fetchRoute();
+  }
+
+  Future<void> _fetchRoute() async {
+    final double custLat = widget.job.latitude ?? 13.0827;
+    final double custLng = widget.job.longitude ?? 80.2707;
+    
+    setState(() => _loadingRoute = true);
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        await Geolocator.requestPermission();
+      }
+      final pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      _technicianCoords = LatLng(pos.latitude, pos.longitude);
+      
+      if (_technicianCoords != null) {
+        final api = ref.read(apiServiceProvider);
+        final baseUrl = api.baseUrl;
+        final response = await http.get(
+          Uri.parse('$baseUrl/api/v2/routing/directions?startLat=${_technicianCoords!.latitude}&startLng=${_technicianCoords!.longitude}&endLat=$custLat&endLng=$custLng'),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        ).timeout(const Duration(seconds: 5));
+        
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data['success'] == true && data['data'] != null) {
+            final routeData = data['data'];
+            final List coords = routeData['polyline'] ?? [];
+            setState(() {
+              _routePoints = coords.map((c) => LatLng((c[0] as num).toDouble(), (c[1] as num).toDouble())).toList();
+              _distance = (routeData['distanceKm'] as num).toDouble();
+              _eta = (routeData['durationMinutes'] as num).toDouble();
+            });
+            
+            // Adjust camera to fit bounds
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && _routePoints.isNotEmpty) {
+                final bounds = LatLngBounds.fromPoints(_routePoints);
+                _mapController.fitCamera(
+                  CameraFit.bounds(
+                    bounds: bounds,
+                    padding: const EdgeInsets.all(50.0),
+                  ),
+                );
+              }
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[JobDetail] Routing error: $e');
+      if (_technicianCoords != null) {
+        final dist = _haversineDistance(
+          _technicianCoords!.latitude,
+          _technicianCoords!.longitude,
+          custLat,
+          custLng,
+        );
+        setState(() {
+          _routePoints = [_technicianCoords!, LatLng(custLat, custLng)];
+          _distance = dist;
+          _eta = dist * 2;
+        });
+      }
+    } finally {
+      setState(() => _loadingRoute = false);
+    }
+  }
+
+  double _haversineDistance(double lat1, double lon1, double lat2, double lon2) {
+    const double R = 6371;
+    final double dLat = (lat2 - lat1) * math.pi / 180;
+    final double dLon = (lon2 - lon1) * math.pi / 180;
+    final double a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180) * math.cos(lat2 * math.pi / 180) *
+        math.sin(dLon / 2) * math.sin(dLon / 2);
+    final double c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return R * c;
   }
 
   @override
@@ -362,19 +457,22 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
 
   Future<void> _openGoogleMapsNavigation() async {
     Uri url;
-    if (widget.job.googleMapsLink != null && widget.job.googleMapsLink!.isNotEmpty) {
-      url = Uri.parse(widget.job.googleMapsLink!);
+    final double lat = widget.job.latitude ?? 13.0827;
+    final double lng = widget.job.longitude ?? 80.2707;
+    if (Platform.isIOS) {
+      url = Uri.parse('https://maps.apple.com/?saddr=&daddr=$lat,$lng');
     } else {
-      final double lat = widget.job.latitude ?? 13.0827;
-      final double lng = widget.job.longitude ?? 80.2707;
-      url = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+      url = Uri.parse('google.navigation:q=$lat,$lng');
+      if (!await canLaunchUrl(url)) {
+        url = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+      }
     }
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open Google Maps')),
+          const SnackBar(content: Text('Could not open map navigation application')),
         );
       }
     }
@@ -383,7 +481,35 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   Widget _buildMapCard() {
     final double lat = widget.job.latitude ?? 13.0827;
     final double lng = widget.job.longitude ?? 80.2707;
-    final LatLng position = LatLng(lat, lng);
+    final LatLng customerPos = LatLng(lat, lng);
+
+    final List<Marker> markers = [
+      Marker(
+        point: customerPos,
+        width: 45,
+        height: 45,
+        child: const Icon(
+          Icons.pin_drop_rounded,
+          color: Colors.red,
+          size: 38,
+        ),
+      ),
+    ];
+
+    if (_technicianCoords != null) {
+      markers.add(
+        Marker(
+          point: _technicianCoords!,
+          width: 45,
+          height: 45,
+          child: const Icon(
+            Icons.directions_run_rounded,
+            color: Colors.green,
+            size: 38,
+          ),
+        ),
+      );
+    }
 
     return Container(
       height: 300,
@@ -402,22 +528,110 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
       ),
       child: Stack(
         children: [
-          GoogleMap(
-            initialCameraPosition: CameraPosition(target: position, zoom: 15),
-            markers: {
-              Marker(
-                markerId: MarkerId(widget.job.id),
-                position: position,
-                infoWindow: InfoWindow(title: widget.job.customerName, snippet: widget.job.address),
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: customerPos,
+              initialZoom: 14,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+                subdomains: const ['a', 'b', 'c', 'd'],
+                userAgentPackageName: 'com.technicianapp.app',
               ),
-            },
-            zoomControlsEnabled: false,
-            myLocationButtonEnabled: false,
-            liteModeEnabled: true, // Optimized for simple display
+              if (_routePoints.isNotEmpty)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: _routePoints,
+                      color: const Color(0xFF2563EB),
+                      strokeWidth: 4.0,
+                    ),
+                  ],
+                ),
+              MarkerLayer(
+                markers: markers,
+              ),
+            ],
           ),
-          // Address chip
+          
+          if (_technicianCoords != null && !_loadingRoute)
+            Positioned(
+              top: 16,
+              left: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.navigation_rounded, size: 18, color: Color(0xFF2563EB)),
+                        const SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'DISTANCE',
+                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey),
+                            ),
+                            Text(
+                              '${_distance.toStringAsFixed(1)} km',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        const Icon(Icons.access_time_filled_rounded, size: 18, color: Color(0xFF22C55E)),
+                        const SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'ETA',
+                              style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.grey),
+                            ),
+                            Text(
+                              '${_eta.toStringAsFixed(0)} mins',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          if (_loadingRoute)
+            Container(
+              color: Colors.white.withValues(alpha: 0.6),
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+
           Positioned(
-            top: 16,
+            bottom: 16,
             left: 16,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -450,7 +664,6 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
               ),
             ),
           ),
-          // Navigation button overlay
           Positioned(
             bottom: 16,
             right: 16,

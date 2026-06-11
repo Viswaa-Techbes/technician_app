@@ -107,6 +107,23 @@ io.on('connection', (socket) => {
 
     try {
       const User = require('./models/User');
+
+      // Performance-based suspension check
+      if (status === 'ONLINE') {
+        const checkUser = await User.findById(userId).select('performanceScore penaltyPoints');
+        if (checkUser) {
+          const penaltyPoints = checkUser.penaltyPoints || 0;
+          const performanceScore = checkUser.performanceScore !== undefined ? checkUser.performanceScore : 100;
+          if (penaltyPoints >= 3 || performanceScore < 70) {
+            console.warn(`[Socket] Suspended technician ${userId} prevented from going ONLINE`);
+            socket.emit('availability_update_failed', {
+              message: `Your account is temporarily suspended from going ONLINE due to repeated cancellations (${penaltyPoints} penalties) or low performance score (${performanceScore}%).`
+            });
+            return;
+          }
+        }
+      }
+
       await User.findByIdAndUpdate(userId, {
         availabilityStatus: status,
         isOnline: status === 'ONLINE',

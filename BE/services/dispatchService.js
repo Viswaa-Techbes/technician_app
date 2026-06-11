@@ -51,18 +51,14 @@ async function findEligibleTechnicians(job, customerCoords, limit = 10) {
   // Resolve the service category from the job
   const serviceCategory = job.serviceId || job.serviceName || '';
 
-  // Build the query for eligible technicians
+  // Build the query for eligible technicians (do NOT filter strictly by pincode here)
   const technicianQuery = {
     role: 'technician',
     availabilityStatus: 'ONLINE',
     isDeleted: { $ne: true },
   };
 
-  // If we have pincode coverage data, filter by it
   const customerPincode = await getJobPincode(job);
-  if (customerPincode) {
-    technicianQuery.pincodeCoverage = customerPincode;
-  }
 
   // Filter by service category if set on technician
   // (only restrict if technician has serviceCategories defined)
@@ -87,20 +83,37 @@ async function findEligibleTechnicians(job, customerCoords, limit = 10) {
     return eligible.sort((a, b) => (b.rating || 5) - (a.rating || 5)).slice(0, limit);
   }
 
-  // Add distance and sort
+  // Add distance and pincode match flag, and sort primarily by distance
   const withDistance = eligible
     .filter(tech => tech.lat && tech.lng)
-    .map(tech => ({
-      ...tech,
-      distanceKm: haversineKm(customerCoords.lat, customerCoords.lng, tech.lat, tech.lng),
-    }))
+    .map(tech => {
+      const distanceKm = haversineKm(customerCoords.lat, customerCoords.lng, tech.lat, tech.lng);
+      const coversPincode = customerPincode && tech.pincodeCoverage && tech.pincodeCoverage.includes(customerPincode);
+      return {
+        ...tech,
+        distanceKm,
+        coversPincode: !!coversPincode,
+      };
+    })
     .filter(tech => tech.distanceKm <= 30) // Max 30km radius
     .sort((a, b) => {
-      // Primary: distance (closest first)
+      // 1. Distance (closest first)
       const distDiff = a.distanceKm - b.distanceKm;
-      if (Math.abs(distDiff) > 2) return distDiff; // If >2km difference, sort by distance
-      // Secondary: rating (higher first)
-      return (b.rating || 5) - (a.rating || 5);
+      if (distDiff !== 0) return distDiff;
+      
+      // 2. Rating (higher first)
+      const ratingDiff = (b.rating || 5) - (a.rating || 5);
+      if (ratingDiff !== 0) return ratingDiff;
+
+      // 3. Workload (fewer completed jobs first)
+      const workloadDiff = (a.completedJobs || 0) - (b.completedJobs || 0);
+      if (workloadDiff !== 0) return workloadDiff;
+
+      // 4. Covers Pincode (secondary filter)
+      if (a.coversPincode && !b.coversPincode) return -1;
+      if (!a.coversPincode && b.coversPincode) return 1;
+
+      return 0;
     });
 
   return withDistance.slice(0, limit);

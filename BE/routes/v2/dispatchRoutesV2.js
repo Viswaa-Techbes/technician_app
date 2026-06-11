@@ -119,6 +119,19 @@ router.put('/availability', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid status. Use ONLINE, OFFLINE, or BUSY' });
     }
 
+    // Performance-based suspension check
+    const checkUser = await User.findById(techId).select('performanceScore penaltyPoints');
+    if (status === 'ONLINE' && checkUser) {
+      const penaltyPoints = checkUser.penaltyPoints || 0;
+      const performanceScore = checkUser.performanceScore !== undefined ? checkUser.performanceScore : 100;
+      if (penaltyPoints >= 3 || performanceScore < 70) {
+        return res.status(403).json({
+          success: false,
+          message: `Your account is temporarily suspended from going ONLINE due to repeated cancellations (${penaltyPoints} penalties) or low performance score (${performanceScore}%).`
+        });
+      }
+    }
+
     const user = await User.findByIdAndUpdate(
       techId,
       {

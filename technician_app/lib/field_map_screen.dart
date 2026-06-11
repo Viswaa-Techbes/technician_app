@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong2.dart';
 import 'models.dart';
 import 'providers/live_technicians_provider.dart';
 
@@ -12,91 +13,9 @@ class FieldMapScreen extends ConsumerStatefulWidget {
 }
 
 class _FieldMapScreenState extends ConsumerState<FieldMapScreen> {
-  final Set<Marker> _markers = {};
-  GoogleMapController? _mapController;
+  final MapController _mapController = MapController();
+  List<Technician> _techs = [];
   ProviderSubscription<AsyncValue<List<Technician>>>? _techniciansSubscription;
-
-  final String _mapStyle = '''
-[
-  {
-    "elementType": "geometry",
-    "stylers": [{"color": "#242f3e"}]
-  },
-  {
-    "elementType": "labels.text.fill",
-    "stylers": [{"color": "#746855"}]
-  },
-  {
-    "elementType": "labels.text.stroke",
-    "stylers": [{"color": "#242f3e"}]
-  },
-  {
-    "featureType": "administrative.locality",
-    "elementType": "labels.text.fill",
-    "stylers": [{"color": "#d59563"}]
-  },
-  {
-    "featureType": "poi",
-    "elementType": "labels.text.fill",
-    "stylers": [{"color": "#d59563"}]
-  },
-  {
-    "featureType": "poi.park",
-    "elementType": "geometry",
-    "stylers": [{"color": "#263c3f"}]
-  },
-  {
-    "featureType": "poi.park",
-    "elementType": "labels.text.fill",
-    "stylers": [{"color": "#6b9a76"}]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry",
-    "stylers": [{"color": "#38414e"}]
-  },
-  {
-    "featureType": "road",
-    "elementType": "geometry.stroke",
-    "stylers": [{"color": "#212a37"}]
-  },
-  {
-    "featureType": "road",
-    "elementType": "labels.text.fill",
-    "stylers": [{"color": "#9ca5b3"}]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry",
-    "stylers": [{"color": "#746855"}]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "geometry.stroke",
-    "stylers": [{"color": "#1f2835"}]
-  },
-  {
-    "featureType": "road.highway",
-    "elementType": "labels.text.fill",
-    "stylers": [{"color": "#f3d19c"}]
-  },
-  {
-    "featureType": "water",
-    "elementType": "geometry",
-    "stylers": [{"color": "#17263c"}]
-  },
-  {
-    "featureType": "water",
-    "elementType": "labels.text.fill",
-    "stylers": [{"color": "#515c6d"}]
-  },
-  {
-    "featureType": "water",
-    "elementType": "labels.text.stroke",
-    "stylers": [{"color": "#17263c"}]
-  }
-]
-''';
 
   @override
   void initState() {
@@ -115,67 +34,138 @@ class _FieldMapScreenState extends ConsumerState<FieldMapScreen> {
   @override
   void dispose() {
     _techniciansSubscription?.close();
-    _mapController?.dispose();
+    _mapController.dispose();
     super.dispose();
   }
 
   void _applyTechnicians(List<Technician> techs) {
     if (!mounted) return;
-    
     setState(() {
-      _markers.clear();
-      for (var t in techs) {
-        // Show everyone with valid coordinates (even if offline)
-        if (t.lat != null && t.lng != null && t.lat != 0 && t.lng != 0) {
-          double hue = BitmapDescriptor.hueAzure; // Offline/Default
-          if (t.isOnline) {
-             hue = t.status == TechnicianStatus.busy 
-                ? BitmapDescriptor.hueOrange 
-                : BitmapDescriptor.hueGreen;
-          }
-
-          _markers.add(
-            Marker(
-              markerId: MarkerId(t.id),
-              position: LatLng(t.lat!, t.lng!),
-              infoWindow: InfoWindow(
-                title: t.name, 
-                snippet: "${t.isOnline ? 'Online' : 'Offline'} • ${t.status.name.toUpperCase()}"
-              ),
-              icon: BitmapDescriptor.defaultMarkerWithHue(hue),
-            ),
-          );
-        }
-      }
+      _techs = techs;
     });
-
     _fitMarkers();
   }
 
   void _fitMarkers() {
-    if (_markers.isEmpty || _mapController == null) return;
+    final activePoints = _techs
+        .where((t) => t.lat != null && t.lng != null && t.lat != 0 && t.lng != 0)
+        .map((t) => LatLng(t.lat!, t.lng!))
+        .toList();
 
-    double minLat = 90.0;
-    double maxLat = -90.0;
-    double minLng = 180.0;
-    double maxLng = -180.0;
+    if (activePoints.isEmpty) return;
 
-    for (var marker in _markers) {
-      if (marker.position.latitude < minLat) minLat = marker.position.latitude;
-      if (marker.position.latitude > maxLat) maxLat = marker.position.latitude;
-      if (marker.position.longitude < minLng) minLng = marker.position.longitude;
-      if (marker.position.longitude > maxLng) maxLng = marker.position.longitude;
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        final bounds = LatLngBounds.fromPoints(activePoints);
+        _mapController.fitCamera(
+          CameraFit.bounds(
+            bounds: bounds,
+            padding: const EdgeInsets.all(50.0),
+          ),
+        );
+      } catch (e) {
+        debugPrint('[FieldMap] Failed to fit bounds: $e');
+      }
+    });
+  }
 
-    _mapController?.animateCamera(
-      CameraUpdate.newLatLngBounds(
-        LatLngBounds(
-          southwest: LatLng(minLat, minLng),
-          northeast: LatLng(maxLat, maxLng),
+  Color _getStatusColor(Technician t) {
+    if (!t.isOnline) return const Color(0xFF64748B); // Offline grey
+    return t.status == TechnicianStatus.busy
+        ? const Color(0xFFF97316) // Busy orange
+        : const Color(0xFF22C55E); // Available green
+  }
+
+  List<Marker> _buildMarkers() {
+    return _techs
+        .where((t) => t.lat != null && t.lng != null && t.lat != 0 && t.lng != 0)
+        .map((t) {
+      final statusColor = _getStatusColor(t);
+      return Marker(
+        point: LatLng(t.lat!, t.lng!),
+        width: 60,
+        height: 60,
+        child: GestureDetector(
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: Row(
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: statusColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        t.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Role: ${t.specialty}'),
+                    const SizedBox(height: 4),
+                    Text('Phone: ${t.phone}'),
+                    const SizedBox(height: 4),
+                    Text('Status: ${t.isOnline ? 'Online' : 'Offline'} • ${t.status.name.toUpperCase()}'),
+                    const SizedBox(height: 4),
+                    Text('Completed Jobs: ${t.completedJobs}'),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Close'),
+                  ),
+                ],
+              ),
+            );
+          },
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Outer glow
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: statusColor.withValues(alpha: 0.3),
+                ),
+              ),
+              // Inner border and dot
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: statusColor,
+                  border: Border.all(color: Colors.white, width: 3),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-        50.0, // Padding
-      ),
-    );
+      );
+    }).toList();
   }
 
   @override
@@ -185,26 +175,30 @@ class _FieldMapScreenState extends ConsumerState<FieldMapScreen> {
         title: const Text("FLEET TRACKER"),
         actions: [
           IconButton(
-            onPressed: () => ref.invalidate(liveTechniciansProvider),
+            onPressed: () {
+              ref.invalidate(liveTechniciansProvider);
+              _fitMarkers();
+            },
             icon: const Icon(Icons.refresh_rounded),
           ),
         ],
       ),
-      body: GoogleMap(
-        initialCameraPosition: const CameraPosition(
-          target: LatLng(20.5937, 78.9629), // Center of India
-          zoom: 5,
+      body: FlutterMap(
+        mapController: _mapController,
+        options: const MapOptions(
+          initialCenter: LatLng(20.5937, 78.9629), // Center of India
+          initialZoom: 5,
         ),
-        markers: _markers,
-        onMapCreated: (controller) {
-          _mapController = controller;
-          _mapController?.setMapStyle(_mapStyle);
-          _fitMarkers();
-        },
-        myLocationEnabled: true,
-        myLocationButtonEnabled: true,
-        zoomControlsEnabled: false,
-        mapToolbarEnabled: false,
+        children: [
+          TileLayer(
+            urlTemplate: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+            subdomains: const ['a', 'b', 'c', 'd'],
+            userAgentPackageName: 'com.technicianapp.app',
+          ),
+          MarkerLayer(
+            markers: _buildMarkers(),
+          ),
+        ],
       ),
     );
   }
