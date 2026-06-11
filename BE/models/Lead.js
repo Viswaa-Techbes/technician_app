@@ -19,6 +19,14 @@ const leadSchema = new mongoose.Schema(
     priority: { type: String, enum: ['low','medium','high'], default: 'medium' },
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     status: { type: String, enum: ['New','Contacted','Qualified','Proposal Sent','Negotiation','Won','Lost','Project Created'], default: 'New' },
+    lostReason: {
+      type: String,
+      required: [
+        function() { return this.status === 'Lost'; },
+        'Reason is required when lead is Lost'
+      ]
+    },
+    customerId: { type: String, default: '' },
     remarks: { type: String, default: '' },
     isDeleted: { type: Boolean, default: false },
   },

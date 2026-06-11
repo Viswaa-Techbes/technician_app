@@ -296,9 +296,67 @@ async function getLeads(req, res, next) {
 
 async function updateLead(req, res, next) {
   try {
-    const lead = await Lead.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    const { status, lostReason } = req.body;
+    if (status === 'Lost' && (!lostReason || lostReason.trim() === '')) {
+      return res.status(400).json({ success: false, message: 'lostReason is required when lead status is Lost' });
+    }
+
+    const lead = await Lead.findById(req.params.id);
     if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
-    return res.json({ success: true, data: lead });
+
+    let jobCreated = false;
+    if ((status === 'Won' || status === 'Project Created') && lead.status !== 'Won' && lead.status !== 'Project Created') {
+      // Find or create Client User
+      let clientUser = await User.findOne({ mobileNumber: lead.phone });
+      if (!clientUser) {
+        const password = Math.random().toString(36).substring(2, 10);
+        clientUser = await User.create({
+          name: lead.name,
+          mobileNumber: lead.phone,
+          email: lead.email || undefined,
+          password,
+          role: 'client',
+          userType: 'web_user',
+        });
+      }
+
+      const existingJob = await Job.findOne({ client: clientUser._id, title: lead.requiredService || 'Lead Project' });
+      if (!existingJob) {
+        // Create address for customer
+        let addr = await Address.findOne({ userId: clientUser._id });
+        if (!addr && lead.address) {
+          addr = await Address.create({
+            userId: clientUser._id,
+            address: lead.address,
+            pincode: lead.pincode || '',
+          });
+        }
+
+        await Job.create({
+          title: lead.requiredService || 'Service Project',
+          description: lead.remarks || `Created from Lead ID: ${lead.leadId}`,
+          customerName: lead.name,
+          customerPhone: lead.phone,
+          location: lead.address || '',
+          addressId: addr ? addr._id : null,
+          price: lead.budget || 0,
+          amount: lead.budget || 0,
+          status: 'pending',
+          client: clientUser._id,
+          useNewFlow: true,
+        });
+        jobCreated = true;
+      }
+      
+      if (status === 'Won') {
+        req.body.status = 'Project Created';
+      }
+    }
+
+    Object.assign(lead, req.body);
+    await lead.save();
+
+    return res.json({ success: true, data: lead, jobCreated });
   } catch (err) {
     next(err);
   }
@@ -316,8 +374,11 @@ async function deleteLead(req, res, next) {
 
 async function createLead(req, res, next) {
   try {
-    const { name, email, phone, pincode, status, service, plan } = req.body;
+    const { name, email, phone, pincode, status, service, plan, lostReason } = req.body;
     if (!name) return res.status(400).json({ success: false, message: 'name is required' });
+    if (status === 'Lost' && (!lostReason || lostReason.trim() === '')) {
+      return res.status(400).json({ success: false, message: 'lostReason is required when lead status is Lost' });
+    }
     const lead = await Lead.create({
       name: name.trim(),
       email: email?.toLowerCase().trim() || undefined,
@@ -325,9 +386,182 @@ async function createLead(req, res, next) {
       pincode: pincode ? String(pincode).trim() : undefined,
       service: service?.trim() || undefined,
       plan: plan?.trim() || undefined,
-      status: status || 'Active',
+      status: status || 'New',
+      lostReason: lostReason || undefined,
     });
     return res.status(201).json({ success: true, data: lead });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Customers Management
+ */
+const Customer = require('../../models/Customer');
+
+async function getCustomers(req, res, next) {
+  try {
+    const customers = await Customer.find().sort({ createdAt: -1 }).lean();
+    return res.json({ success: true, data: customers });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getCustomerById(req, res, next) {
+  try {
+    const customer = await Customer.findById(req.params.id);
+    if (!customer) return res.status(404).json({ success: false, message: 'Customer not found' });
+    
+    // Fetch dynamic history
+    const [addresses, bookings, payments, reviews] = await Promise.all([
+      Address.find({ userId: customer.userId || customer._id }),
+      Job.find({ client: customer.userId || customer._id }).sort({ createdAt: -1 }),
+      Payment.find({ userId: customer.userId || customer._id }).sort({ createdAt: -1 }),
+      Review.find({ userId: customer.userId || customer._id }).sort({ createdAt: -1 }),
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        ...customer.toObject(),
+        addresses,
+        bookingHistory: bookings,
+        paymentHistory: payments,
+        feedbackHistory: reviews,
+        cancellationHistory: bookings.filter(b => b.status === 'cancelled').map(b => ({
+          jobId: b._id,
+          bookingNumber: b.bookingNumber,
+          reason: b.cancellation?.reason || 'Not provided',
+          cancelledAt: b.cancellation?.cancelledAt || b.updatedAt,
+          cancelledBy: b.cancellation?.cancelledBy || 'Unknown',
+        })),
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function createCustomer(req, res, next) {
+  try {
+    const { name, email, mobileNumber, phone, pincode, address } = req.body;
+    const phoneNum = mobileNumber || phone;
+    if (!name || !phoneNum) {
+      return res.status(400).json({ success: false, message: 'name and mobileNumber are required' });
+    }
+
+    // Check if user already exists
+    let user = await User.findOne({ mobileNumber: phoneNum.trim() });
+    if (!user) {
+      const password = Math.random().toString(36).substring(2, 10);
+      user = await User.create({
+        name: name.trim(),
+        mobileNumber: phoneNum.trim(),
+        email: email?.trim().toLowerCase() || undefined,
+        password,
+        role: 'client',
+        userType: 'web_user',
+      });
+    }
+
+    const customer = await Customer.findOne({ userId: user._id });
+    if (customer) {
+      return res.status(409).json({ success: false, message: 'Customer already exists' });
+    }
+
+    // Create address if specified
+    let addressDoc = null;
+    if (address) {
+      addressDoc = await Address.create({
+        userId: user._id,
+        address,
+        pincode: pincode || '',
+      });
+    }
+
+    const newCustomer = await Customer.create({
+      userId: user._id,
+      name: name.trim(),
+      mobileNumber: phoneNum.trim(),
+      email: email?.trim().toLowerCase() || undefined,
+      addresses: addressDoc ? [addressDoc._id] : [],
+    });
+
+    return res.status(201).json({ success: true, data: newCustomer });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateCustomer(req, res, next) {
+  try {
+    const { name, email, mobileNumber } = req.body;
+    const customer = await Customer.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    if (!customer) return res.status(404).json({ success: false, message: 'Customer not found' });
+    
+    // Sync to User if linked
+    if (customer.userId) {
+      const updates = {};
+      if (name) updates.name = name;
+      if (email) updates.email = email;
+      if (mobileNumber) updates.mobileNumber = mobileNumber;
+      await User.findByIdAndUpdate(customer.userId, updates);
+    }
+
+    return res.json({ success: true, data: customer });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function deleteCustomer(req, res, next) {
+  try {
+    const customer = await Customer.findByIdAndDelete(req.params.id);
+    if (!customer) return res.status(404).json({ success: false, message: 'Customer not found' });
+    return res.json({ success: true, message: 'Customer deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Detailed Employee profile fetch
+ */
+async function getUserDetails(req, res, next) {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+    if (!user) return res.status(404).json({ success: false, message: 'Employee not found' });
+
+    // Fetch dynamic performance metrics
+    const [jobs, attendance, reviews] = await Promise.all([
+      Job.find({ assignedTechnician: user._id }).sort({ createdAt: -1 }),
+      Attendance.find({ userId: user._id }).sort({ date: -1 }),
+      Review.find({ technicianId: user._id }).sort({ createdAt: -1 }),
+    ]);
+
+    // Calculate dynamic stats
+    const completedJobsCount = jobs.filter(j => ['completed', 'closed', 'payment_done'].includes(j.status)).length;
+    const totalEarnings = user.totalEarnings || 0;
+    const activePenaltiesCount = user.penalties?.length || 0;
+
+    return res.json({
+      success: true,
+      data: {
+        ...user.toObject(),
+        jobs,
+        attendanceHistory: attendance,
+        reviews,
+        stats: {
+          assignedJobs: jobs.length,
+          completedJobs: completedJobsCount,
+          totalEarnings,
+          penalties: activePenaltiesCount,
+          rating: user.rating || 5.0,
+        }
+      }
+    });
   } catch (err) {
     next(err);
   }
@@ -881,6 +1115,12 @@ module.exports = {
   createLead,
   updateLead,
   deleteLead,
+  getCustomers,
+  getCustomerById,
+  createCustomer,
+  updateCustomer,
+  deleteCustomer,
+  getUserDetails,
   getUsers,
   createUser,
   updateUser,

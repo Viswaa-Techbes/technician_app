@@ -329,11 +329,16 @@ const jobSchema = new mongoose.Schema(
       reason: { type: String, default: '' },
       penaltyDate: { type: Date, default: null },
     },
+    customerId: {
+      type: String,
+      default: '',
+      index: true,
+    },
   },
   { timestamps: true }
 );
 
-jobSchema.pre('validate', function(next) {
+jobSchema.pre('validate', async function(next) {
   if (!this.bookingNumber) {
     const timestamp = Math.floor(Date.now() / 1000);
     const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -350,6 +355,19 @@ jobSchema.pre('validate', function(next) {
   if (this.status) this.bookingStatus = this.status;
   if (this.cctvDetails && !this.materials) {
     this.materials = this.cctvDetails;
+  }
+
+  // Look up customerId from User if missing
+  if ((this.client || this.userId) && !this.customerId) {
+    try {
+      const User = mongoose.model('User');
+      const u = await User.findById(this.client || this.userId);
+      if (u && u.customerId) {
+        this.customerId = u.customerId;
+      }
+    } catch (err) {
+      console.error('Error looking up customerId in Job pre-validate:', err);
+    }
   }
   
   next();

@@ -31,7 +31,11 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      default: 'general',
+      required: true,
+    },
+    customerId: {
+      type: String,
+      default: '',
     },
     isRead: {
       type: Boolean,
@@ -41,5 +45,20 @@ const notificationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model('Notification', notificationSchema);
+notificationSchema.pre('validate', async function(next) {
+  const targetId = this.recipientId || this.userId;
+  if (targetId && !this.customerId) {
+    try {
+      const User = mongoose.model('User');
+      const u = await User.findById(targetId);
+      if (u && u.customerId) {
+        this.customerId = u.customerId;
+      }
+    } catch (err) {
+      console.error('Error looking up customerId in Notification pre-validate:', err);
+    }
+  }
+  next();
+});
 
+module.exports = mongoose.model('Notification', notificationSchema);

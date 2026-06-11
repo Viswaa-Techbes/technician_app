@@ -2,11 +2,16 @@ const User = require('../models/User');
 const { signToken } = require('../utils/jwt');
 
 async function loginUser(identifier, password) {
-  const normalizedIdentifier = identifier.trim().toLowerCase();
+  const normalizedIdentifier = identifier.trim();
+  const normalizedLower = identifier.trim().toLowerCase();
   const user = await User.findOne({
     $or: [
       { mobileNumber: normalizedIdentifier },
-      { email: normalizedIdentifier },
+      { email: normalizedLower },
+      { employeeId: normalizedIdentifier },
+      { employeeCode: normalizedIdentifier },
+      { employeeId: normalizedIdentifier.toUpperCase() },
+      { employeeCode: normalizedIdentifier.toUpperCase() },
     ],
   }).select('+password');
   if (!user) {

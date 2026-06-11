@@ -26,8 +26,16 @@ router.post('/leads', adminControllerV2.createLead);
 router.put('/leads/:id', adminControllerV2.updateLead);
 router.delete('/leads/:id', adminControllerV2.deleteLead);
 
+// Customers
+router.get('/customers', adminControllerV2.getCustomers);
+router.get('/customers/:id', adminControllerV2.getCustomerById);
+router.post('/customers', adminControllerV2.createCustomer);
+router.put('/customers/:id', adminControllerV2.updateCustomer);
+router.delete('/customers/:id', adminControllerV2.deleteCustomer);
+
 // Users (Technicians & Managers)
 router.get('/users', adminControllerV2.getUsers);
+router.get('/users/:id', adminControllerV2.getUserDetails);
 router.post('/users', adminControllerV2.createUser);
 router.put('/users/:id', adminControllerV2.updateUser);
 router.delete('/users/:id', adminControllerV2.deleteUser);

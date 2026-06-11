@@ -60,6 +60,42 @@ const userSchema = new mongoose.Schema(
       default: 'OFFLINE',
     },
     // ─── Technician Profile Fields ────────────────────────────────────────────
+    employeeId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    employeeCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    customerId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    address: {
+      type: String,
+      default: '',
+    },
+    pincode: {
+      type: String,
+      default: '',
+    },
+    skills: {
+      type: [String],
+      default: [],
+    },
+    joiningDate: {
+      type: Date,
+      default: Date.now,
+    },
+    employeeStatus: {
+      type: String,
+      enum: ['Active', 'Inactive'],
+      default: 'Active',
+    },
     profilePhoto: {
       type: String,
       default: '',
@@ -167,7 +203,51 @@ userSchema.pre('validate', function normalizeBlankEmail(next) {
   if (typeof this.email === 'string' && this.email.trim() === '') {
     this.email = undefined;
   }
+
+  // Auto-generate employeeId / employeeCode for employees
+  if (['technician', 'manager', 'admin'].includes(this.role)) {
+    if (!this.employeeId) {
+      const ts = Math.floor(Date.now() / 1000);
+      const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+      this.employeeId = `EMP-${ts}-${rand}`;
+    }
+    if (!this.employeeCode) {
+      const randNum = Math.floor(1000 + Math.random() * 9000);
+      this.employeeCode = `TECH-${randNum}`;
+    }
+  }
+
+  // Auto-generate customerId for client role
+  if (this.role === 'client') {
+    if (!this.customerId) {
+      const ts = Math.floor(Date.now() / 1000);
+      const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+      this.customerId = `CUST-${ts}-${rand}`;
+    }
+  }
+
   next();
+});
+
+// Post save hook to sync Customer record
+userSchema.post('save', async function(doc) {
+  if (doc.role === 'client') {
+    try {
+      const Customer = mongoose.model('Customer');
+      await Customer.findOneAndUpdate(
+        { userId: doc._id },
+        {
+          customerId: doc.customerId,
+          name: doc.name,
+          mobileNumber: doc.mobileNumber,
+          email: doc.email,
+        },
+        { upsert: true, new: true }
+      );
+    } catch (err) {
+      console.error('Error syncing Customer record:', err);
+    }
+  }
 });
 
 userSchema.pre('save', async function hashPassword(next) {
@@ -194,6 +274,14 @@ userSchema.methods.toSafeObject = function toSafeObject() {
     status: this.status,
     specialty: this.specialty,
     assignedManager: this.assignedManager,
+    employeeId: this.employeeId,
+    employeeCode: this.employeeCode,
+    customerId: this.customerId,
+    address: this.address,
+    pincode: this.pincode,
+    skills: this.skills,
+    joiningDate: this.joiningDate,
+    employeeStatus: this.employeeStatus,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };
