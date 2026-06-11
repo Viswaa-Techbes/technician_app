@@ -6,7 +6,7 @@ import '../models/job_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class JobRepositoryImpl implements JobRepository {
-  final ApiService _apiService;
+  final DioClient _apiService;
 
   JobRepositoryImpl(this._apiService);
 
@@ -45,5 +45,5 @@ class JobRepositoryImpl implements JobRepository {
 }
 
 final jobRepositoryProvider = Provider<JobRepository>((ref) {
-  return JobRepositoryImpl(ref.watch(apiServiceProvider));
+  return JobRepositoryImpl(ref.watch(dioClientProvider));
 });

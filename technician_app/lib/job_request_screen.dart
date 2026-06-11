@@ -253,7 +253,7 @@ class _JobRequestCardState extends State<_JobRequestCard> {
                     const Text('TOTAL EARNINGS', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                     Text(
                       '₹${widget.request.amount.toStringAsFixed(0)}',
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.black, color: Colors.black),
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.black),
                     ),
                   ],
                 ),
