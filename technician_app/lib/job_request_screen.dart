@@ -165,7 +165,7 @@ class _JobRequestCardState extends State<_JobRequestCard> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       elevation: 4,
       shadowColor: Colors.black12,
-      margin: const EdgeInsets.bottom: 16,
+      margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(

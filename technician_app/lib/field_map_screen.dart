@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong2.dart';
+import 'package:latlong2/latlong.dart';
 import 'models.dart';
 import 'providers/live_technicians_provider.dart';
 
@@ -49,7 +49,7 @@ class _FieldMapScreenState extends ConsumerState<FieldMapScreen> {
   void _fitMarkers() {
     final activePoints = _techs
         .where((t) => t.lat != null && t.lng != null && t.lat != 0 && t.lng != 0)
-        .map((t) => LatLng(t.lat!, t.lng!))
+        .map<LatLng>((t) => LatLng(t.lat!, t.lng!))
         .toList();
 
     if (activePoints.isEmpty) return;
@@ -185,7 +185,7 @@ class _FieldMapScreenState extends ConsumerState<FieldMapScreen> {
       ),
       body: FlutterMap(
         mapController: _mapController,
-        options: const MapOptions(
+        options: MapOptions(
           initialCenter: LatLng(20.5937, 78.9629), // Center of India
           initialZoom: 5,
         ),

@@ -14,7 +14,7 @@ import 'features/reviews/screens/submit_review_screen.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong2.dart';
+import 'package:latlong2/latlong.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'dart:math' as math;
 
