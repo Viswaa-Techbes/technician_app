@@ -67,6 +67,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> refreshSession() async {
+    await _checkSession();
+  }
+
   Future<bool> login(LoginPayload payload) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
