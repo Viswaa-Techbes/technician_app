@@ -1,0 +1,42 @@
+name: techbes_app
+description: "Techbes IT Services Marketplace - Premium Flutter Mobile App"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.0.0
+  google_fonts: ^6.0.0
+  feather_icons: ^0.14.0
+  flutter_rating_bar: ^4.0.0
+  intl: ^0.19.0
+  cached_network_image: ^3.3.0
+  http: ^1.1.0
+  shared_preferences: ^2.2.0
+  connectivity_plus: ^5.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+
+  fonts:
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/Geist-Regular.ttf
+        - asset: assets/fonts/Geist-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Geist-Bold.ttf
+          weight: 700
