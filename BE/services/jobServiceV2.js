@@ -45,6 +45,8 @@ async function createBookingV2(bookingData) {
     serviceName: serviceName || service || '',
     addressId: addressId || undefined,
     googleMapsLink: derivedMapsLink,
+    latitude: Number(bookingData.latitude || lat || null),
+    longitude: Number(bookingData.longitude || lng || null),
     // Pricing fields
     price: grandTotal,
     amount: grandTotal,

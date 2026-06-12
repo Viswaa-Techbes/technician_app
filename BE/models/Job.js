@@ -334,6 +334,14 @@ const jobSchema = new mongoose.Schema(
       default: '',
       index: true,
     },
+    latitude: {
+      type: Number,
+      default: null,
+    },
+    longitude: {
+      type: Number,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -370,6 +378,17 @@ jobSchema.pre('validate', async function(next) {
     }
   }
   
+  // Extract latitude and longitude from v2Metadata if not set
+  if (this.v2Metadata && (!this.latitude || !this.longitude)) {
+    const meta = this.v2Metadata instanceof Map ? Object.fromEntries(this.v2Metadata) : this.v2Metadata;
+    if (meta.latitude || meta.lat) {
+      this.latitude = Number(meta.latitude || meta.lat) || null;
+    }
+    if (meta.longitude || meta.lng) {
+      this.longitude = Number(meta.longitude || meta.lng) || null;
+    }
+  }
+
   next();
 });
 

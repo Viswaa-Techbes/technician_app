@@ -205,6 +205,21 @@ router.get('/history', verifyToken, requireAdmin, async (req, res) => {
   }
 });
 
+// ─── Technician cancels job ───────────────────────────────────────────
+router.post('/technician/:jobId', verifyToken, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const { jobId } = req.params;
+    const technicianId = req.user._id || req.user.id;
+    const io = getIo(req);
+
+    const result = await dispatchService.technicianCancelJob(jobId, technicianId, reason || '', io);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
 // ─── Technician penalty history ───────────────────────────────────────────────
 router.get('/technician-penalties', verifyToken, requireAdmin, async (req, res) => {
   try {

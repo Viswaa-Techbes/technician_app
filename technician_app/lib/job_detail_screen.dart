@@ -55,8 +55,21 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   }
 
   Future<void> _fetchRoute() async {
-    final double custLat = widget.job.latitude ?? 13.0827;
-    final double custLng = widget.job.longitude ?? 80.2707;
+    final bool coordsMissing = widget.job.latitude == null ||
+        widget.job.longitude == null ||
+        widget.job.latitude == 0.0 ||
+        widget.job.longitude == 0.0;
+    if (coordsMissing) {
+      setState(() {
+        _loadingRoute = false;
+        _distance = 0.0;
+        _eta = 0.0;
+      });
+      return;
+    }
+
+    final double custLat = widget.job.latitude!;
+    final double custLng = widget.job.longitude!;
     
     setState(() => _loadingRoute = true);
     try {
@@ -478,9 +491,167 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
     }
   }
 
+  Future<void> _callCustomer() async {
+    final phone = widget.job.customerPhone;
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No customer phone number available'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    final uri = Uri.parse('tel:$phone');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not initiate call to $phone'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _cancelJob() async {
+    final reasons = [
+      'Vehicle Breakdown',
+      'Personal Emergency',
+      'Client Unavailable / Not reachable',
+      'Incorrect location / Too far',
+      'Equipment issues',
+      'Other'
+    ];
+    String selectedReason = reasons.first;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+              title: const Row(
+                children: [
+                  Icon(Icons.warning_rounded, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Cancel Job?', style: TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Are you sure you want to cancel this job? A penalty of ₹50 will be applied to your account.',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Select Reason:',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFF1F5F9)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        isExpanded: true,
+                        value: selectedReason,
+                        items: reasons.map((r) => DropdownMenuItem(
+                          value: r,
+                          child: Text(r, style: const TextStyle(fontSize: 13)),
+                        )).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDialogState(() => selectedReason = val);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('No, Keep Job', style: TextStyle(color: Color(0xFF64748B))),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Yes, Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          }
+        );
+      },
+    );
+
+    if (confirm == true) {
+      if (!mounted) return;
+      try {
+        final api = ref.read(apiServiceProvider);
+        await api.techCancelJob(widget.job.id, selectedReason);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Job cancelled. Penalty has been applied.'), backgroundColor: Colors.red),
+          );
+          Navigator.pop(context); // Close the detail screen
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to cancel job: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
   Widget _buildMapCard() {
-    final double lat = widget.job.latitude ?? 13.0827;
-    final double lng = widget.job.longitude ?? 80.2707;
+    final bool coordsMissing = widget.job.latitude == null ||
+        widget.job.longitude == null ||
+        widget.job.latitude == 0.0 ||
+        widget.job.longitude == 0.0;
+
+    if (coordsMissing) {
+      return Container(
+        height: 160,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFEF2F2),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: const Color(0xFFFEE2E2), width: 1.5),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 40),
+            SizedBox(height: 12),
+            Text(
+              'Customer location coordinates missing.\nPlease contact customer or dispatch manager.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF991B1B),
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final double lat = widget.job.latitude!;
+    final double lng = widget.job.longitude!;
     final LatLng customerPos = LatLng(lat, lng);
 
     final List<Marker> markers = [
@@ -1077,30 +1248,66 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   Widget _buildActionButtonForStatus() {
     switch (_currentStatus) {
       case JobStatus.assigned:
-        return CustomButton(
-          label: "START JOB",
-          onPressed: () async {
-            try {
-              final api = ref.read(apiServiceProvider);
-              final res = await api.requestStartOtp(widget.job.id);
-              final devOtp = res['otp'] as String?;
-              final otpInput = await _showOtpDialog('start', devOtp);
-              if (otpInput != null && otpInput.isNotEmpty) {
-                await api.verifyStartOtp(widget.job.id, otpInput);
-                setState(() => _currentStatus = JobStatus.started);
-                _startTimer();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('🎉 Job started successfully!'), backgroundColor: Colors.green),
-                );
-              }
-            } catch (e) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Failed to start job: $e'), backgroundColor: Colors.red),
-              );
-            }
-          },
-          color: const Color(0xFF2563EB),
-          icon: Icons.play_circle_rounded,
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: CustomButton(
+                    label: "NAVIGATE",
+                    onPressed: _openGoogleMapsNavigation,
+                    color: const Color(0xFF3B82F6),
+                    icon: Icons.directions_rounded,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: CustomButton(
+                    label: "CALL",
+                    onPressed: _callCustomer,
+                    color: const Color(0xFF10B981),
+                    icon: Icons.call,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: CustomButton(
+                    label: "CANCEL",
+                    onPressed: _cancelJob,
+                    color: const Color(0xFFEF4444),
+                    icon: Icons.cancel_rounded,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            CustomButton(
+              label: "START JOB",
+              onPressed: () async {
+                try {
+                  final api = ref.read(apiServiceProvider);
+                  final res = await api.requestStartOtp(widget.job.id);
+                  final devOtp = res['otp'] as String?;
+                  final otpInput = await _showOtpDialog('start', devOtp);
+                  if (otpInput != null && otpInput.isNotEmpty) {
+                    await api.verifyStartOtp(widget.job.id, otpInput);
+                    setState(() => _currentStatus = JobStatus.started);
+                    _startTimer();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('🎉 Job started successfully!'), backgroundColor: Colors.green),
+                    );
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to start job: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              },
+              color: const Color(0xFF2563EB),
+              icon: Icons.play_circle_rounded,
+            ),
+          ],
         );
       case JobStatus.started:
         return Row(
