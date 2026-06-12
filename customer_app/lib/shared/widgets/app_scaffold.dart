@@ -1,12 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:customer_app/core/theme/app_colors.dart';
 import 'package:customer_app/shared/widgets/premium_background.dart';
+import 'package:customer_app/core/auth/auth_provider.dart';
+import 'package:customer_app/core/socket/socket_client.dart';
 
-class AppScaffold extends StatelessWidget {
+class AppScaffold extends ConsumerStatefulWidget {
   final Widget child;
 
   const AppScaffold({super.key, required this.child});
+
+  @override
+  ConsumerState<AppScaffold> createState() => _AppScaffoldState();
+}
+
+class _AppScaffoldState extends ConsumerState<AppScaffold> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handleSocketConnection();
+    });
+  }
+
+  void _handleSocketConnection() {
+    final authState = ref.read(authProvider);
+    if (authState.isAuthenticated && authState.user?.id != null) {
+      SocketClient().connect(userId: authState.user!.id);
+    }
+  }
 
   int _calculateSelectedIndex(BuildContext context) {
     final String location = GoRouterState.of(context).matchedLocation;
@@ -36,6 +59,14 @@ class AppScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(authProvider, (previous, next) {
+      if (next.isAuthenticated && next.user?.id != null) {
+        SocketClient().connect(userId: next.user!.id);
+      } else if (!next.isAuthenticated) {
+        SocketClient().disconnect();
+      }
+    });
+
     final selectedIndex = _calculateSelectedIndex(context);
     final theme = Theme.of(context);
     final isLight = theme.brightness == Brightness.light;
@@ -44,7 +75,7 @@ class AppScaffold extends StatelessWidget {
       backgroundColor: Colors.transparent,
       body: PremiumBackground(
         child: SafeArea(
-          child: child,
+          child: widget.child,
         ),
       ),
       bottomNavigationBar: Container(

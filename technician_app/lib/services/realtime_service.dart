@@ -32,6 +32,16 @@ class RealtimeService {
 
     _socket?.on('notification', (data) {
       debugPrint('[RealtimeService] New Notification: $data');
+      if (data is Map) {
+        final title = data['title'] ?? 'New Notification';
+        final message = data['message'] ?? '';
+        final id = data['id']?.hashCode ?? DateTime.now().millisecondsSinceEpoch.hashCode;
+        _ref.read(pushNotificationServiceProvider).showLocalNotification(
+          id: id,
+          title: title,
+          body: message,
+        );
+      }
     });
 
     _socket?.on('newJobRequest', (data) {

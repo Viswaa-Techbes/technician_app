@@ -69,22 +69,35 @@ class PushNotificationService {
     RemoteNotification? notification = message.notification;
 
     if (notification != null && !kIsWeb) {
-      _localNotifications.show(
-        notification.hashCode,
-        notification.title,
-        notification.body,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'high_importance_channel',
-            'High Importance Notifications',
-            importance: Importance.max,
-            priority: Priority.high,
-            icon: '@mipmap/ic_launcher',
-          ),
-          iOS: DarwinNotificationDetails(),
-        ),
+      showLocalNotification(
+        id: notification.hashCode,
+        title: notification.title ?? '',
+        body: notification.body ?? '',
       );
     }
+  }
+
+  Future<void> showLocalNotification({
+    required int id,
+    required String title,
+    required String body,
+  }) async {
+    if (kIsWeb) return;
+    await _localNotifications.show(
+      id,
+      title,
+      body,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'high_importance_channel',
+          'High Importance Notifications',
+          importance: Importance.max,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: DarwinNotificationDetails(),
+      ),
+    );
   }
 }
 

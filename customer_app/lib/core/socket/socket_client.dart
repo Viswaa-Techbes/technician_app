@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import 'package:customer_app/core/config/env_config.dart';
 import 'package:customer_app/core/storage/secure_storage.dart';
+import 'package:customer_app/core/notifications/notification_service.dart';
 
 class SocketClient {
   static final SocketClient _instance = SocketClient._internal();
@@ -17,8 +18,13 @@ class SocketClient {
 
   bool get isConnected => _socket?.connected ?? false;
 
-  Future<void> connect() async {
-    if (_socket != null && _socket!.connected) return;
+  Future<void> connect({String? userId}) async {
+    if (_socket != null && _socket!.connected) {
+      if (userId != null) {
+        _socket!.emit('join', userId);
+      }
+      return;
+    }
 
     final token = await SecureStorage.getToken();
     final socketUrl = EnvConfig.apiBaseUrl;
@@ -34,6 +40,9 @@ class SocketClient {
 
     _socket!.onConnect((_) {
       if (kDebugMode) print('Socket connected to $socketUrl');
+      if (userId != null) {
+        _socket!.emit('join', userId);
+      }
     });
 
     _socket!.onDisconnect((_) {
@@ -48,6 +57,20 @@ class SocketClient {
       if (kDebugMode) print('Socket technician-location event: $data');
       if (data is Map) {
         _locationController.add(Map<String, dynamic>.from(data));
+      }
+    });
+
+    _socket!.on('notification', (data) {
+      if (kDebugMode) print('Socket notification event: $data');
+      if (data is Map) {
+        final title = data['title'] ?? 'New Notification';
+        final body = data['message'] ?? '';
+        final id = data['id']?.hashCode ?? DateTime.now().millisecondsSinceEpoch.hashCode;
+        NotificationService().showNotification(
+          id: id,
+          title: title,
+          body: body,
+        );
       }
     });
 
