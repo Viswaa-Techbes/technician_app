@@ -49,7 +49,7 @@ class HistoryScreen extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.assignment_outlined, size: 64, color: Colors.slate[600]),
+                Icon(Icons.assignment_outlined, size: 64, color: AppColors.slate600),
                 const SizedBox(height: 16),
                 const Text(
                   'No Bookings Found',
@@ -59,7 +59,7 @@ class HistoryScreen extends ConsumerWidget {
                 Text(
                   'You have not booked any services yet.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.slate[400], fontSize: 14),
+                  style: TextStyle(color: AppColors.slate400, fontSize: 14),
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
@@ -131,18 +131,18 @@ class HistoryScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Icon(Icons.calendar_month, size: 14, color: Colors.slate[400]),
+                    Icon(Icons.calendar_month, size: 14, color: AppColors.slate400),
                     const SizedBox(width: 6),
                     Text(
                       booking.scheduledDate ?? booking.bookingDate ?? 'Date TBD',
-                      style: TextStyle(color: Colors.slate[300], fontSize: 13),
+                      style: TextStyle(color: AppColors.slate300, fontSize: 13),
                     ),
                     const SizedBox(width: 16),
-                    Icon(Icons.access_time, size: 14, color: Colors.slate[400]),
+                    Icon(Icons.access_time, size: 14, color: AppColors.slate400),
                     const SizedBox(width: 6),
                     Text(
                       booking.scheduledTime ?? booking.timeSlot ?? 'Time TBD',
-                      style: TextStyle(color: Colors.slate[300], fontSize: 13),
+                      style: TextStyle(color: AppColors.slate300, fontSize: 13),
                     ),
                   ],
                 ),
@@ -150,7 +150,7 @@ class HistoryScreen extends ConsumerWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      Icon(Icons.badge_outlined, size: 14, color: Colors.slate[400]),
+                      Icon(Icons.badge_outlined, size: 14, color: AppColors.slate400),
                       const SizedBox(width: 6),
                       Text(
                         'Technician: ${booking.technicianName}',
@@ -225,7 +225,7 @@ class HistoryScreen extends ConsumerWidget {
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'completed':
-        return Colors.emerald;
+        return AppColors.success;
       case 'en-route':
       case 'arrived':
       case 'in-progress':

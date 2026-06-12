@@ -98,7 +98,7 @@ class _AddressScreenState extends ConsumerState<AddressScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel', style: TextStyle(color: Colors.slate)),
+                  child: const Text('Cancel', style: TextStyle(color: AppColors.slate400)),
                 ),
                 ElevatedButton(
                   onPressed: _isSaving
@@ -200,7 +200,7 @@ class _AddressScreenState extends ConsumerState<AddressScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.location_off_outlined, size: 64, color: Colors.slate[600]),
+                Icon(Icons.location_off_outlined, size: 64, color: AppColors.slate600),
                 const SizedBox(height: 16),
                 const Text(
                   'No Saved Addresses',
@@ -210,7 +210,7 @@ class _AddressScreenState extends ConsumerState<AddressScreen> {
                 Text(
                   'Add service addresses to speed up bookings.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.slate[400], fontSize: 14),
+                  style: TextStyle(color: AppColors.slate400, fontSize: 14),
                 ),
               ],
             ),
@@ -262,14 +262,14 @@ class _AddressScreenState extends ConsumerState<AddressScreen> {
               padding: const EdgeInsets.only(top: 6.0),
               child: Text(
                 '${address.addressLine1}, ${address.city}, ${address.state} - ${address.pincode}',
-                style: TextStyle(color: Colors.slate[300], fontSize: 12, height: 1.4),
+                style: TextStyle(color: AppColors.slate300, fontSize: 12, height: 1.4),
               ),
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.edit_outlined, color: Colors.slate, size: 20),
+                  icon: const Icon(Icons.edit_outlined, color: AppColors.slate400, size: 20),
                   onPressed: () => _showAddressDialog(address),
                 ),
                 IconButton(

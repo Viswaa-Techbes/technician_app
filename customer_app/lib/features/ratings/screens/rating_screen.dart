@@ -63,7 +63,7 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Thank you! Your review has been submitted.'),
-            backgroundColor: Colors.emerald,
+            backgroundColor: AppColors.success,
           ),
         );
         context.pop();
@@ -122,7 +122,7 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
               Text(
                 'For service: $serviceTitle',
                 style: TextStyle(
-                  color: Colors.slate[400],
+                  color: AppColors.slate400,
                   fontSize: 14,
                 ),
                 textAlign: TextAlign.center,
@@ -155,7 +155,7 @@ class _RatingScreenState extends ConsumerState<RatingScreen> {
                   return IconButton(
                     icon: Icon(
                       Icons.star_rounded,
-                      color: isSelected ? Colors.amber : Colors.slate[700],
+                      color: isSelected ? Colors.amber : AppColors.slate700,
                       size: 48,
                     ),
                     onPressed: () {

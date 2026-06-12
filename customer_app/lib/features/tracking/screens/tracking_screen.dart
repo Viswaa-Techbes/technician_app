@@ -215,7 +215,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                             Text(
                               'Verified CCTV Technician Partner',
                               style: TextStyle(
-                                color: Colors.slate,
+                                color: AppColors.slate400,
                                 fontSize: 12,
                               ),
                             ),
@@ -244,7 +244,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                         children: [
                           Text(
                             'Estimated Arrival',
-                            style: TextStyle(color: Colors.slate, fontSize: 11),
+                            style: TextStyle(color: AppColors.slate400, fontSize: 11),
                           ),
                           SizedBox(height: 4),
                           Text(

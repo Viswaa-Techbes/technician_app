@@ -104,7 +104,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
                   child: Text(
                     '${index + 1}',
                     style: TextStyle(
-                      color: isActive ? Colors.white : Colors.slate[400],
+                      color: isActive ? Colors.white : AppColors.slate400,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -176,7 +176,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
                 ),
                 subtitle: Text(
                   type.description,
-                  style: TextStyle(color: Colors.slate[400], fontSize: 12),
+                  style: TextStyle(color: AppColors.slate400, fontSize: 12),
                 ),
                 trailing: Text(
                   '${Formatters.currency(type.installationPrice)}/unit',
@@ -267,7 +267,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Length (meters)', style: TextStyle(color: Colors.slate[300])),
+                    Text('Length (meters)', style: TextStyle(color: AppColors.slate300)),
                     Text(
                       '${state.wireLength.toInt()} m',
                       style: const TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold, fontSize: 18),
@@ -285,7 +285,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
                 ),
                 Text(
                   'Cabling cost: ${Formatters.currency(state.wireLength * 35.0)} (₹35 per meter)',
-                  style: TextStyle(color: Colors.slate[400], fontSize: 12),
+                  style: TextStyle(color: AppColors.slate400, fontSize: 12),
                 ),
               ],
             ),
@@ -314,9 +314,9 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
                 title: Text(addon.name, style: const TextStyle(color: Colors.white)),
                 subtitle: Text(
                   addon.description ?? 'Useful setup hardware extension',
-                  style: TextStyle(color: Colors.slate[400], fontSize: 12),
+                  style: TextStyle(color: AppColors.slate400, fontSize: 12),
                 ),
-                secondary: Icon(Icons.widgets_outlined, color: isChecked ? Colors.tealAccent : Colors.slate),
+                secondary: Icon(Icons.widgets_outlined, color: isChecked ? Colors.tealAccent : AppColors.slate400),
                 activeColor: AppColors.emerald500,
                 checkColor: Colors.white,
                 controlAffinity: ListTileControlAffinity.trailing,
@@ -391,7 +391,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
         const Center(
           child: Text(
             'Tap on map to place PIN at exact location',
-            style: TextStyle(color: Colors.slate, fontSize: 11),
+            style: TextStyle(color: AppColors.slate400, fontSize: 11),
           ),
         ),
         const SizedBox(height: 24),
@@ -464,7 +464,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
                 child: ChoiceChip(
                   label: Column(
                     children: [
-                      Text(weekdayName, style: TextStyle(color: isSelected ? Colors.white : Colors.slate[400], fontSize: 11)),
+                      Text(weekdayName, style: TextStyle(color: isSelected ? Colors.white : AppColors.slate400, fontSize: 11)),
                       const SizedBox(height: 4),
                       Text(dayNum, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     ],
@@ -612,7 +612,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: Colors.slate[400], fontSize: 13)),
+          Text(label, style: TextStyle(color: AppColors.slate400, fontSize: 13)),
           Text(val, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
         ],
       ),
@@ -625,7 +625,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: Colors.slate[300], fontSize: 13)),
+          Text(label, style: TextStyle(color: AppColors.slate300, fontSize: 13)),
           Text(Formatters.currency(amount), style: const TextStyle(color: Colors.white, fontSize: 13)),
         ],
       ),

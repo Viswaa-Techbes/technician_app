@@ -121,7 +121,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 'Join Techbes to request and track verified services',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.slate[400],
+                  color: AppColors.slate400,
                   fontSize: 15,
                 ),
               ),
@@ -207,7 +207,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                               _obscurePassword
                                   ? Icons.visibility_off_outlined
                                   : Icons.visibility_outlined,
-                              color: Colors.slate[400],
+                              color: AppColors.slate400,
                             ),
                             onPressed: () {
                               setState(() {
@@ -256,7 +256,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 children: [
                   Text(
                     'Already have an account? ',
-                    style: TextStyle(color: Colors.slate[400], fontSize: 14),
+                    style: TextStyle(color: AppColors.slate400, fontSize: 14),
                   ),
                   GestureDetector(
                     onTap: () => context.go('/login'),

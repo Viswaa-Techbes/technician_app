@@ -39,7 +39,7 @@ class DashboardScreen extends ConsumerWidget {
                       Text(
                         'Welcome back,',
                         style: TextStyle(
-                          color: Colors.slate[400],
+                          color: AppColors.slate400,
                           fontSize: 14,
                         ),
                       ),
@@ -103,7 +103,7 @@ class DashboardScreen extends ConsumerWidget {
                     Text(
                       'Book verified experts for CCTV installation, diagnostics, and repairs.',
                       style: TextStyle(
-                        color: Colors.emerald[50],
+                        color: AppColors.emerald50,
                         fontSize: 13,
                         height: 1.4,
                       ),
@@ -193,7 +193,7 @@ class DashboardScreen extends ConsumerWidget {
                 children: [
                   Text(
                     metric.title,
-                    style: TextStyle(color: Colors.slate[400], fontSize: 13),
+                    style: TextStyle(color: AppColors.slate400, fontSize: 13),
                   ),
                   Text(
                     metric.value,
@@ -240,11 +240,11 @@ class DashboardScreen extends ConsumerWidget {
             ),
             child: Column(
               children: [
-                Icon(Icons.calendar_today_outlined, color: Colors.slate[600], size: 40),
+                Icon(Icons.calendar_today_outlined, color: AppColors.slate600, size: 40),
                 const SizedBox(height: 12),
                 Text(
                   'No upcoming services scheduled',
-                  style: TextStyle(color: Colors.slate[400], fontSize: 14),
+                  style: TextStyle(color: AppColors.slate400, fontSize: 14),
                 ),
               ],
             ),
@@ -315,18 +315,18 @@ class DashboardScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                Icon(Icons.calendar_month, size: 14, color: Colors.slate[400]),
+                Icon(Icons.calendar_month, size: 14, color: AppColors.slate400),
                 const SizedBox(width: 6),
                 Text(
                   booking.scheduledDate ?? booking.bookingDate ?? 'Date TBD',
-                  style: TextStyle(color: Colors.slate[300], fontSize: 13),
+                  style: TextStyle(color: AppColors.slate300, fontSize: 13),
                 ),
                 const SizedBox(width: 16),
-                Icon(Icons.access_time, size: 14, color: Colors.slate[400]),
+                Icon(Icons.access_time, size: 14, color: AppColors.slate400),
                 const SizedBox(width: 6),
                 Text(
                   booking.scheduledTime ?? booking.timeSlot ?? 'Time TBD',
-                  style: TextStyle(color: Colors.slate[300], fontSize: 13),
+                  style: TextStyle(color: AppColors.slate300, fontSize: 13),
                 ),
               ],
             ),
@@ -334,7 +334,7 @@ class DashboardScreen extends ConsumerWidget {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Icon(Icons.badge_outlined, size: 14, color: Colors.slate[400]),
+                  Icon(Icons.badge_outlined, size: 14, color: AppColors.slate400),
                   const SizedBox(width: 6),
                   Text(
                     'Technician: ${booking.technicianName}',
@@ -397,7 +397,7 @@ class DashboardScreen extends ConsumerWidget {
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'completed':
-        return Colors.emerald;
+        return AppColors.success;
       case 'en-route':
       case 'arrived':
       case 'in-progress':

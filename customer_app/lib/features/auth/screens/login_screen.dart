@@ -91,7 +91,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 'Sign in to Techbes to book verified services',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.slate[400],
+                  color: AppColors.slate400,
                   fontSize: 15,
                 ),
               ),
@@ -156,7 +156,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               _obscurePassword
                                   ? Icons.visibility_off_outlined
                                   : Icons.visibility_outlined,
-                              color: Colors.slate[400],
+                              color: AppColors.slate400,
                             ),
                             onPressed: () {
                               setState(() {
@@ -205,7 +205,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 children: [
                   Text(
                     "Don't have an account? ",
-                    style: TextStyle(color: Colors.slate[400], fontSize: 14),
+                    style: TextStyle(color: AppColors.slate400, fontSize: 14),
                   ),
                   GestureDetector(
                     onTap: () => context.push('/signup'),

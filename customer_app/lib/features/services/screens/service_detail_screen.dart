@@ -43,7 +43,7 @@ class ServiceDetailScreen extends ConsumerWidget {
                 leading: Container(
                   margin: const EdgeInsets.all(8),
                   decoration: const BoxDecoration(
-                    color: Colors.black50,
+                    color: Colors.black54,
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
@@ -109,14 +109,14 @@ class ServiceDetailScreen extends ConsumerWidget {
                         const SizedBox(width: 4),
                         Text(
                           '${service.rating} (${service.reviewCount} reviews)',
-                          style: TextStyle(color: Colors.slate[300], fontSize: 13),
+                          style: const TextStyle(color: AppColors.slate300, fontSize: 13),
                         ),
                         const SizedBox(width: 16),
-                        Icon(Icons.schedule, color: Colors.slate[400], size: 16),
+                        const Icon(Icons.schedule, color: AppColors.slate400, size: 16),
                         const SizedBox(width: 4),
                         Text(
                           service.duration,
-                          style: TextStyle(color: Colors.slate[300], fontSize: 13),
+                          style: const TextStyle(color: AppColors.slate300, fontSize: 13),
                         ),
                       ],
                     ),
@@ -133,8 +133,8 @@ class ServiceDetailScreen extends ConsumerWidget {
                     const SizedBox(height: 12),
                     Text(
                       service.description,
-                      style: TextStyle(
-                        color: Colors.slate[300],
+                      style: const TextStyle(
+                        color: AppColors.slate300,
                         fontSize: 14,
                         height: 1.6,
                       ),
@@ -157,7 +157,7 @@ class ServiceDetailScreen extends ConsumerWidget {
                               Expanded(
                                 child: Text(
                                   feat,
-                                  style: TextStyle(color: Colors.slate[300], fontSize: 14),
+                                  style: const TextStyle(color: AppColors.slate300, fontSize: 14),
                                 ),
                               ),
                             ],
@@ -180,7 +180,7 @@ class ServiceDetailScreen extends ConsumerWidget {
                               Expanded(
                                 child: Text(
                                   inc,
-                                  style: TextStyle(color: Colors.slate[300], fontSize: 14),
+                                  style: const TextStyle(color: AppColors.slate300, fontSize: 14),
                                 ),
                               ),
                             ],
@@ -216,7 +216,7 @@ class ServiceDetailScreen extends ConsumerWidget {
                                   padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 16.0),
                                   child: Text(
                                     faq.answer,
-                                    style: TextStyle(color: Colors.slate[300], fontSize: 13, height: 1.5),
+                                    style: const TextStyle(color: AppColors.slate300, fontSize: 13, height: 1.5),
                                   ),
                                 ),
                               ],
@@ -257,7 +257,7 @@ class ServiceDetailScreen extends ConsumerWidget {
                                       const SizedBox(height: 2),
                                       Text(
                                         rev.role,
-                                        style: TextStyle(color: Colors.slate[500], fontSize: 11),
+                                        style: const TextStyle(color: AppColors.slate500, fontSize: 11),
                                       ),
                                     ],
                                   ),
@@ -265,7 +265,7 @@ class ServiceDetailScreen extends ConsumerWidget {
                                     children: List.generate(5, (i) {
                                       return Icon(
                                         Icons.star_rounded,
-                                        color: i < rev.rating ? Colors.amber : Colors.slate[700],
+                                        color: i < rev.rating ? Colors.amber : AppColors.slate700,
                                         size: 14,
                                       );
                                     }),
@@ -275,14 +275,14 @@ class ServiceDetailScreen extends ConsumerWidget {
                               const SizedBox(height: 8),
                               Text(
                                 rev.comment,
-                                style: TextStyle(color: Colors.slate[300], fontSize: 13, height: 1.4),
+                                style: const TextStyle(color: AppColors.slate300, fontSize: 13, height: 1.4),
                               ),
                               const SizedBox(height: 8),
                               Align(
                                 alignment: Alignment.bottomRight,
                                 child: Text(
                                   rev.date,
-                                  style: TextStyle(color: Colors.slate[600], fontSize: 11),
+                                  style: const TextStyle(color: AppColors.slate600, fontSize: 11),
                                 ),
                               ),
                             ],
@@ -313,9 +313,9 @@ class ServiceDetailScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
+                        const Text(
                           'Estimated Price',
-                          style: TextStyle(color: Colors.slate[400], fontSize: 12),
+                          style: TextStyle(color: AppColors.slate400, fontSize: 12),
                         ),
                         const SizedBox(height: 4),
                         Text(

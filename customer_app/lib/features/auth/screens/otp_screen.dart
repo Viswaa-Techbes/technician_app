@@ -190,7 +190,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 'We sent a 6-digit code to\n${widget.email}',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.slate[400],
+                  color: AppColors.slate400,
                   fontSize: 15,
                   height: 1.5,
                 ),
@@ -339,7 +339,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 children: [
                   Text(
                     "Didn't receive the code? ",
-                    style: TextStyle(color: Colors.slate[400], fontSize: 14),
+                    style: TextStyle(color: AppColors.slate400, fontSize: 14),
                   ),
                   GestureDetector(
                     onTap: _isLoading ? null : _resendOtp,

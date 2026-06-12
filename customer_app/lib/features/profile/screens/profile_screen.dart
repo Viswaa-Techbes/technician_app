@@ -62,7 +62,7 @@ class ProfileScreen extends ConsumerWidget {
                       Text(
                         user?.email ?? 'customer@example.com',
                         style: TextStyle(
-                          color: Colors.slate[400],
+                          color: AppColors.slate400,
                           fontSize: 14,
                         ),
                       ),
@@ -71,7 +71,7 @@ class ProfileScreen extends ConsumerWidget {
                         Text(
                           user!.phone!,
                           style: TextStyle(
-                            color: Colors.slate[400],
+                            color: AppColors.slate400,
                             fontSize: 14,
                           ),
                         ),
@@ -156,7 +156,7 @@ class ProfileScreen extends ConsumerWidget {
           title,
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        trailing: const Icon(Icons.chevron_right, color: Colors.slate),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.slate400),
       ),
     );
   }

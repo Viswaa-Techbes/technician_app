@@ -56,7 +56,7 @@ class AppScaffold extends StatelessWidget {
           onTap: (index) => _onItemTapped(index, context),
           backgroundColor: AppColors.slate900,
           selectedItemColor: AppColors.emerald500,
-          unselectedItemColor: Colors.slate[500],
+          unselectedItemColor: AppColors.slate500,
           type: BottomNavigationBarType.fixed,
           selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           unselectedLabelStyle: const TextStyle(fontSize: 12),

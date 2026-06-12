@@ -51,7 +51,7 @@ class BookingSuccessScreen extends StatelessWidget {
                 'Your booking request has been successfully created. To confirm and assign a technician, please complete the 50% advance payment.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.slate[400],
+                  color: AppColors.slate400,
                   fontSize: 15,
                   height: 1.5,
                 ),
@@ -68,7 +68,7 @@ class BookingSuccessScreen extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Booking ID', style: TextStyle(color: Colors.slate[400], fontSize: 13)),
+                      Text('Booking ID', style: TextStyle(color: AppColors.slate400, fontSize: 13)),
                       SelectableText(
                         bookingId,
                         style: const TextStyle(

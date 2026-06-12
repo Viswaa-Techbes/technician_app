@@ -55,10 +55,10 @@ class ServiceListingScreen extends ConsumerWidget {
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       hintText: 'Search for services...',
-                      prefixIcon: const Icon(Icons.search, color: Colors.slate),
+                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
                       suffixIcon: searchController.text.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear, color: Colors.slate),
+                              icon: const Icon(Icons.clear, color: Colors.grey),
                               onPressed: () {
                                 searchController.clear();
                                 ref.read(searchQueryProvider.notifier).state = '';
@@ -118,11 +118,11 @@ class ServiceListingScreen extends ConsumerWidget {
                 padding: EdgeInsets.symmetric(vertical: 60.0),
                 child: Column(
                   children: [
-                    Icon(Icons.search_off_rounded, size: 60, color: Colors.slate),
+                    Icon(Icons.search_off_rounded, size: 60, color: Colors.grey),
                     SizedBox(height: 16),
                     Text(
                       'No services found matching your query.',
-                      style: TextStyle(color: Colors.slate, fontSize: 15),
+                      style: TextStyle(color: AppColors.slate400, fontSize: 15),
                     ),
                   ],
                 ),
@@ -187,15 +187,15 @@ class ServiceListingScreen extends ConsumerWidget {
                     errorWidget: (context, url, error) => Container(
                       height: 160,
                       color: AppColors.slate800,
-                      child: const Icon(Icons.broken_image, color: Colors.slate, size: 40),
+                      child: const Icon(Icons.broken_image, color: Colors.grey, size: 40),
                     ),
                   ),
                   // Dark gradient overlay on top
                   Positioned.fill(
                     child: Container(
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Colors.transparent, Colors.black.withOpacity(0.6)],
+                          colors: [Colors.transparent, Colors.black87],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                         ),
@@ -230,7 +230,7 @@ class ServiceListingScreen extends ConsumerWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.black50,
+                        color: Colors.black.withOpacity(0.55),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -288,8 +288,8 @@ class ServiceListingScreen extends ConsumerWidget {
                     const SizedBox(height: 6),
                     Text(
                       service.tagline,
-                      style: TextStyle(
-                        color: Colors.slate[300],
+                      style: const TextStyle(
+                        color: AppColors.slate300,
                         fontSize: 13,
                       ),
                       maxLines: 2,
@@ -311,12 +311,12 @@ class ServiceListingScreen extends ConsumerWidget {
                         ),
                         Row(
                           children: [
-                            Icon(Icons.schedule, color: Colors.slate[400], size: 14),
+                            const Icon(Icons.schedule, color: AppColors.slate400, size: 14),
                             const SizedBox(width: 4),
                             Text(
                               service.duration,
-                              style: TextStyle(
-                                color: Colors.slate[400],
+                              style: const TextStyle(
+                                color: AppColors.slate400,
                                 fontSize: 12,
                               ),
                             ),

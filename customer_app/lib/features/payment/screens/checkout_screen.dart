@@ -75,7 +75,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Payment successful! Booking confirmed.'),
-            backgroundColor: Colors.emerald,
+            backgroundColor: AppColors.success,
           ),
         );
         context.go('/');
@@ -190,7 +190,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               Text(
                 'Verify your invoice and pay the 50% booking advance to confirm assignment.',
                 style: TextStyle(
-                  color: Colors.slate[400],
+                  color: AppColors.slate400,
                   fontSize: 14,
                 ),
               ),
@@ -244,7 +244,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       Text(
                         'Booking ID: ${widget.bookingId}',
                         style: TextStyle(
-                          color: Colors.slate[400],
+                          color: AppColors.slate400,
                           fontSize: 12,
                           fontFamily: 'monospace',
                         ),
@@ -253,7 +253,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Total Booking Price', style: TextStyle(color: Colors.slate[300], fontSize: 14)),
+                          Text('Total Booking Price', style: TextStyle(color: AppColors.slate300, fontSize: 14)),
                           Text(Formatters.currency(totalCost), style: const TextStyle(color: Colors.white, fontSize: 14)),
                         ],
                       ),
