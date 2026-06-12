@@ -15,7 +15,7 @@ class TechbesCustomerApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.dark, // Default to premium dark mode
+      themeMode: ThemeMode.light, // Default to light mode to match the website style
       routerConfig: router,
     );
   }

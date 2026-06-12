@@ -28,6 +28,12 @@ class ApiEndpoints {
   static const String calculatePrice = '/api/v2/cctv/calculate-price';
   static String serviceConfig(String serviceId) => '/api/v2/services/$serviceId/config';
 
+  // ── Cart ───────────────────────────────────────────────────────────────
+  static const String getCart = '/api/v2/cart';
+  static const String addCart = '/api/v2/cart/add';
+  static String deleteCartItem(String id) => '/api/v2/cart/item/$id';
+  static const String clearCart = '/api/v2/cart/clear';
+
   // ── Payments ───────────────────────────────────────────────────────────
   static const String createOrder = '/api/v2/payments/create-order';
   static const String verifyPayment = '/api/v2/payments/verify-payment';

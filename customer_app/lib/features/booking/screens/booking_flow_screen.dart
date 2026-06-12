@@ -8,6 +8,7 @@ import 'package:customer_app/core/theme/app_colors.dart';
 import 'package:customer_app/core/utils/formatters.dart';
 import 'package:customer_app/features/booking/models/booking_models.dart';
 import 'package:customer_app/features/booking/providers/booking_provider.dart';
+import 'package:customer_app/features/cart/providers/cart_provider.dart';
 
 class BookingFlowScreen extends ConsumerStatefulWidget {
   final String serviceId;
@@ -44,7 +45,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
     final notifier = ref.read(bookingWizardProvider.notifier);
 
     return Scaffold(
-      backgroundColor: AppColors.slate950,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('Configure Booking'),
         backgroundColor: Colors.transparent,
@@ -87,7 +88,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
     final stepTitles = ['Cameras', 'Materials', 'Location', 'Schedule', 'Summary'];
     return Container(
       padding: const EdgeInsets.all(16),
-      color: AppColors.slate900,
+      color: Theme.of(context).cardColor,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: List.generate(5, (index) {
@@ -634,11 +635,16 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
 
   Widget _buildBottomBar(BookingWizardState state, BookingWizardNotifier notifier) {
     final isLastStep = state.step == 4;
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.slate900,
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.05))),
+        color: Theme.of(context).cardColor,
+        border: Border(
+          top: BorderSide(
+            color: isLight ? AppColors.slate200 : Colors.white.withOpacity(0.05),
+          ),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -673,9 +679,58 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
                       }
                       
                       if (isLastStep) {
-                        final success = await notifier.submitBooking(widget.serviceId);
-                        if (success && mounted) {
-                          context.go('/booking-success', extra: {'bookingId': state.createdBookingId});
+                        final cameraName = state.selectedCameraType?.name ?? 'Camera';
+                        final addonList = state.selectedAddonIds.map((id) {
+                          final addon = state.addons.firstWhere((a) => a.id == id);
+                          return {
+                            'id': addon.id,
+                            'name': addon.name,
+                            'slug': addon.slug,
+                            'price': addon.price,
+                            'quantity': 1,
+                            'total': addon.price,
+                          };
+                        }).toList();
+
+                        await ref.read(cartProvider.notifier).addCartItem(
+                          serviceSlug: widget.serviceId,
+                          serviceName: 'CCTV Installation Setup ($cameraName)',
+                          categoryId: 'cctv',
+                          subcategoryId: widget.serviceId,
+                          input: {
+                            'cameraTypeId': state.selectedCameraType?.id,
+                            'cameraCount': state.cameraCount,
+                            'installationArea': state.installationArea,
+                            'wireLength': state.wireLength,
+                            'addonIds': state.selectedAddonIds,
+                            'date': state.scheduledDate,
+                            'time': state.timeSlot,
+                            'addressLine1': state.addressLine1 ?? _addressController.text,
+                            'city': state.city ?? _cityController.text,
+                            'state': state.state ?? _stateController.text,
+                            'pincode': state.pincode ?? _pincodeController.text,
+                            'latitude': state.latitude ?? _selectedCoords.latitude,
+                            'longitude': state.longitude ?? _selectedCoords.longitude,
+                          },
+                          price: {
+                            'cameraType': {
+                              'id': state.selectedCameraType?.id,
+                              'name': state.selectedCameraType?.name,
+                              'slug': state.selectedCameraType?.slug,
+                              'unitPrice': state.selectedCameraType?.installationPrice,
+                            },
+                            'cameraCount': state.cameraCount,
+                            'installationArea': state.installationArea,
+                            'wireLength': state.wireLength,
+                            'addons': addonList,
+                            'priceBreakdown': state.priceResult?.breakdown ?? {},
+                            'grandTotal': state.priceResult?.grandTotal ?? 0.0,
+                          },
+                          notes: state.notes,
+                        );
+
+                        if (mounted) {
+                          context.go('/cart');
                         }
                       } else {
                         notifier.nextStep();
@@ -695,7 +750,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
                       child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                     )
                   : Text(
-                      isLastStep ? 'Confirm & Book' : 'Continue',
+                      isLastStep ? 'Add to Cart' : 'Continue',
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
             ),

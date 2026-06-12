@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:customer_app/core/theme/app_colors.dart';
+import 'package:customer_app/shared/widgets/premium_background.dart';
 
 class AppScaffold extends StatelessWidget {
   final Widget child;
@@ -36,17 +37,21 @@ class AppScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selectedIndex = _calculateSelectedIndex(context);
+    final theme = Theme.of(context);
+    final isLight = theme.brightness == Brightness.light;
 
     return Scaffold(
-      backgroundColor: AppColors.slate950,
-      body: SafeArea(
-        child: child,
+      backgroundColor: Colors.transparent,
+      body: PremiumBackground(
+        child: SafeArea(
+          child: child,
+        ),
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           border: Border(
             top: BorderSide(
-              color: Colors.white.withOpacity(0.05),
+              color: isLight ? AppColors.slate200 : Colors.white.withOpacity(0.05),
               width: 1.0,
             ),
           ),
@@ -54,16 +59,16 @@ class AppScaffold extends StatelessWidget {
         child: BottomNavigationBar(
           currentIndex: selectedIndex,
           onTap: (index) => _onItemTapped(index, context),
-          backgroundColor: AppColors.slate900,
-          selectedItemColor: AppColors.emerald500,
-          unselectedItemColor: AppColors.slate500,
+          backgroundColor: isLight ? Colors.white : AppColors.darkCard,
+          selectedItemColor: isLight ? AppColors.emerald600 : AppColors.emerald400,
+          unselectedItemColor: isLight ? AppColors.slate400 : AppColors.slate500,
           type: BottomNavigationBarType.fixed,
           selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           unselectedLabelStyle: const TextStyle(fontSize: 12),
           items: const [
             BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_outlined),
-              activeIcon: Icon(Icons.dashboard),
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
               label: 'Home',
             ),
             BottomNavigationBarItem(

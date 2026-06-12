@@ -18,15 +18,22 @@ class ServiceListingScreen extends ConsumerWidget {
     final filteredServices = ref.watch(filteredServicesProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.slate950,
+      backgroundColor: Colors.transparent,
       body: CustomScrollView(
         slivers: [
           // Premium Header App Bar
           SliverAppBar(
             floating: true,
             pinned: false,
-            backgroundColor: AppColors.slate950,
+            backgroundColor: Colors.transparent,
             expandedHeight: 120.0,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.shopping_cart_outlined),
+                onPressed: () => context.push('/cart'),
+              ),
+              const SizedBox(width: 8),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               titlePadding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
               centerTitle: false,
@@ -52,7 +59,7 @@ class ServiceListingScreen extends ConsumerWidget {
                   TextField(
                     controller: searchController,
                     onChanged: (val) => ref.read(searchQueryProvider.notifier).state = val,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyLarge?.color),
                     decoration: InputDecoration(
                       hintText: 'Search for services...',
                       prefixIcon: const Icon(Icons.search, color: Colors.grey),
@@ -148,12 +155,15 @@ class ServiceListingScreen extends ConsumerWidget {
   }
 
   Widget _buildServiceCard(BuildContext context, MarketplaceService service) {
+    final isLight = Theme.of(context).brightness == Brightness.light;
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: AppColors.slate900,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.04)),
+        border: Border.all(
+          color: isLight ? AppColors.slate200 : Colors.white.withOpacity(0.04),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.15),
@@ -260,7 +270,6 @@ class ServiceListingScreen extends ConsumerWidget {
                           child: Text(
                             service.title,
                             style: const TextStyle(
-                              color: Colors.white,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
@@ -276,7 +285,6 @@ class ServiceListingScreen extends ConsumerWidget {
                             Text(
                               '${service.rating}',
                               style: const TextStyle(
-                                color: Colors.white,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                               ),
@@ -288,23 +296,23 @@ class ServiceListingScreen extends ConsumerWidget {
                     const SizedBox(height: 6),
                     Text(
                       service.tagline,
-                      style: const TextStyle(
-                        color: AppColors.slate300,
+                      style: TextStyle(
+                        color: isLight ? AppColors.slate600 : AppColors.slate300,
                         fontSize: 13,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 16),
-                    const Divider(height: 1, color: Colors.white10),
+                    const Divider(height: 1),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           service.price,
-                          style: const TextStyle(
-                            color: Colors.tealAccent,
+                          style: TextStyle(
+                            color: isLight ? AppColors.emerald600 : Colors.tealAccent,
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),

@@ -7,6 +7,8 @@ import 'package:customer_app/features/auth/screens/login_screen.dart';
 import 'package:customer_app/features/auth/screens/signup_screen.dart';
 import 'package:customer_app/features/auth/screens/otp_screen.dart';
 import 'package:customer_app/features/dashboard/screens/dashboard_screen.dart';
+import 'package:customer_app/features/dashboard/screens/home_screen.dart';
+import 'package:customer_app/features/cart/screens/cart_screen.dart';
 import 'package:customer_app/features/services/screens/service_listing_screen.dart';
 import 'package:customer_app/features/services/screens/service_detail_screen.dart';
 import 'package:customer_app/features/booking/screens/booking_flow_screen.dart';
@@ -73,7 +75,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: '/',
-            builder: (context, state) => const DashboardScreen(),
+            builder: (context, state) => const HomeScreen(),
           ),
           GoRoute(
             path: '/services',
@@ -88,6 +90,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ProfileScreen(),
           ),
         ],
+      ),
+      GoRoute(
+        path: '/cart',
+        builder: (context, state) => const CartScreen(),
       ),
       GoRoute(
         path: '/service/:id',
