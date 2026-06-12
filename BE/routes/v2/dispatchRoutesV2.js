@@ -235,4 +235,255 @@ router.get('/my-requests', verifyToken, async (req, res) => {
   }
 });
 
+// ─── OTP START FLOW ───────────────────────────────────────────────────────────
+router.post('/otp/start/:jobId', verifyToken, async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const Job = require('../../models/Job');
+    const User = require('../../models/User');
+    const OtpVerification = require('../../models/OtpVerification');
+    const emailService = require('../../services/emailService');
+    const bcrypt = require('bcryptjs');
+
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+
+    const userRole = req.user.role;
+    const userId = req.user._id || req.user.id;
+    if (userRole === 'technician' && (!job.assignedTechnician || job.assignedTechnician.toString() !== userId.toString())) {
+      return res.status(403).json({ success: false, message: 'Not authorized to start this job' });
+    }
+
+    // Generate 6 digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log(`[OTP] START JOB OTP for Job ${jobId}: ${otp}`);
+
+    const otpHash = await bcrypt.hash(otp, 12);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+
+    await OtpVerification.deleteMany({ email: jobId, purpose: 'start_job' });
+    await OtpVerification.create({
+      email: jobId,
+      otpHash,
+      purpose: 'start_job',
+      expiresAt,
+    });
+
+    let emailSent = false;
+    if (job.client) {
+      const customer = await User.findById(job.client).select('email').lean();
+      if (customer && customer.email) {
+        try {
+          await emailService.sendOtpEmail(customer.email, otp);
+          emailSent = true;
+        } catch (err) {
+          console.warn(`[OTP] Failed to send email to ${customer.email}:`, err.message);
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'OTP generated and logged successfully',
+      otp,
+      emailSent,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/otp/start/:jobId/verify', verifyToken, async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { otp } = req.body;
+    const Job = require('../../models/Job');
+    const OtpVerification = require('../../models/OtpVerification');
+    const notificationService = require('../../services/notificationService');
+    const bcrypt = require('bcryptjs');
+
+    if (!otp) {
+      return res.status(400).json({ success: false, message: 'OTP is required' });
+    }
+
+    const record = await OtpVerification.findOne({ email: jobId, purpose: 'start_job' }).select('+otpHash');
+    if (!record || record.expiresAt < new Date()) {
+      return res.status(400).json({ success: false, message: 'OTP has expired or is invalid' });
+    }
+
+    const ok = await bcrypt.compare(otp, record.otpHash);
+    if (!ok) {
+      record.attempts += 1;
+      await record.save();
+      return res.status(400).json({ success: false, message: 'Invalid OTP' });
+    }
+
+    record.verifiedAt = new Date();
+    await record.save();
+
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+
+    job.status = 'in_progress';
+    job.startedAt = new Date();
+    await job.save();
+
+    // Notify client
+    const io = getIo(req);
+    if (job.client) {
+      if (io) io.to(job.client.toString()).emit('jobStarted', job);
+      await notificationService.createNotification(
+        job.client,
+        '🚀 Job Started',
+        `Your service for ${job.serviceName || job.title} has started.`,
+        'job_started',
+        io,
+        { jobId: job._id.toString() }
+      );
+    }
+
+    res.json({
+      success: true,
+      message: 'OTP verified successfully. Job status updated to IN_PROGRESS.',
+      job,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ─── OTP COMPLETION FLOW ──────────────────────────────────────────────────────
+router.post('/otp/complete/:jobId', verifyToken, async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const Job = require('../../models/Job');
+    const User = require('../../models/User');
+    const OtpVerification = require('../../models/OtpVerification');
+    const emailService = require('../../services/emailService');
+    const bcrypt = require('bcryptjs');
+
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+
+    const userRole = req.user.role;
+    const userId = req.user._id || req.user.id;
+    if (userRole === 'technician' && (!job.assignedTechnician || job.assignedTechnician.toString() !== userId.toString())) {
+      return res.status(403).json({ success: false, message: 'Not authorized to complete this job' });
+    }
+
+    // Generate 6 digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log(`[OTP] COMPLETE JOB OTP for Job ${jobId}: ${otp}`);
+
+    const otpHash = await bcrypt.hash(otp, 12);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+
+    await OtpVerification.deleteMany({ email: jobId, purpose: 'complete_job' });
+    await OtpVerification.create({
+      email: jobId,
+      otpHash,
+      purpose: 'complete_job',
+      expiresAt,
+    });
+
+    let emailSent = false;
+    if (job.client) {
+      const customer = await User.findById(job.client).select('email').lean();
+      if (customer && customer.email) {
+        try {
+          await emailService.sendOtpEmail(customer.email, otp);
+          emailSent = true;
+        } catch (err) {
+          console.warn(`[OTP] Failed to send email to ${customer.email}:`, err.message);
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'OTP generated and logged successfully',
+      otp,
+      emailSent,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/otp/complete/:jobId/verify', verifyToken, async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { otp } = req.body;
+    const Job = require('../../models/Job');
+    const User = require('../../models/User');
+    const OtpVerification = require('../../models/OtpVerification');
+    const notificationService = require('../../services/notificationService');
+    const bcrypt = require('bcryptjs');
+
+    if (!otp) {
+      return res.status(400).json({ success: false, message: 'OTP is required' });
+    }
+
+    const record = await OtpVerification.findOne({ email: jobId, purpose: 'complete_job' }).select('+otpHash');
+    if (!record || record.expiresAt < new Date()) {
+      return res.status(400).json({ success: false, message: 'OTP has expired or is invalid' });
+    }
+
+    const ok = await bcrypt.compare(otp, record.otpHash);
+    if (!ok) {
+      record.attempts += 1;
+      await record.save();
+      return res.status(400).json({ success: false, message: 'Invalid OTP' });
+    }
+
+    record.verifiedAt = new Date();
+    await record.save();
+
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+
+    job.status = 'completed';
+    job.completedAt = new Date();
+    await job.save();
+
+    // Mark technician as ONLINE
+    if (job.assignedTechnician) {
+      await User.findByIdAndUpdate(job.assignedTechnician, {
+        availabilityStatus: 'ONLINE',
+        activeJobId: null,
+      });
+    }
+
+    // Notify client
+    const io = getIo(req);
+    if (job.client) {
+      if (io) io.to(job.client.toString()).emit('jobCompleted', job);
+      await notificationService.createNotification(
+        job.client,
+        '🎉 Job Completed',
+        `Your service for ${job.serviceName || job.title} has been completed.`,
+        'job_completed',
+        io,
+        { jobId: job._id.toString() }
+      );
+    }
+
+    res.json({
+      success: true,
+      message: 'OTP verified successfully. Job status updated to COMPLETED.',
+      job,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;

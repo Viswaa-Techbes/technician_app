@@ -16,7 +16,7 @@ const otpVerificationSchema = new mongoose.Schema(
     },
     purpose: {
       type: String,
-      enum: ['register'],
+      enum: ['register', 'start_job', 'complete_job'],
       default: 'register',
     },
     expiresAt: {

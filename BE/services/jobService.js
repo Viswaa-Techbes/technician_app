@@ -46,20 +46,33 @@ async function createJob(jobData) {
 }
 
 async function assignTechnician(jobId, technicianId, managerId) {
-  const job = await Job.findById(jobId);
-  if (!job) throw new Error('Job not found');
-
-  // Verify manager
-  if (job.assignedManager.toString() !== managerId) {
-    throw new Error('Not authorized to assign this job');
-  }
-
   const technician = await User.findOne({ _id: technicianId, role: 'technician' });
   if (!technician) throw new Error('Technician not found');
 
-  job.assignedTechnician = technicianId;
-  job.status = 'assigned';
-  await job.save();
+  const job = await Job.findOneAndUpdate(
+    { 
+      _id: jobId, 
+      assignedManager: managerId,
+      assignedTechnician: null 
+    },
+    {
+      assignedTechnician: technicianId,
+      status: 'assigned',
+    },
+    { new: true }
+  );
+
+  if (!job) {
+    const checkJob = await Job.findById(jobId);
+    if (!checkJob) throw new Error('Job not found');
+    if (checkJob.assignedManager.toString() !== managerId.toString()) {
+      throw new Error('Not authorized to assign this job');
+    }
+    if (checkJob.assignedTechnician) {
+      throw new Error('Job is already assigned to a technician');
+    }
+    throw new Error('Failed to assign technician');
+  }
 
   return job;
 }

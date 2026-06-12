@@ -1,5 +1,6 @@
 const Review = require('../models/Review');
 const Job = require('../models/Job');
+const ratingService = require('../services/ratingService');
 
 /**
  * GET /reviews
@@ -39,7 +40,12 @@ async function createReview(req, res, next) {
       comment,
       technicianId,
       jobId,
-      clientName: clientName || req.user.name,
+      clientName: clientName || req.user?.name || 'Customer',
+    });
+
+    // Update technician rating and performance score
+    setImmediate(() => {
+      ratingService.updateTechnicianRating(technicianId);
     });
 
     return res.status(201).json({

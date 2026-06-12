@@ -66,16 +66,27 @@ async function createBookingV2(bookingData) {
 }
 
 async function assignBookingV2(jobId, technicianId, managerId) {
-  const job = await Job.findById(jobId);
-  if (!job) throw new Error('Job not found');
-
   const technician = await User.findOne({ _id: technicianId, role: 'technician' });
   if (!technician) throw new Error('Technician not found');
 
-  job.assignedTechnician = technicianId;
-  job.assignedManager = managerId;
-  job.status = 'assigned';
-  await job.save();
+  const job = await Job.findOneAndUpdate(
+    { _id: jobId, assignedTechnician: null },
+    {
+      assignedTechnician: technicianId,
+      assignedManager: managerId,
+      status: 'assigned',
+    },
+    { new: true }
+  );
+
+  if (!job) {
+    const checkJob = await Job.findById(jobId);
+    if (!checkJob) throw new Error('Job not found');
+    if (checkJob.assignedTechnician) {
+      throw new Error('Job is already assigned to a technician');
+    }
+    throw new Error('Failed to assign booking');
+  }
 
   return job;
 }

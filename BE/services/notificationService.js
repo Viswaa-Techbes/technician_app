@@ -41,12 +41,18 @@ async function createNotification(userId, title, message, type = 'general', io =
 
     // Real-time socket delivery
     if (io) {
-      io.to(userId.toString()).emit('notification', {
-        id: notification._id,
-        title,
-        message,
-        type,
-        createdAt: notification.createdAt,
+      Notification.countDocuments({ userId, isRead: false }).then(unreadCount => {
+        io.to(userId.toString()).emit('notification', {
+          id: notification._id,
+          title,
+          message,
+          type,
+          createdAt: notification.createdAt,
+          unreadCount,
+        });
+        io.to(userId.toString()).emit('unread_count', { count: unreadCount });
+      }).catch(err => {
+        console.error('Error counting unread notifications for socket:', err.message);
       });
       io.to(userId.toString()).emit('refresh_data', { type });
     }

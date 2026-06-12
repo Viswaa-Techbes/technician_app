@@ -413,6 +413,61 @@ class ApiService {
     }
     return json;
   }
+
+  // --- OTP Start / Complete Methods ---
+  Future<Map<String, dynamic>> requestStartOtp(String jobId) async {
+    debugPrint('[ApiService] POST $baseUrl/api/v2/dispatch/otp/start/$jobId');
+    final res = await http.post(
+      Uri.parse("$baseUrl/api/v2/dispatch/otp/start/$jobId"),
+      headers: _headers,
+    );
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode < 200 || res.statusCode >= 300 || json['success'] != true) {
+      throw Exception(json['message'] ?? 'Failed to request start OTP');
+    }
+    return json;
+  }
+
+  Future<Map<String, dynamic>> verifyStartOtp(String jobId, String otp) async {
+    debugPrint('[ApiService] POST $baseUrl/api/v2/dispatch/otp/start/$jobId/verify');
+    final res = await http.post(
+      Uri.parse("$baseUrl/api/v2/dispatch/otp/start/$jobId/verify"),
+      headers: _headers,
+      body: jsonEncode({"otp": otp}),
+    );
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode < 200 || res.statusCode >= 300 || json['success'] != true) {
+      throw Exception(json['message'] ?? 'Failed to verify start OTP');
+    }
+    return json;
+  }
+
+  Future<Map<String, dynamic>> requestCompleteOtp(String jobId) async {
+    debugPrint('[ApiService] POST $baseUrl/api/v2/dispatch/otp/complete/$jobId');
+    final res = await http.post(
+      Uri.parse("$baseUrl/api/v2/dispatch/otp/complete/$jobId"),
+      headers: _headers,
+    );
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode < 200 || res.statusCode >= 300 || json['success'] != true) {
+      throw Exception(json['message'] ?? 'Failed to request complete OTP');
+    }
+    return json;
+  }
+
+  Future<Map<String, dynamic>> verifyCompleteOtp(String jobId, String otp) async {
+    debugPrint('[ApiService] POST $baseUrl/api/v2/dispatch/otp/complete/$jobId/verify');
+    final res = await http.post(
+      Uri.parse("$baseUrl/api/v2/dispatch/otp/complete/$jobId/verify"),
+      headers: _headers,
+      body: jsonEncode({"otp": otp}),
+    );
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode < 200 || res.statusCode >= 300 || json['success'] != true) {
+      throw Exception(json['message'] ?? 'Failed to verify complete OTP');
+    }
+    return json;
+  }
 }
 
 final apiServiceProvider = Provider<ApiService>((ref) {

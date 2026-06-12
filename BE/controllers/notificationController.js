@@ -36,6 +36,13 @@ async function markAsRead(req, res, next) {
       return res.status(404).json({ success: false, message: 'Notification not found' });
     }
 
+    // Emit updated unread count
+    const io = req.app.get('io') || global._socketIo || null;
+    if (io) {
+      const unreadCount = await Notification.countDocuments({ userId: req.user.id, isRead: false });
+      io.to(req.user.id.toString()).emit('unread_count', { count: unreadCount });
+    }
+
     return res.json({
       success: true,
       data: notification,
@@ -55,6 +62,13 @@ async function markAllAsRead(req, res, next) {
       { userId: req.user.id, isRead: false },
       { isRead: true }
     );
+
+    // Emit updated unread count (which is 0)
+    const io = req.app.get('io') || global._socketIo || null;
+    if (io) {
+      io.to(req.user.id.toString()).emit('unread_count', { count: 0 });
+    }
+
     return res.json({
       success: true,
       message: 'All notifications marked as read',

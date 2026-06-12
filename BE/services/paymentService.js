@@ -103,9 +103,25 @@ async function verifyAdvancePayment(jobId, orderId, paymentId, signature, amount
   job.advanceAmount = Math.round((job.advanceAmount || 0));
   job.remainingAmount = Math.max((job.amount || job.price || 0) - (job.advanceAmount || 0), 0);
   job.paymentStatus = 'advance_paid';
-  job.status = 'confirmed';
+  job.status = 'pending';
+  job.dispatchStatus = 'pending_dispatch';
   job.transactionId = paymentId;
   await job.save();
+
+  // ─── AUTO DISPATCH: Fire auto-assignment after advance payment ────────────
+  // Non-blocking: runs in background so payment response is instant
+  setImmediate(async () => {
+    try {
+      console.log(`[Payment] Triggering auto-dispatch for job ${job._id}`);
+      const dispatchService = require('./dispatchService');
+      // Get io from global if available (set by server.js)
+      const io = global._socketIo || null;
+      const dispatchResult = await dispatchService.autoAssignTechnician(job._id, io);
+      console.log(`[Payment] Dispatch result for job ${job._id}:`, dispatchResult.method || dispatchResult.reason);
+    } catch (dispatchErr) {
+      console.error('[Payment] Auto-dispatch failed (non-critical):', dispatchErr.message);
+    }
+  });
 
   return { job, payment: pay };
 }

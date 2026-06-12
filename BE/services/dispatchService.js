@@ -83,8 +83,8 @@ async function findEligibleTechnicians(job, customerCoords, limit = 10) {
     return eligible.sort((a, b) => (b.rating || 5) - (a.rating || 5)).slice(0, limit);
   }
 
-  // Add distance and pincode match flag, and sort primarily by distance
-  const withDistance = eligible
+  // Add distance and pincode match flag, and sort primarily by straight-line distance
+  let withDistance = eligible
     .filter(tech => tech.lat && tech.lng)
     .map(tech => {
       const distanceKm = haversineKm(customerCoords.lat, customerCoords.lng, tech.lat, tech.lng);
@@ -96,27 +96,53 @@ async function findEligibleTechnicians(job, customerCoords, limit = 10) {
       };
     })
     .filter(tech => tech.distanceKm <= 30) // Max 30km radius
-    .sort((a, b) => {
-      // 1. Distance (closest first)
-      const distDiff = a.distanceKm - b.distanceKm;
-      if (distDiff !== 0) return distDiff;
-      
-      // 2. Rating (higher first)
-      const ratingDiff = (b.rating || 5) - (a.rating || 5);
-      if (ratingDiff !== 0) return ratingDiff;
+    .sort((a, b) => a.distanceKm - b.distanceKm);
 
-      // 3. Workload (fewer completed jobs first)
-      const workloadDiff = (a.completedJobs || 0) - (b.completedJobs || 0);
-      if (workloadDiff !== 0) return workloadDiff;
+  // Optimize ORS: only resolve driving directions for the top 5 closest candidates
+  const topCandidates = withDistance.slice(0, 5);
+  const remainingCandidates = withDistance.slice(5);
 
-      // 4. Covers Pincode (secondary filter)
-      if (a.coversPincode && !b.coversPincode) return -1;
-      if (!a.coversPincode && b.coversPincode) return 1;
+  const routingService = require('./routingService');
+  const resolvedCandidates = await Promise.all(
+    topCandidates.map(async (tech) => {
+      try {
+        const directions = await routingService.getDirections(
+          { lat: customerCoords.lat, lng: customerCoords.lng },
+          { lat: tech.lat, lng: tech.lng }
+        );
+        return {
+          ...tech,
+          distanceKm: directions.distanceKm,
+          durationMinutes: directions.durationMinutes,
+          source: directions.source,
+        };
+      } catch (err) {
+        return tech; // fallback to straight-line haversine
+      }
+    })
+  );
 
-      return 0;
-    });
+  const allCandidates = [...resolvedCandidates, ...remainingCandidates].sort((a, b) => {
+    // 1. Distance (closest first)
+    const distDiff = a.distanceKm - b.distanceKm;
+    if (distDiff !== 0) return distDiff;
+    
+    // 2. Rating (higher first)
+    const ratingDiff = (b.rating || 5) - (a.rating || 5);
+    if (ratingDiff !== 0) return ratingDiff;
 
-  return withDistance.slice(0, limit);
+    // 3. Workload (fewer completed jobs first)
+    const workloadDiff = (a.completedJobs || 0) - (b.completedJobs || 0);
+    if (workloadDiff !== 0) return workloadDiff;
+
+    // 4. Covers Pincode (secondary filter)
+    if (a.coversPincode && !b.coversPincode) return -1;
+    if (!a.coversPincode && b.coversPincode) return 1;
+
+    return 0;
+  });
+
+  return allCandidates.slice(0, limit);
 }
 
 // ─── Get pincode from job ─────────────────────────────────────────────────────
@@ -198,15 +224,24 @@ async function autoAssignTechnician(jobId, io = null) {
   const best = eligible[0];
   console.log(`[Dispatch] Best technician: ${best.name} (${best.distanceKm?.toFixed(1) || '?'} km away)`);
 
-  // Assign the job
-  await Job.findByIdAndUpdate(jobId, {
-    assignedTechnician: best._id,
-    assignmentMethod: 'AUTO',
-    assignmentTime: new Date(),
-    dispatchStatus: 'assigned',
-    status: 'assigned',
-    technicianId: best._id,
-  });
+  // Assign the job with a race condition guard
+  const assignedJob = await Job.findOneAndUpdate(
+    { _id: jobId, assignedTechnician: null },
+    {
+      assignedTechnician: best._id,
+      assignmentMethod: 'AUTO',
+      assignmentTime: new Date(),
+      dispatchStatus: 'assigned',
+      status: 'assigned',
+      technicianId: best._id,
+    },
+    { new: true }
+  );
+
+  if (!assignedJob) {
+    console.warn(`[Dispatch] Auto-assignment failed or race condition hit for job ${jobId}. Already assigned.`);
+    return { success: false, reason: 'already_assigned_race' };
+  }
 
   // Mark technician as busy
   await User.findByIdAndUpdate(best._id, {
@@ -308,7 +343,7 @@ async function broadcastJobRequest(jobId, io = null) {
 
   // Create JobRequest records for each technician
   const techIds = eligible.map(t => t._id);
-  const requestExpiry = new Date(Date.now() + 90 * 1000); // 90 seconds
+  const requestExpiry = new Date(Date.now() + 30 * 1000); // 30 seconds
 
   // Delete any stale pending requests for this job
   await JobRequest.deleteMany({ jobId, status: 'pending' });
@@ -346,7 +381,7 @@ async function broadcastJobRequest(jobId, io = null) {
       date: job.bookingDate,
       timeSlot: job.timeSlot || 'TBD',
       expiresAt: requestExpiry.toISOString(),
-      expiresInSeconds: 90,
+      expiresInSeconds: 30,
     };
 
     if (io) {
@@ -356,14 +391,14 @@ async function broadcastJobRequest(jobId, io = null) {
     await notificationService.createNotification(
       tech._id,
       '📲 New Job Request',
-      `${job.serviceName || job.title} near you (${tech.distanceKm?.toFixed(1) || '?'} km). Tap to Accept/Reject. Expires in 90s.`,
+      `${job.serviceName || job.title} near you (${tech.distanceKm?.toFixed(1) || '?'} km). Tap to Accept/Reject. Expires in 30s.`,
       'new_job_request',
       io,
       jobRequestPayload
     );
   }
 
-  // Auto-expire pending requests after 90 seconds
+  // Auto-expire pending requests after 30 seconds
   setTimeout(async () => {
     try {
       const expired = await JobRequest.updateMany(
@@ -385,7 +420,7 @@ async function broadcastJobRequest(jobId, io = null) {
     } catch (err) {
       console.error('[Dispatch] Error expiring job requests:', err.message);
     }
-  }, 92 * 1000);
+  }, 32 * 1000);
 
   console.log(`[Dispatch] Broadcast sent to ${eligible.length} technicians for job ${jobId}`);
   return { success: true, broadcastedTo: eligible.length, method: 'FALLBACK' };

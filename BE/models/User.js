@@ -199,7 +199,7 @@ const userSchema = new mongoose.Schema(
 
 userSchema.index({ email: 1 }, { unique: true, sparse: true });
 
-userSchema.pre('validate', function normalizeBlankEmail(next) {
+userSchema.pre('validate', async function normalizeBlankEmail(next) {
   if (typeof this.email === 'string' && this.email.trim() === '') {
     this.email = undefined;
   }
@@ -217,12 +217,28 @@ userSchema.pre('validate', function normalizeBlankEmail(next) {
     }
   }
 
-  // Auto-generate customerId for client role
+  // Auto-generate customerId for client role (CUS-YYYY-NNNNNN)
   if (this.role === 'client') {
     if (!this.customerId) {
-      const ts = Math.floor(Date.now() / 1000);
-      const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
-      this.customerId = `CUST-${ts}-${rand}`;
+      try {
+        const Counter = require('./Counter');
+        const year = new Date().getFullYear();
+        const counterId = `customer_id_${year}`;
+        
+        const counter = await Counter.findOneAndUpdate(
+          { id: counterId },
+          { $inc: { seq: 1 } },
+          { upsert: true, new: true }
+        );
+        
+        const sequenceStr = String(counter.seq).padStart(6, '0');
+        this.customerId = `CUS-${year}-${sequenceStr}`;
+      } catch (err) {
+        console.error('Failed to generate sequential customerId, falling back', err);
+        const ts = Math.floor(Date.now() / 1000);
+        const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+        this.customerId = `CUST-${ts}-${rand}`;
+      }
     }
   }
 

@@ -934,6 +934,62 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
     );
   }
 
+  Future<String?> _showOtpDialog(String purpose, String? devOtp) async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Text(purpose == 'start' ? 'Verify Job Start' : 'Verify Job Completion', style: const TextStyle(fontWeight: FontWeight.w900)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('An OTP has been sent to the customer. Please enter it below to confirm:', style: TextStyle(color: Color(0xFF64748B), fontSize: 13, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                decoration: InputDecoration(
+                  hintText: 'Enter 6-digit OTP',
+                  counterText: '',
+                  filled: true,
+                  fillColor: const Color(0xFFF1F5F9),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                ),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 4),
+                textAlign: TextAlign.center,
+              ),
+              if (devOtp != null) ...[
+                const SizedBox(height: 12),
+                Text('(Dev Mode: OTP is $devOtp)', style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
+              ]
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCEL', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.bold)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, controller.text),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('VERIFY', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showPaymentQR() {
     showDialog(
       context: context,
@@ -1024,9 +1080,24 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
         return CustomButton(
           label: "START JOB",
           onPressed: () async {
-            await _updateStatus('started');
-            setState(() => _currentStatus = JobStatus.started);
-            _startTimer();
+            try {
+              final api = ref.read(apiServiceProvider);
+              final res = await api.requestStartOtp(widget.job.id);
+              final devOtp = res['otp'] as String?;
+              final otpInput = await _showOtpDialog('start', devOtp);
+              if (otpInput != null && otpInput.isNotEmpty) {
+                await api.verifyStartOtp(widget.job.id, otpInput);
+                setState(() => _currentStatus = JobStatus.started);
+                _startTimer();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('🎉 Job started successfully!'), backgroundColor: Colors.green),
+                );
+              }
+            } catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Failed to start job: $e'), backgroundColor: Colors.red),
+              );
+            }
           },
           color: const Color(0xFF2563EB),
           icon: Icons.play_circle_rounded,
@@ -1052,18 +1123,28 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
         );
       case JobStatus.workUploaded:
         return CustomButton(
-          label: "REQUEST COMPLETION",
+          label: "COMPLETE JOB (OTP)",
           onPressed: () async {
-            await _updateStatus('completion_requested');
-            setState(() => _currentStatus = JobStatus.completionRequested);
-            if (mounted) {
+            try {
+              final api = ref.read(apiServiceProvider);
+              final res = await api.requestCompleteOtp(widget.job.id);
+              final devOtp = res['otp'] as String?;
+              final otpInput = await _showOtpDialog('complete', devOtp);
+              if (otpInput != null && otpInput.isNotEmpty) {
+                await api.verifyCompleteOtp(widget.job.id, otpInput);
+                setState(() => _currentStatus = JobStatus.completed);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('🎉 Job completed successfully!'), backgroundColor: Colors.green),
+                );
+              }
+            } catch (e) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Completion request sent to manager.")),
+                SnackBar(content: Text('Failed to complete job: $e'), backgroundColor: Colors.red),
               );
             }
           },
-          color: const Color(0xFF8B5CF6),
-          icon: Icons.send_rounded,
+          color: const Color(0xFF10B981),
+          icon: Icons.check_circle_rounded,
         );
       case JobStatus.completionRequested:
         return CustomButton(
