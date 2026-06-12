@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:customer_app/core/api/api_client.dart';
+import 'package:customer_app/core/api/api_endpoints.dart';
 import 'package:customer_app/core/theme/app_colors.dart';
 import 'package:customer_app/core/utils/formatters.dart';
 import 'package:customer_app/features/cart/models/cart_item.dart';
@@ -12,7 +14,6 @@ class CartScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cartState = ref.watch(cartProvider);
-    final isLight = Theme.of(context).brightness == Brightness.light;
 
     return Scaffold(
       backgroundColor: Colors.transparent,

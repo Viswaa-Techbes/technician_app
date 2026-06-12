@@ -6,7 +6,6 @@ import 'package:latlong2/latlong.dart';
 
 import 'package:customer_app/core/theme/app_colors.dart';
 import 'package:customer_app/core/utils/formatters.dart';
-import 'package:customer_app/features/booking/models/booking_models.dart';
 import 'package:customer_app/features/booking/providers/booking_provider.dart';
 import 'package:customer_app/features/cart/providers/cart_provider.dart';
 
@@ -85,7 +84,6 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   }
 
   Widget _buildStepperHeader(int currentStep) {
-    final stepTitles = ['Cameras', 'Materials', 'Location', 'Schedule', 'Summary'];
     return Container(
       padding: const EdgeInsets.all(16),
       color: Theme.of(context).cardColor,

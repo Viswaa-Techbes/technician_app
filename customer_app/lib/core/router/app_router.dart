@@ -6,7 +6,6 @@ import 'package:customer_app/core/auth/auth_provider.dart';
 import 'package:customer_app/features/auth/screens/login_screen.dart';
 import 'package:customer_app/features/auth/screens/signup_screen.dart';
 import 'package:customer_app/features/auth/screens/otp_screen.dart';
-import 'package:customer_app/features/dashboard/screens/dashboard_screen.dart';
 import 'package:customer_app/features/dashboard/screens/home_screen.dart';
 import 'package:customer_app/features/cart/screens/cart_screen.dart';
 import 'package:customer_app/features/services/screens/service_listing_screen.dart';
