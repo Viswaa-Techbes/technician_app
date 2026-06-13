@@ -27,6 +27,7 @@ class _WorksheetFormScreenState extends ConsumerState<WorksheetFormScreen> {
   final _observationsController = TextEditingController();
   final _commentsController = TextEditingController();
   final _labourCostController = TextEditingController(text: '0');
+  final _otpController = TextEditingController();
 
   // Materials & Parts
   final List<Map<String, dynamic>> _materialsUsed = [];
@@ -46,6 +47,12 @@ class _WorksheetFormScreenState extends ConsumerState<WorksheetFormScreen> {
   final GlobalKey _sigKey = GlobalKey();
   bool _isSignatureCaptured = false;
 
+  // OTP Verification State
+  bool _completionOtpVerified = false;
+  bool _sendingOtp = false;
+  bool _verifyingOtp = false;
+  bool _otpSent = false;
+
   @override
   void initState() {
     super.initState();
@@ -58,6 +65,7 @@ class _WorksheetFormScreenState extends ConsumerState<WorksheetFormScreen> {
     _observationsController.dispose();
     _commentsController.dispose();
     _labourCostController.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
@@ -79,12 +87,18 @@ class _WorksheetFormScreenState extends ConsumerState<WorksheetFormScreen> {
             for (var m in data['materialsUsed']) {
               _materialsUsed.add({
                 'name': m['name'] ?? '',
+                'category': m['category'] ?? m['brand'] ?? '',
+                'quantity': m['quantity'] ?? 1,
+                'unit': m['unit'] ?? 'Piece',
+                'unitPrice': (m['unitPrice'] ?? m['unitCost'] ?? 0).toDouble(),
+                'total': (m['total'] ?? m['totalCost'] ?? 0).toDouble(),
+                
+                // Backwards compatibility legacy fields
                 'brand': m['brand'] ?? '',
                 'model': m['model'] ?? '',
                 'serialNumber': m['serialNumber'] ?? '',
-                'quantity': m['quantity'] ?? 1,
-                'unitCost': (m['unitCost'] ?? 0).toDouble(),
-                'totalCost': (m['totalCost'] ?? 0).toDouble(),
+                'unitCost': (m['unitCost'] ?? m['unitPrice'] ?? 0).toDouble(),
+                'totalCost': (m['totalCost'] ?? m['total'] ?? 0).toDouble(),
               });
             }
           }
@@ -109,6 +123,7 @@ class _WorksheetFormScreenState extends ConsumerState<WorksheetFormScreen> {
 
           _customerSignatureUrl = data['customerSignatureUrl'] ?? '';
           _technicianSignatureUrl = data['technicianSignatureUrl'] ?? '';
+          _completionOtpVerified = data['completionOtpVerified'] ?? false;
           if (_customerSignatureUrl.isNotEmpty) {
             _isSignatureCaptured = true;
           }
@@ -118,6 +133,67 @@ class _WorksheetFormScreenState extends ConsumerState<WorksheetFormScreen> {
       debugPrint('Error loading worksheet: $e');
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _requestCompleteOtp() async {
+    setState(() => _sendingOtp = true);
+    try {
+      final api = ref.read(apiServiceProvider);
+      final res = await api.requestCompleteOtp(widget.job.id);
+      if (mounted) {
+        setState(() {
+          _otpSent = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message'] ?? 'OTP sent to customer email.'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send OTP: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sendingOtp = false);
+    }
+  }
+
+  Future<void> _verifyCompleteOtp() async {
+    final otp = _otpController.text.trim();
+    if (otp.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter the OTP'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+    setState(() => _verifyingOtp = true);
+    try {
+      final api = ref.read(apiServiceProvider);
+      final res = await api.verifyCompleteOtp(widget.job.id, otp);
+      if (mounted) {
+        setState(() {
+          _completionOtpVerified = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message'] ?? 'OTP verified successfully! Signature unlocked.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Verification failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _verifyingOtp = false);
     }
   }
 
@@ -265,6 +341,12 @@ class _WorksheetFormScreenState extends ConsumerState<WorksheetFormScreen> {
 
   Future<void> _submitWorksheet() async {
     // Final Validations before submitting worksheet
+    if (!_completionOtpVerified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Validation error: Customer OTP verification is mandatory.'), backgroundColor: Colors.red),
+      );
+      return;
+    }
     if (_beforePhotos.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Validation error: Upload at least 1 Before photo.'), backgroundColor: Colors.red),
@@ -314,11 +396,10 @@ class _WorksheetFormScreenState extends ConsumerState<WorksheetFormScreen> {
 
   void _addMaterialDialog() {
     final nameController = TextEditingController();
-    final brandController = TextEditingController();
-    final modelController = TextEditingController();
-    final serialController = TextEditingController();
+    final categoryController = TextEditingController();
     final qtyController = TextEditingController(text: '1');
-    final costController = TextEditingController(text: '0');
+    final unitController = TextEditingController(text: 'Piece');
+    final priceController = TextEditingController(text: '0');
 
     showDialog(
       context: context,
@@ -330,11 +411,10 @@ class _WorksheetFormScreenState extends ConsumerState<WorksheetFormScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Item Name*')),
-              TextField(controller: brandController, decoration: const InputDecoration(labelText: 'Brand')),
-              TextField(controller: modelController, decoration: const InputDecoration(labelText: 'Model')),
-              TextField(controller: serialController, decoration: const InputDecoration(labelText: 'Serial Number')),
+              TextField(controller: categoryController, decoration: const InputDecoration(labelText: 'Category')),
               TextField(controller: qtyController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Quantity*')),
-              TextField(controller: costController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Unit Cost (INR)*')),
+              TextField(controller: unitController, decoration: const InputDecoration(labelText: 'Unit (e.g. Meter, Piece, Box)*')),
+              TextField(controller: priceController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Unit Price (INR)*')),
             ],
           ),
         ),
@@ -344,16 +424,22 @@ class _WorksheetFormScreenState extends ConsumerState<WorksheetFormScreen> {
             onPressed: () {
               if (nameController.text.trim().isEmpty) return;
               final qty = int.tryParse(qtyController.text) ?? 1;
-              final cost = double.tryParse(costController.text) ?? 0.0;
+              final price = double.tryParse(priceController.text) ?? 0.0;
               setState(() {
                 _materialsUsed.add({
                   'name': nameController.text.trim(),
-                  'brand': brandController.text.trim(),
-                  'model': modelController.text.trim(),
-                  'serialNumber': serialController.text.trim(),
+                  'category': categoryController.text.trim(),
                   'quantity': qty,
-                  'unitCost': cost,
-                  'totalCost': qty * cost,
+                  'unit': unitController.text.trim(),
+                  'unitPrice': price,
+                  'total': qty * price,
+                  
+                  // Legacy fields for compatibility
+                  'brand': categoryController.text.trim(),
+                  'model': '',
+                  'serialNumber': '',
+                  'unitCost': price,
+                  'totalCost': qty * price,
                 });
               });
               Navigator.pop(ctx);
@@ -550,11 +636,11 @@ class _WorksheetFormScreenState extends ConsumerState<WorksheetFormScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 child: ListTile(
                   title: Text(mat['name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text('Qty: ${mat['quantity']} | Cost: INR ${mat['unitCost']} (${mat['brand'] ?? ''})'),
+                  subtitle: Text('Qty: ${mat['quantity']} ${mat['unit'] ?? 'Piece'} | Price: INR ${mat['unitPrice'] ?? mat['unitCost'] ?? 0} (${mat['category'] ?? ''})'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('₹${mat['totalCost']}', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+                      Text('₹${mat['total'] ?? mat['totalCost'] ?? 0}', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
                       const SizedBox(width: 8),
                       IconButton(
                         icon: const Icon(Icons.delete_outline, color: Colors.red),
@@ -692,10 +778,103 @@ class _WorksheetFormScreenState extends ConsumerState<WorksheetFormScreen> {
   }
 
   Widget _buildStepSignature() {
+    if (!_completionOtpVerified) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Customer OTP Verification', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+          const SizedBox(height: 8),
+          const Text(
+            'Before the customer can sign, please generate a completion OTP and verify it to confirm job details with the customer.',
+            style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 24),
+          if (!_otpSent) ...[
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: _sendingOtp ? null : _requestCompleteOtp,
+                icon: _sendingOtp 
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.send),
+                label: const Text('Generate & Send Completion OTP'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ),
+          ] else ...[
+            TextField(
+              controller: _otpController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: 'Enter 6-Digit Completion OTP',
+                hintText: 'xxxxxx',
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF2563EB))),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _sendingOtp ? null : _requestCompleteOtp,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: _sendingOtp 
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Resend OTP'),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _verifyingOtp ? null : _verifyCompleteOtp,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: _verifyingOtp 
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Verify OTP'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Customer Signature', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Customer Signature', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(8)),
+              child: const Row(
+                children: [
+                  Icon(Icons.check, size: 14, color: Color(0xFF10B981)),
+                  SizedBox(width: 4),
+                  Text('OTP Verified', style: TextStyle(color: Color(0xFF065F46), fontSize: 11, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 4),
         const Text('Ask the customer to sign digitally in the box below.', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
         const SizedBox(height: 16),
@@ -787,7 +966,7 @@ class _WorksheetFormScreenState extends ConsumerState<WorksheetFormScreen> {
   Widget _buildStepReview() {
     double matTotal = 0;
     for (var m in _materialsUsed) {
-      matTotal += (m['totalCost'] ?? 0);
+      matTotal += ((m['total'] ?? m['totalCost'] ?? 0) as num).toDouble();
     }
     double labour = double.tryParse(_labourCostController.text) ?? 0.0;
     double grandTotal = matTotal + labour;
@@ -853,6 +1032,20 @@ class _WorksheetFormScreenState extends ConsumerState<WorksheetFormScreen> {
           Expanded(
             child: ElevatedButton(
               onPressed: () {
+                if (_currentStep == 5) {
+                  if (!_completionOtpVerified) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please verify the Customer Completion OTP first.'), backgroundColor: Colors.orange),
+                    );
+                    return;
+                  }
+                  if (!_isSignatureCaptured || _customerSignatureUrl.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please capture and upload the Customer Signature first.'), backgroundColor: Colors.orange),
+                    );
+                    return;
+                  }
+                }
                 if (_currentStep < 6) {
                   setState(() => _currentStep++);
                 } else {

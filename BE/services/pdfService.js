@@ -112,11 +112,12 @@ async function generateWorksheetPdf(worksheet, job) {
       // Table Header
       let tableY = 445;
       doc.rect(40, tableY, 515, 20).fill(secondaryColor);
-      doc.fillColor('#ffffff').fontSize(9).text('Item Name / Brand', 50, tableY + 6, { font: 'Helvetica-Bold' });
-      doc.text('Model / Serial No', 230, tableY + 6, { font: 'Helvetica-Bold' });
-      doc.text('Qty', 390, tableY + 6, { font: 'Helvetica-Bold' });
-      doc.text('Unit Cost', 430, tableY + 6, { font: 'Helvetica-Bold' });
-      doc.text('Total Cost', 500, tableY + 6, { font: 'Helvetica-Bold' });
+      doc.fillColor('#ffffff').fontSize(9).text('Item Name', 50, tableY + 6, { font: 'Helvetica-Bold' });
+      doc.text('Category', 200, tableY + 6, { font: 'Helvetica-Bold' });
+      doc.text('Qty', 330, tableY + 6, { font: 'Helvetica-Bold' });
+      doc.text('Unit', 370, tableY + 6, { font: 'Helvetica-Bold' });
+      doc.text('Unit Price', 420, tableY + 6, { font: 'Helvetica-Bold' });
+      doc.text('Total Amount', 490, tableY + 6, { font: 'Helvetica-Bold' });
 
       // Table Rows
       let rowY = tableY + 20;
@@ -131,11 +132,12 @@ async function generateWorksheetPdf(worksheet, job) {
           doc.rect(40, rowY, 515, 22).fill(idx % 2 === 0 ? '#ffffff' : '#f1f5f9');
           doc.rect(40, rowY, 515, 22).strokeColor(borderColor).stroke();
           
-          doc.fillColor(darkText).text(`${mat.name} (${mat.brand || '-'})`, 50, rowY + 7, { width: 170, height: 15 });
-          doc.text(`${mat.model || '-'} / ${mat.serialNumber || '-'}`, 230, rowY + 7, { width: 150, height: 15 });
-          doc.text(`${mat.quantity}`, 390, rowY + 7);
-          doc.text(`INR ${mat.unitCost}`, 430, rowY + 7);
-          doc.text(`INR ${mat.totalCost}`, 500, rowY + 7);
+          doc.fillColor(darkText).text(`${mat.name}`, 50, rowY + 7, { width: 140, height: 15 });
+          doc.text(`${mat.category || mat.brand || '-'}`, 200, rowY + 7, { width: 120, height: 15 });
+          doc.text(`${mat.quantity}`, 330, rowY + 7);
+          doc.text(`${mat.unit || 'Piece'}`, 370, rowY + 7);
+          doc.text(`INR ${mat.unitPrice || mat.unitCost || 0}`, 420, rowY + 7);
+          doc.text(`INR ${mat.total || mat.totalCost || 0}`, 490, rowY + 7);
           
           rowY += 22;
         });

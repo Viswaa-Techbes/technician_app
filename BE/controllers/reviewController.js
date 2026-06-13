@@ -35,6 +35,14 @@ async function createReview(req, res, next) {
       return res.status(400).json({ success: false, message: 'Rating and technicianId are required' });
     }
 
+    // Customer cannot rate twice: check if review for this jobId already exists
+    if (jobId) {
+      const existingReview = await Review.findOne({ jobId });
+      if (existingReview) {
+        return res.status(400).json({ success: false, message: 'You have already rated the service for this job.' });
+      }
+    }
+
     const review = await Review.create({
       rating,
       comment,

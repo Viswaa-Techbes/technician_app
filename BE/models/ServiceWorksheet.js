@@ -1,11 +1,17 @@
 const mongoose = require('mongoose');
 
 const materialSchema = new mongoose.Schema({
-  name: { type: String, required: true },
+  name: { type: String, required: true }, // Item Name
+  category: { type: String, default: '' },
+  quantity: { type: Number, default: 1, min: 1 },
+  unit: { type: String, default: 'Piece' }, // Meter, Piece, Box, etc.
+  unitPrice: { type: Number, default: 0, min: 0 },
+  total: { type: Number, default: 0, min: 0 },
+  
+  // Legacy fields for backward compatibility
   brand: { type: String, default: '' },
   model: { type: String, default: '' },
   serialNumber: { type: String, default: '' },
-  quantity: { type: Number, default: 1, min: 1 },
   unitCost: { type: Number, default: 0, min: 0 },
   totalCost: { type: Number, default: 0, min: 0 }
 });

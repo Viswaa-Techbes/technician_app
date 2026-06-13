@@ -107,6 +107,11 @@ router.put('/job/:jobId', authenticate, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Worksheet not found' });
     }
 
+    // Worksheet Locking: Reject edits if already approved
+    if (worksheet.status === 'approved') {
+      return res.status(400).json({ success: false, message: 'This worksheet has already been approved and is locked for edits.' });
+    }
+
     // Authorize: Only assigned technician or managers/admins can edit
     if (req.user.role === 'technician' && worksheet.technicianId.toString() !== req.user.id) {
       return res.status(403).json({ success: false, message: 'Access denied: You are not the assigned technician' });
@@ -132,8 +137,12 @@ router.put('/job/:jobId', authenticate, async (req, res, next) => {
     if (updateData.materialsUsed || updateData.labourCost !== undefined) {
       let matCostSum = 0;
       worksheet.materialsUsed.forEach((item) => {
-        item.totalCost = (item.quantity || 1) * (item.unitCost || 0);
-        matCostSum += item.totalCost;
+        const price = item.unitPrice !== undefined ? item.unitPrice : (item.unitCost || 0);
+        item.unitPrice = price;
+        item.unitCost = price;
+        item.total = (item.quantity || 1) * price;
+        item.totalCost = item.total;
+        matCostSum += item.total;
       });
       worksheet.materialCost = matCostSum;
       worksheet.totalCost = worksheet.materialCost + (worksheet.labourCost || 0);
@@ -142,6 +151,9 @@ router.put('/job/:jobId', authenticate, async (req, res, next) => {
     // Handle Submission Action
     if (worksheet.status === 'submitted') {
       // Validation rules check on submit
+      if (!worksheet.completionOtpVerified) {
+        return res.status(400).json({ success: false, message: 'Validation failed: Customer OTP verification is required before submission.' });
+      }
       if (!worksheet.beforePhotos || worksheet.beforePhotos.length === 0) {
         return res.status(400).json({ success: false, message: 'Validation failed: Minimum 1 before photo is mandatory.' });
       }
@@ -154,9 +166,75 @@ router.put('/job/:jobId', authenticate, async (req, res, next) => {
       
       worksheet.submittedAt = new Date();
 
+      // Automatically transition Job to completed
+      const job = await Job.findById(jobId);
+      if (job) {
+        job.status = 'completed';
+        job.completedAt = new Date();
+        await job.save();
+
+        const io = getIo(req);
+        if (io) {
+          io.emit('jobStatusUpdated', { jobId: jobId, status: 'completed' });
+          if (job.client) {
+            io.to(job.client.toString()).emit('jobCompleted', job);
+          }
+        }
+
+        // Notify client
+        if (job.client) {
+          await notificationService.createNotification(
+            job.client,
+            'Service Completed',
+            'Your service request has been successfully completed!',
+            'job_completed',
+            io,
+            { jobId: jobId.toString() }
+          );
+        }
+
+        // Notify Admin
+        const admins = await User.find({ role: { $in: ['admin', 'manager'] }, isDeleted: { $ne: true } }).select('_id');
+        for (const admin of admins) {
+          await notificationService.createNotification(
+            admin._id,
+            'Job Completed',
+            `Service "${job.serviceName || job.title}" has been completed.`,
+            'job_completed',
+            io,
+            { jobId: jobId.toString() }
+          );
+        }
+      }
+
+      // Mark technician availability as ONLINE
+      if (worksheet.technicianId) {
+        const techUser = await User.findByIdAndUpdate(
+          worksheet.technicianId,
+          {
+            availabilityStatus: 'ONLINE',
+            isOnline: true,
+            activeJobId: null
+          },
+          { new: true }
+        );
+        if (techUser) {
+          const io = getIo(req);
+          if (io) {
+            io.to('admin_room').emit('technicianStatusUpdate', {
+              technicianId: worksheet.technicianId.toString(),
+              name: techUser.name,
+              availabilityStatus: 'ONLINE',
+              isOnline: true,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }
+      }
+
       // Send Notifications
       const io = getIo(req);
-      const job = await Job.findById(jobId);
+      const jobObj = await Job.findById(jobId);
       
       // Notify Admin
       const admins = await User.find({ role: { $in: ['admin', 'manager'] } }).select('_id');
@@ -172,9 +250,9 @@ router.put('/job/:jobId', authenticate, async (req, res, next) => {
       }
 
       // Notify Customer
-      if (job && job.client) {
+      if (jobObj && jobObj.client) {
         await notificationService.createNotification(
-          job.client.toString(),
+          jobObj.client.toString(),
           'Worksheet Submitted',
           `Your service report for Booking #${worksheet.bookingId} has been submitted.`,
           'worksheet_submitted',
@@ -203,6 +281,17 @@ router.post('/job/:jobId/approve', authenticate, requireRoles('admin', 'manager'
     const job = await Job.findById(jobId).populate('assignedTechnician');
     if (!job) {
       return res.status(404).json({ success: false, message: 'Job not found' });
+    }
+
+    // Admin approval validation rules
+    if (!worksheet.beforePhotos || worksheet.beforePhotos.length === 0) {
+      return res.status(400).json({ success: false, message: 'Approval failed: Before work photo is missing from the worksheet.' });
+    }
+    if (!worksheet.afterPhotos || worksheet.afterPhotos.length === 0) {
+      return res.status(400).json({ success: false, message: 'Approval failed: After work photo is missing from the worksheet.' });
+    }
+    if (!worksheet.customerSignatureUrl) {
+      return res.status(400).json({ success: false, message: 'Approval failed: Customer signature is missing from the worksheet.' });
     }
 
     // Update status

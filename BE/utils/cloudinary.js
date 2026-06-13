@@ -36,6 +36,12 @@ const uploadToCloudinary = async (fileBuffer, fileName) => {
         folder: 'technician_app/work_proofs',
         public_id: `${Date.now()}-${safeName || 'work-proof'}`,
         resource_type: 'auto',
+        fetch_format: 'webp',
+        format: 'webp',
+        transformation: [
+          { width: 1280, crop: 'limit' },
+          { quality: 75 }
+        ]
       },
       (error, result) => {
         if (error) return reject(error);

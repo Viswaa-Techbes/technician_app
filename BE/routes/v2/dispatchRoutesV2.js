@@ -451,58 +451,42 @@ router.post('/otp/complete/:jobId/verify', verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
 
-    // Enforce Phase 8 Worksheet Completion Validation Rules
-    const worksheet = await ServiceWorksheet.findOne({ jobId });
+    // Set OTP verified on the worksheet (initialize worksheet draft if it doesn't exist yet)
+    let worksheet = await ServiceWorksheet.findOne({ jobId });
     if (!worksheet) {
-      return res.status(400).json({ success: false, message: 'Validation failed: Digital Service Worksheet is missing. Please create and submit a worksheet first.' });
-    }
-    if (worksheet.status === 'draft' || worksheet.status === 'in_progress') {
-      return res.status(400).json({ success: false, message: 'Validation failed: Service Worksheet must be submitted before completing the job.' });
-    }
-    if (!worksheet.beforePhotos || worksheet.beforePhotos.length === 0) {
-      return res.status(400).json({ success: false, message: 'Validation failed: Minimum 1 before photo must be uploaded in the worksheet.' });
-    }
-    if (!worksheet.afterPhotos || worksheet.afterPhotos.length === 0) {
-      return res.status(400).json({ success: false, message: 'Validation failed: Minimum 1 after photo must be uploaded in the worksheet.' });
-    }
-    if (!worksheet.customerSignatureUrl) {
-      return res.status(400).json({ success: false, message: 'Validation failed: Customer signature must be captured in the worksheet.' });
-    }
+      let customerId = job.customerId || '';
+      if (!customerId && job.client) {
+        const clientUser = await User.findById(job.client).select('customerId');
+        if (clientUser) {
+          customerId = clientUser.customerId || '';
+        }
+      }
+      if (!customerId) {
+        customerId = `CUS-TEMP-${Math.floor(1000 + Math.random() * 9000)}`;
+      }
 
-    // Set OTP verified on the worksheet
-    worksheet.completionOtpVerified = true;
-    await worksheet.save();
-
-    job.status = 'completed';
-    job.completedAt = new Date();
-    await job.save();
-
-    // Mark technician as ONLINE
-    if (job.assignedTechnician) {
-      await User.findByIdAndUpdate(job.assignedTechnician, {
-        availabilityStatus: 'ONLINE',
-        activeJobId: null,
+      worksheet = new ServiceWorksheet({
+        jobId: job._id,
+        bookingId: job.bookingNumber || job.bookingId || `BOOK-${Math.floor(Date.now() / 1000)}`,
+        customerId: customerId,
+        technicianId: job.assignedTechnician?._id || req.user.id || req.user._id,
+        customerName: job.customerName || 'N/A',
+        customerMobile: job.customerPhone || 'N/A',
+        customerAddress: job.location || 'N/A',
+        serviceType: job.serviceType || 'other',
+        serviceCategory: job.serviceName || job.title || 'Field Service',
+        jobCreatedDate: job.createdAt || new Date(),
+        status: 'draft'
       });
     }
 
-    // Notify client
-    const io = getIo(req);
-    if (job.client) {
-      if (io) io.to(job.client.toString()).emit('jobCompleted', job);
-      await notificationService.createNotification(
-        job.client,
-        '🎉 Job Completed',
-        `Your service for ${job.serviceName || job.title} has been completed.`,
-        'job_completed',
-        io,
-        { jobId: job._id.toString() }
-      );
-    }
+    worksheet.completionOtpVerified = true;
+    await worksheet.save();
 
     res.json({
       success: true,
-      message: 'OTP verified successfully. Job status updated to COMPLETED.',
-      job,
+      message: 'OTP verified successfully. Please capture customer signature and submit worksheet to complete the job.',
+      completionOtpVerified: true
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
