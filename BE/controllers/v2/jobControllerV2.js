@@ -189,6 +189,26 @@ async function updateJobStatus(req, res, next) {
       return res.status(400).json({ success: false, message: `Invalid status. Valid: ${VALID_STATUSES.join(', ')}` });
     }
 
+    if (status === 'completed' || status === 'payment_done') {
+      const ServiceWorksheet = require('../../models/ServiceWorksheet');
+      const worksheet = await ServiceWorksheet.findOne({ jobId: id });
+      if (!worksheet) {
+        return res.status(400).json({ success: false, message: 'Validation failed: Digital Service Worksheet is missing. Please create and submit a worksheet first.' });
+      }
+      if (worksheet.status === 'draft' || worksheet.status === 'in_progress') {
+        return res.status(400).json({ success: false, message: 'Validation failed: Service Worksheet must be submitted before completing the job.' });
+      }
+      if (!worksheet.beforePhotos || worksheet.beforePhotos.length === 0) {
+        return res.status(400).json({ success: false, message: 'Validation failed: Minimum 1 before photo must be uploaded in the worksheet.' });
+      }
+      if (!worksheet.afterPhotos || worksheet.afterPhotos.length === 0) {
+        return res.status(400).json({ success: false, message: 'Validation failed: Minimum 1 after photo must be uploaded in the worksheet.' });
+      }
+      if (!worksheet.customerSignatureUrl) {
+        return res.status(400).json({ success: false, message: 'Validation failed: Customer signature must be captured in the worksheet.' });
+      }
+    }
+
     const updates = { status };
     if (status === 'in_progress' || status === 'started') updates.startedAt = new Date();
     if (status === 'completed' || status === 'payment_done') updates.completedAt = new Date();
