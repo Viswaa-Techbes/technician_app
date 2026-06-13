@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../features/auth/presentation/providers/auth_provider.dart';
+import 'push_notification_service.dart';
 
 import '../core/network/api_config.dart';
 import '../providers/job_providers.dart';

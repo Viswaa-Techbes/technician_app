@@ -38,6 +38,7 @@ const cartRoutesV2 = require('./routes/v2/cartRoutesV2');
 const dispatchRoutesV2 = require('./routes/v2/dispatchRoutesV2');
 const cancellationRoutesV2 = require('./routes/v2/cancellationRoutesV2');
 const routingRoutesV2 = require('./routes/v2/routingRoutesV2');
+const worksheetRoutesV2 = require('./routes/v2/worksheetRoutesV2');
 
 const errorHandler = require('./middlewares/errorHandler');
 
@@ -168,6 +169,7 @@ app.use('/api/v2/admission', admissionRoutesV2);
 app.use('/api/v2/dispatch', dispatchRoutesV2);
 app.use('/api/v2/cancellations', cancellationRoutesV2);
 app.use('/api/v2/routing', routingRoutesV2);
+app.use('/api/v2/worksheets', worksheetRoutesV2);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });

@@ -19,6 +19,7 @@ const dispatchService = require('../../services/dispatchService');
 const Job = require('../../models/Job');
 const User = require('../../models/User');
 const JobRequest = require('../../models/JobRequest');
+const ServiceWorksheet = require('../../models/ServiceWorksheet');
 
 
 // Helper to get io
@@ -449,6 +450,28 @@ router.post('/otp/complete/:jobId/verify', verifyToken, async (req, res) => {
     if (!job) {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
+
+    // Enforce Phase 8 Worksheet Completion Validation Rules
+    const worksheet = await ServiceWorksheet.findOne({ jobId });
+    if (!worksheet) {
+      return res.status(400).json({ success: false, message: 'Validation failed: Digital Service Worksheet is missing. Please create and submit a worksheet first.' });
+    }
+    if (worksheet.status === 'draft' || worksheet.status === 'in_progress') {
+      return res.status(400).json({ success: false, message: 'Validation failed: Service Worksheet must be submitted before completing the job.' });
+    }
+    if (!worksheet.beforePhotos || worksheet.beforePhotos.length === 0) {
+      return res.status(400).json({ success: false, message: 'Validation failed: Minimum 1 before photo must be uploaded in the worksheet.' });
+    }
+    if (!worksheet.afterPhotos || worksheet.afterPhotos.length === 0) {
+      return res.status(400).json({ success: false, message: 'Validation failed: Minimum 1 after photo must be uploaded in the worksheet.' });
+    }
+    if (!worksheet.customerSignatureUrl) {
+      return res.status(400).json({ success: false, message: 'Validation failed: Customer signature must be captured in the worksheet.' });
+    }
+
+    // Set OTP verified on the worksheet
+    worksheet.completionOtpVerified = true;
+    await worksheet.save();
 
     job.status = 'completed';
     job.completedAt = new Date();

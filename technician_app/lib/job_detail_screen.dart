@@ -16,6 +16,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
+import 'screens/worksheet_form_screen.dart';
 import 'dart:math' as math;
 
 class JobDetailScreen extends ConsumerStatefulWidget {
@@ -194,6 +195,8 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                             _buildSectionHeader('Payment Summary'),
                             _buildPaymentCard(),
                             JobDescriptionSection(projectId: widget.job.id),
+                            _buildSectionHeader('Digital Service Worksheet'),
+                            _buildWorksheetCard(),
                             _buildSectionHeader('Project Site Location'),
                             _buildMapCard(),
                             _buildSectionHeader('Technical Documentation'),
@@ -382,6 +385,101 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWorksheetCard() {
+    final bool isStartedOrLater = _currentStatus == JobStatus.started ||
+        _currentStatus == JobStatus.workUploaded ||
+        _currentStatus == JobStatus.completionRequested ||
+        _currentStatus == JobStatus.completed ||
+        _currentStatus == JobStatus.approvedByManager ||
+        _currentStatus == JobStatus.paymentRequested ||
+        _currentStatus == JobStatus.paymentPending ||
+        _currentStatus == JobStatus.paymentDone;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEFF6FF),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.assignment_turned_in_outlined,
+                  color: Color(0xFF2563EB),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Service Worksheet',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      isStartedOrLater
+                          ? 'Fill materials, observation notes, photos, and get customer signature.'
+                          : 'Worksheet will unlock once you start the job.',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (isStartedOrLater) ...[
+            const SizedBox(height: 20),
+            CustomButton(
+              label: "OPEN WORKSHEET FORM",
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => WorksheetFormScreen(job: widget.job),
+                  ),
+                );
+                if (result == true) {
+                  setState(() {
+                    _currentStatus = JobStatus.workUploaded;
+                  });
+                }
+              },
+              color: const Color(0xFF2563EB),
+              icon: Icons.edit_note_rounded,
+            ),
+          ],
         ],
       ),
     );

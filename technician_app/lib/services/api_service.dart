@@ -468,6 +468,34 @@ class ApiService {
     }
     return json;
   }
+
+  // --- Worksheet Endpoints ---
+  Future<Map<String, dynamic>> getWorksheet(String jobId) async {
+    debugPrint('[ApiService] GET $baseUrl/api/v2/worksheets/job/$jobId');
+    final res = await http.get(
+      Uri.parse("$baseUrl/api/v2/worksheets/job/$jobId"),
+      headers: _headers,
+    );
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode < 200 || res.statusCode >= 300 || json['success'] != true) {
+      throw Exception(json['message'] ?? 'Failed to fetch worksheet');
+    }
+    return json['data'] ?? <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> updateWorksheet(String jobId, Map<String, dynamic> data) async {
+    debugPrint('[ApiService] PUT $baseUrl/api/v2/worksheets/job/$jobId');
+    final res = await http.put(
+      Uri.parse("$baseUrl/api/v2/worksheets/job/$jobId"),
+      headers: _headers,
+      body: jsonEncode(data),
+    );
+    final json = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode < 200 || res.statusCode >= 300 || json['success'] != true) {
+      throw Exception(json['message'] ?? 'Failed to update worksheet');
+    }
+    return json['data'] ?? <String, dynamic>{};
+  }
 }
 
 final apiServiceProvider = Provider<ApiService>((ref) {

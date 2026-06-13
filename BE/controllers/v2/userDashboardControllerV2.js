@@ -92,6 +92,7 @@ async function getServiceReports(req, res, next) {
       .lean();
     res.json({ success: true, data: data.map((job) => ({
       jobId: job._id,
+      bookingNumber: job.bookingNumber || job.bookingId || '',
       technician: job.assignedTechnician?.name || 'Unassigned',
       completionDate: job.completedAt || job.updatedAt,
       pdfReport: job.attachments?.[0] || '',
@@ -121,6 +122,7 @@ async function getDashboard(req, res, next) {
         payments,
         serviceReports: reports.map((job) => ({
           jobId: job._id,
+          bookingNumber: job.bookingNumber || job.bookingId || '',
           technician: job.assignedTechnician?.name || 'Unassigned',
           completionDate: job.completedAt || job.updatedAt,
           pdfReport: job.attachments?.[0] || '',
