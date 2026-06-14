@@ -6,6 +6,8 @@ const Attendance = require('../../models/Attendance');
 const Career = require('../../models/Career');
 const Payment = require('../../models/Payment');
 const Address = require('../../models/Address');
+const ServiceWorksheet = require('../../models/ServiceWorksheet');
+const CourseInquiry = require('../../models/CourseInquiry');
 
 function getV2Metadata(job) {
   if (!job?.v2Metadata) return {};
@@ -414,13 +416,119 @@ async function getCustomerById(req, res, next) {
     const customer = await Customer.findById(req.params.id);
     if (!customer) return res.status(404).json({ success: false, message: 'Customer not found' });
     
+    const userId = customer.userId || customer._id;
+
     // Fetch dynamic history
-    const [addresses, bookings, payments, reviews] = await Promise.all([
-      Address.find({ userId: customer.userId || customer._id }),
-      Job.find({ client: customer.userId || customer._id }).sort({ createdAt: -1 }),
-      Payment.find({ userId: customer.userId || customer._id }).sort({ createdAt: -1 }),
-      Review.find({ userId: customer.userId || customer._id }).sort({ createdAt: -1 }),
+    const [addresses, bookings, payments, reviews, inquiries] = await Promise.all([
+      Address.find({ userId }),
+      Job.find({ client: userId }).populate('assignedTechnician', 'name email mobileNumber phone').sort({ createdAt: -1 }),
+      Payment.find({ userId }).sort({ createdAt: -1 }),
+      Review.find({ technicianId: { $ne: null } }).lean(),
+      CourseInquiry.find({
+        $or: [
+          { email: customer.email },
+          { phone: customer.mobileNumber }
+        ]
+      }).sort({ createdAt: -1 })
     ]);
+
+    // Let's get worksheets for customer jobs
+    const jobIds = bookings.map(b => b._id);
+    const worksheets = await ServiceWorksheet.find({ jobId: { $in: jobIds } }).lean();
+
+    // Filter reviews belonging to this customer's bookings
+    const customerReviews = reviews.filter(r => 
+      r.jobId && jobIds.map(id => id.toString()).includes(r.jobId.toString())
+    );
+
+    // Calculate Financial Summary
+    let totalRevenue = 0;
+    let pendingPayments = 0;
+    let refunds = 0;
+
+    payments.forEach(p => {
+      const amountInRs = Math.round(p.amount / 100);
+      if (['paid', 'verified', 'processing'].includes(p.status)) {
+        totalRevenue += amountInRs;
+      } else if (p.status === 'refunded') {
+        refunds += amountInRs;
+      }
+    });
+
+    bookings.forEach(j => {
+      if (j.status !== 'cancelled' && ['pending', 'unpaid'].includes(j.paymentStatus || 'pending')) {
+        pendingPayments += (j.price || j.amount || 0);
+      }
+    });
+
+    // Build timeline events
+    const timeline = [];
+
+    // Account Created
+    timeline.push({
+      type: 'Account Created',
+      date: customer.createdAt,
+      description: `Customer account registered on platform.`
+    });
+
+    // Bookings Created
+    bookings.forEach(b => {
+      timeline.push({
+        type: 'Booking Created',
+        date: b.createdAt,
+        description: `Booking for ${b.serviceName || b.title || 'Service'} created (Booking ID: ${b.bookingNumber || b.bookingId || b._id}).`
+      });
+      
+      // If completed
+      if (b.completedAt || b.status === 'completed') {
+        timeline.push({
+          type: 'Service Completed',
+          date: b.completedAt || b.updatedAt,
+          description: `Booking ${b.bookingNumber || b._id} was completed.`
+        });
+      }
+    });
+
+    // Payments Made
+    payments.forEach(p => {
+      timeline.push({
+        type: 'Payment Made',
+        date: p.createdAt,
+        description: `Payment of ₹${Math.round(p.amount / 100)} initiated. Status: ${p.status.toUpperCase()}.`
+      });
+    });
+
+    // Cancellations
+    bookings.forEach(b => {
+      if (b.status === 'cancelled') {
+        timeline.push({
+          type: 'Cancellation',
+          date: b.cancellation?.cancelledAt || b.updatedAt,
+          description: `Booking ${b.bookingNumber || b._id} cancelled. Reason: ${b.cancellation?.reason || 'Client request'}.`
+        });
+      }
+    });
+
+    // Ratings Submitted
+    customerReviews.forEach(r => {
+      timeline.push({
+        type: 'Rating Submitted',
+        date: r.createdAt || r.timestamp,
+        description: `Submitted rating ★ ${r.rating} with review: "${r.comment || 'No comment left'}"`
+      });
+    });
+
+    // Support Requests (Inquiries)
+    inquiries.forEach(inq => {
+      timeline.push({
+        type: 'Support Request',
+        date: inq.createdAt,
+        description: `Inquiry message submitted: "${inq.message || ''}". Status: ${inq.status.toUpperCase()}.`
+      });
+    });
+
+    // Sort timeline by date descending
+    timeline.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     return res.json({
       success: true,
@@ -429,14 +537,22 @@ async function getCustomerById(req, res, next) {
         addresses,
         bookingHistory: bookings,
         paymentHistory: payments,
-        feedbackHistory: reviews,
+        feedbackHistory: customerReviews,
+        worksheets,
         cancellationHistory: bookings.filter(b => b.status === 'cancelled').map(b => ({
           jobId: b._id,
-          bookingNumber: b.bookingNumber,
+          bookingNumber: b.bookingNumber || b.bookingId || b._id,
           reason: b.cancellation?.reason || 'Not provided',
           cancelledAt: b.cancellation?.cancelledAt || b.updatedAt,
           cancelledBy: b.cancellation?.cancelledBy || 'Unknown',
         })),
+        financialSummary: {
+          totalBookings: bookings.length,
+          totalRevenueGenerated: totalRevenue,
+          pendingPayments,
+          refunds
+        },
+        timeline
       }
     });
   } catch (err) {
