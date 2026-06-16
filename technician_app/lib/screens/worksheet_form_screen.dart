@@ -1012,9 +1012,11 @@ class _WorksheetFormScreenState extends ConsumerState<WorksheetFormScreen> {
 
   Widget _buildBottomNavBar() {
     return Container(
-      color: Colors.white,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+      ),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
-      border: const Border(top: BorderSide(color: Color(0xFFE2E8F0))),
       child: Row(
         children: [
           if (_currentStep > 0)

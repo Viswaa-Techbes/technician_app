@@ -228,6 +228,10 @@ router.get('/technician-penalties', verifyToken, requireAdmin, async (req, res) 
       'penalties.0': { $exists: true },
     })
       .select('name phone penalties penaltyPoints performanceScore')
+      .populate({
+        path: 'penalties.jobId',
+        select: 'bookingNumber customerName customerPhone title serviceName status'
+      })
       .sort({ penaltyPoints: -1 })
       .lean();
 

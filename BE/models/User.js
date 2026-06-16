@@ -142,6 +142,7 @@ const userSchema = new mongoose.Schema(
         reason: { type: String, default: '' },
         penaltyDate: { type: Date, default: Date.now },
         jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job', default: null },
+        status: { type: String, enum: ['pending', 'paid', 'waived'], default: 'pending' },
       }],
       default: [],
     },
@@ -199,10 +200,46 @@ const userSchema = new mongoose.Schema(
 
 userSchema.index({ email: 1 }, { unique: true, sparse: true });
 
+function syncStatusesHelper(obj) {
+  if (obj.availabilityStatus) {
+    if (obj.availabilityStatus === 'ONLINE') {
+      obj.isOnline = true;
+      obj.status = 'available';
+    } else if (obj.availabilityStatus === 'OFFLINE') {
+      obj.isOnline = false;
+      obj.status = 'offline';
+    } else if (obj.availabilityStatus === 'BUSY') {
+      obj.isOnline = true;
+      obj.status = 'busy';
+    }
+  } else if (obj.status) {
+    if (obj.status === 'available') {
+      obj.isOnline = true;
+      obj.availabilityStatus = 'ONLINE';
+    } else if (obj.status === 'offline') {
+      obj.isOnline = false;
+      obj.availabilityStatus = 'OFFLINE';
+    } else if (obj.status === 'busy') {
+      obj.isOnline = true;
+      obj.availabilityStatus = 'BUSY';
+    }
+  } else if (obj.isOnline !== undefined) {
+    if (obj.isOnline) {
+      obj.status = 'available';
+      obj.availabilityStatus = 'ONLINE';
+    } else {
+      obj.status = 'offline';
+      obj.availabilityStatus = 'OFFLINE';
+    }
+  }
+}
+
 userSchema.pre('validate', async function normalizeBlankEmail(next) {
   if (typeof this.email === 'string' && this.email.trim() === '') {
     this.email = undefined;
   }
+
+  syncStatusesHelper(this);
 
   // Auto-generate employeeId / employeeCode for employees
   if (['technician', 'manager', 'admin'].includes(this.role)) {
@@ -242,6 +279,28 @@ userSchema.pre('validate', async function normalizeBlankEmail(next) {
     }
   }
 
+  next();
+});
+
+userSchema.pre('findOneAndUpdate', function(next) {
+  const update = this.getUpdate();
+  if (update) {
+    syncStatusesHelper(update);
+    if (update.$set) {
+      syncStatusesHelper(update.$set);
+    }
+  }
+  next();
+});
+
+userSchema.pre('updateOne', function(next) {
+  const update = this.getUpdate();
+  if (update) {
+    syncStatusesHelper(update);
+    if (update.$set) {
+      syncStatusesHelper(update.$set);
+    }
+  }
   next();
 });
 
@@ -288,6 +347,7 @@ userSchema.methods.toSafeObject = function toSafeObject() {
     phone: this.phone,
     isOnline: this.isOnline,
     status: this.status,
+    availabilityStatus: this.availabilityStatus,
     specialty: this.specialty,
     assignedManager: this.assignedManager,
     employeeId: this.employeeId,
@@ -298,6 +358,12 @@ userSchema.methods.toSafeObject = function toSafeObject() {
     skills: this.skills,
     joiningDate: this.joiningDate,
     employeeStatus: this.employeeStatus,
+    rating: this.rating,
+    completedJobs: this.completedJobs,
+    totalEarnings: this.totalEarnings,
+    performanceScore: this.performanceScore,
+    penaltyPoints: this.penaltyPoints,
+    penalties: this.penalties,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };

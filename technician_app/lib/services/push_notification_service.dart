@@ -36,11 +36,11 @@ class PushNotificationService {
     String? token = await _fcm.getToken();
     if (token != null) {
       debugPrint('[PushNotificationService] FCM Token: $token');
-      await _saveTokenToBackend(token);
+      await saveTokenToBackend(token);
     }
 
     // Listen to token refresh
-    _fcm.onTokenRefresh.listen(_saveTokenToBackend);
+    _fcm.onTokenRefresh.listen(saveTokenToBackend);
 
     // Handle Foreground Messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
@@ -55,7 +55,18 @@ class PushNotificationService {
     });
   }
 
-  Future<void> _saveTokenToBackend(String token) async {
+  Future<void> syncToken() async {
+    try {
+      String? token = await _fcm.getToken();
+      if (token != null) {
+        await saveTokenToBackend(token);
+      }
+    } catch (e) {
+      debugPrint('[PushNotificationService] Error getting token: $e');
+    }
+  }
+
+  Future<void> saveTokenToBackend(String token) async {
     try {
       final api = _ref.read(apiServiceProvider);
       await api.updateFcmToken(token);

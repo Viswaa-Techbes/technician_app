@@ -41,12 +41,12 @@ async function registerUser(userData) {
     throw new Error('phone is required');
   }
 
-  if (!email || !password) {
-    throw new Error('email and password are required');
+  if (!password) {
+    throw new Error('password is required');
   }
 
   const normalizedMobile = String(mobileNumber || phone).trim();
-  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+  const normalizedEmail = typeof email === 'string' && email.trim() ? email.trim().toLowerCase() : '';
 
   const existing = await User.findOne({ mobileNumber: normalizedMobile });
   if (existing) {

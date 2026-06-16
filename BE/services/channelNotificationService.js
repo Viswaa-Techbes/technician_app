@@ -118,6 +118,21 @@ async function sendPush({ userId, title, body, data = {} }) {
 // ─── Notification Types & Templates ────────────────────────────────────────────
 
 const NOTIFICATION_TEMPLATES = {
+  dispatch_failed: {
+    subject: '⚠️ Dispatch Failed – TechBes',
+    getBody: (data) =>
+      `Admin Alert: Dispatch failed for job #${data.jobId || ''}. No technicians could be assigned.`,
+  },
+  booking_created: {
+    subject: 'Booking Confirmed – TechBes',
+    getBody: (data) =>
+      `Hi ${data.customerName || 'Customer'}, your booking request for ${data.serviceName || 'service'} has been confirmed. Reference: #${data.bookingId || data.jobId || ''}`,
+  },
+  status_update: {
+    subject: 'Job Status Updated – TechBes',
+    getBody: (data) =>
+      `Your job status has been updated. Reference: #${data.bookingId || data.jobId || ''}`,
+  },
   booking_requested: {
     subject: 'Booking Requested – TechBes',
     getBody: (data) =>

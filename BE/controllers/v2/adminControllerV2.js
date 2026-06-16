@@ -163,7 +163,7 @@ async function getServiceRequestById(req, res, next) {
  */
 async function getDashboard(req, res, next) {
   try {
-    const [userCounts, jobCounts, leadsCount, liveTechnicians, pendingRequests, paymentQueue, reviews, revenueAgg, upcomingJobs] = await Promise.all([
+    const [userCounts, jobCounts, leadsCount, liveTechnicians, pendingRequests, paymentQueue, reviews, revenueAgg, upcomingJobs, penaltyAgg] = await Promise.all([
       User.aggregate([
         { $match: { isDeleted: { $ne: true } } },
         { $group: { _id: '$role', count: { $sum: 1 } } },
@@ -182,6 +182,10 @@ async function getDashboard(req, res, next) {
         { $group: { _id: null, total: { $sum: '$amount' } } },
       ]),
       Job.find({ status: { $in: ['confirmed', 'assigned', 'travelling', 'arrived'] } }).limit(5).populate('assignedTechnician', 'name').lean(),
+      User.aggregate([
+        { $unwind: '$penalties' },
+        { $group: { _id: null, count: { $sum: 1 }, totalAmount: { $sum: '$penalties.amount' } } }
+      ])
     ]);
 
     const usersByRole = userCounts.reduce((acc, row) => {
@@ -211,6 +215,12 @@ async function getDashboard(req, res, next) {
           paymentQueue: paymentQueue.length,
           pendingPayments: paymentQueue.length,
           upcomingJobs: upcomingJobs.length,
+          pendingRequests: jobsByStatus.pending || 0,
+          assignedJobs: jobsByStatus.assigned || 0,
+          inProgressJobs: (jobsByStatus.started || 0) + (jobsByStatus.in_progress || 0) + (jobsByStatus.work_uploaded || 0) + (jobsByStatus.travelling || 0) + (jobsByStatus.arrived || 0) + (jobsByStatus.accepted || 0),
+          cancelledJobs: jobsByStatus.cancelled || 0,
+          penalties: penaltyAgg[0]?.count || 0,
+          penaltiesAmount: penaltyAgg[0]?.totalAmount || 0,
         },
         usersByRole,
         jobsByStatus,

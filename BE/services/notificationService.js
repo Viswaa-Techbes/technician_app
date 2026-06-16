@@ -28,6 +28,20 @@ async function createNotification(userId, title, message, type = 'general', io =
 
     const bookingId = extraData?.jobId || extraData?.bookingId || null;
 
+    // Deduplication check: check if an identical notification was created within the last 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const existingNotification = await Notification.findOne({
+      userId,
+      title,
+      message,
+      createdAt: { $gte: fiveMinutesAgo }
+    }).lean();
+
+    if (existingNotification) {
+      console.log(`[NotificationService] Deduplicated notification for user ${userId}: "${title}"`);
+      return existingNotification;
+    }
+
     // Persist to DB
     const notification = await Notification.create({
       userId,

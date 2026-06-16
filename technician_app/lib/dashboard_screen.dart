@@ -143,6 +143,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<List<IncomingJobRequest>>(incomingRequestsProvider, (previous, next) {
+      if (next.isNotEmpty && (previous == null || next.length > previous.length)) {
+        final newRequest = next.last;
+        showGeneralDialog(
+          context: context,
+          barrierDismissible: false,
+          barrierColor: Colors.black.withOpacity(0.9),
+          transitionDuration: const Duration(milliseconds: 300),
+          pageBuilder: (context, animation1, animation2) {
+            return UberJobPopup(request: newRequest);
+          },
+        );
+      }
+    });
+
     final jobsAsync = ref.watch(jobsProvider(null));
 
     return Scaffold(
@@ -225,7 +240,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 const SizedBox(height: 48),
                 _buildSectionHeader("ACTIVE PROJECTS"),
                 const SizedBox(height: 16),
-                _buildStaggeredHorizontalTasks(context, jobs),
+                _buildStaggeredHorizontalTasks(context, jobs.where((j) => j.status != JobStatus.completed && j.status != JobStatus.paymentDone && j.status != JobStatus.cancelled).toList()),
                 const SizedBox(height: 40),
               ],
             ),
@@ -539,5 +554,342 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void dispose() {
     _trackingTimer?.cancel();
     super.dispose();
+  }
+}
+
+class UberJobPopup extends ConsumerStatefulWidget {
+  final IncomingJobRequest request;
+  const UberJobPopup({super.key, required this.request});
+
+  @override
+  ConsumerState<UberJobPopup> createState() => _UberJobPopupState();
+}
+
+class _UberJobPopupState extends ConsumerState<UberJobPopup> with SingleTickerProviderStateMixin {
+  late Timer _timer;
+  int _secondsLeft = 30;
+  late AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _calculateSecondsLeft();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _calculateSecondsLeft();
+        });
+        if (_secondsLeft <= 0) {
+          _declineAndClose();
+        }
+      }
+    });
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+  }
+
+  void _calculateSecondsLeft() {
+    final diff = widget.request.expiresAt.difference(DateTime.now()).inSeconds;
+    _secondsLeft = diff > 0 ? diff : 0;
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _accept() async {
+    final api = ref.read(apiServiceProvider);
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+      await api.acceptJobRequest(widget.request.jobId);
+      if (mounted) {
+        Navigator.pop(context); // Dismiss loading
+        ref.read(incomingRequestsProvider.notifier).removeRequest(widget.request.jobId);
+        ref.invalidate(jobsProvider(null));
+        Navigator.pop(context); // Close full screen popup
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('🎉 Job request accepted successfully!'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Dismiss loading
+        Navigator.pop(context); // Close popup
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to accept: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _declineAndClose() async {
+    final api = ref.read(apiServiceProvider);
+    try {
+      await api.rejectJobRequest(widget.request.jobId, reason: 'Declined by technician');
+    } catch (e) {
+      debugPrint('Error rejecting request: $e');
+    }
+    if (mounted) {
+      ref.read(incomingRequestsProvider.notifier).removeRequest(widget.request.jobId);
+      Navigator.pop(context); // Close popup
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = _secondsLeft / 30.0;
+
+    return PopScope(
+      canPop: false, // Prevent dismissing by back button
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0F172A), // Premium Dark slate
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 20),
+                ScaleTransition(
+                  scale: Tween<double>(begin: 0.95, end: 1.05).animate(
+                    CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E293B),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF6366F1).withOpacity(0.3),
+                          blurRadius: 20,
+                          spreadRadius: 5,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.electric_bolt_rounded,
+                      color: Colors.amber,
+                      size: 48,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'NEW JOB REQUEST',
+                  style: TextStyle(
+                    color: Color(0xFF818CF8),
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  widget.request.serviceName,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.extrabold,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Customer: ${widget.request.customerName}',
+                  style: const TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const Spacer(),
+                // Estimated Earnings Card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: const Color(0xFF334155)),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'ESTIMATED EARNINGS',
+                        style: TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '₹${widget.request.amount.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 42,
+                          fontWeight: FontWeight.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Location Details Card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B).withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFF334155).withOpacity(0.5)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on_rounded, color: Color(0xFF818CF8)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.request.address,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Distance: ${widget.request.distanceKm} km away',
+                                  style: const TextStyle(
+                                    color: Color(0xFF94A3B8),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          const Icon(Icons.calendar_today_rounded, color: Color(0xFF818CF8), size: 20),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Schedule: ${widget.request.date} · ${widget.request.timeSlot}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                // Circular Countdown Timer
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      height: 80,
+                      width: 80,
+                      child: CircularProgressIndicator(
+                        value: progress.clamp(0.0, 1.0),
+                        strokeWidth: 6,
+                        backgroundColor: const Color(0xFF334155),
+                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.redAccent),
+                      ),
+                    ),
+                    Text(
+                      '${_secondsLeft}s',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                // Actions
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _declineAndClose,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          side: const BorderSide(color: Colors.redAccent, width: 2),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: const Text(
+                          'REJECT',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _accept,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF10B981), // Emerald green
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 4,
+                          shadowColor: const Color(0xFF10B981).withOpacity(0.3),
+                        ),
+                        child: const Text(
+                          'ACCEPT',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -62,6 +62,18 @@ async function createBooking(req, res, next) {
         }
       );
     }
+    // Trigger auto-dispatch in the background
+    setImmediate(async () => {
+      try {
+        console.log(`[jobControllerV2] Triggering auto-dispatch for job ${job._id}`);
+        const dispatchService = require('../../services/dispatchService');
+        const io = req.app.get('io') || global._socketIo || null;
+        const dispatchResult = await dispatchService.autoAssignTechnician(job._id, io);
+        console.log(`[jobControllerV2] Dispatch result for job ${job._id}:`, dispatchResult.method || dispatchResult.reason);
+      } catch (dispatchErr) {
+        console.error('[jobControllerV2] Auto-dispatch failed (non-critical):', dispatchErr.message);
+      }
+    });
 
     res.status(201).json({ success: true, data: job, module });
   } catch (err) {

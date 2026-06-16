@@ -162,7 +162,12 @@ async function getJobPincode(job) {
 
 // ─── Get customer coordinates for a job ──────────────────────────────────────
 async function getJobCustomerCoords(job) {
-  // Try addressId first
+  // Try root-level coordinates first if available
+  if (job.latitude && job.longitude) {
+    return { lat: Number(job.latitude), lng: Number(job.longitude) };
+  }
+
+  // Try addressId next
   if (job.addressId) {
     const Address = require('../models/Address');
     const addr = await Address.findById(job.addressId).lean();

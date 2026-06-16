@@ -67,6 +67,11 @@ class RootGate extends ConsumerWidget {
       return const LoginScreen();
     }
 
+    // Sync FCM push token to the backend once authenticated
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(pushNotificationServiceProvider).syncToken();
+    });
+
     if (user.role == Role.manager) {
       return const ManagerMainScreen();
     } else {

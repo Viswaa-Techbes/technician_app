@@ -44,14 +44,12 @@ async function login(req, res, next) {
 
 async function register(req, res, next) {
   try {
-    const email = normalizeEmail(req.body.email);
+    const email = req.body.email ? normalizeEmail(req.body.email) : undefined;
 
-    if (!email) {
-      return res.status(400).json({ success: false, message: 'Email is required' });
+    const { token, user } = await authService.registerUser({ ...req.body, email, userType: 'web_user', role: req.body.role || 'client' });
+    if (email) {
+      await OtpVerification.deleteMany({ email, purpose: 'register' });
     }
-
-    const { token, user } = await authService.registerUser({ ...req.body, email, userType: 'web_user', role: 'client' });
-    await OtpVerification.deleteMany({ email, purpose: 'register' });
 
     return res.status(201).json({
       success: true,
@@ -167,6 +165,12 @@ async function verifyOtp(req, res) {
 }
 
 async function me(req, res) {
+  if (req.authUser && req.authUser.role === 'technician') {
+    await req.authUser.populate({
+      path: 'penalties.jobId',
+      select: 'bookingNumber customerName customerPhone title serviceName status'
+    });
+  }
   return res.json({
     success: true,
     data: req.authUser.toSafeObject(),

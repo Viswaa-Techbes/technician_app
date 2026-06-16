@@ -1,7 +1,7 @@
 import 'core/security/rbac_constants.dart';
 export 'core/security/rbac_constants.dart';
 
-enum JobStatus { assigned, started, workUploaded, completionRequested, approvedByManager, paymentRequested, paymentPending, paymentDone, completed }
+enum JobStatus { assigned, started, workUploaded, completionRequested, approvedByManager, paymentRequested, paymentPending, paymentDone, completed, cancelled }
 
 enum PaymentStatus { pending, requested, pendingPayment, verificationPending, paid, rejected }
 
@@ -132,6 +132,7 @@ class Job {
     if (s == 'payment_pending') status = JobStatus.paymentPending;
     if (s == 'payment_done') status = JobStatus.paymentDone;
     if (s == 'completed' || s == 'done') status = JobStatus.completed;
+    if (s == 'cancelled') status = JobStatus.cancelled;
 
     PaymentStatus paymentStatus = PaymentStatus.pending;
     final payment = data['paymentStatus'] as String?;

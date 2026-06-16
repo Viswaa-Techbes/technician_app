@@ -483,10 +483,42 @@ router.post('/otp/complete/:jobId/verify', verifyToken, async (req, res) => {
     worksheet.completionOtpVerified = true;
     await worksheet.save();
 
+    job.status = 'completed';
+    job.completedAt = new Date();
+    await job.save();
+
+    if (job.assignedTechnician) {
+      await User.findByIdAndUpdate(job.assignedTechnician, {
+        availabilityStatus: 'ONLINE',
+        activeJobId: null,
+        $inc: { completedJobs: 1 }
+      });
+    }
+
+    const io = global._socketIo || req.app.get('io') || null;
+    if (io) {
+      io.emit('jobStatusUpdated', { jobId: job._id.toString(), status: 'completed', note: 'OTP completion verified' });
+      if (job.client) {
+        io.to(job.client.toString()).emit('jobCompleted', job);
+      }
+    }
+
+    if (job.client) {
+      await notificationService.createNotification(
+        job.client,
+        'Service Completed',
+        `Your service request for ${job.serviceName || job.title} has been completed.`,
+        'job_completed',
+        io,
+        { jobId: job._id.toString() }
+      );
+    }
+
     res.json({
       success: true,
-      message: 'OTP verified successfully. Please capture customer signature and submit worksheet to complete the job.',
-      completionOtpVerified: true
+      message: 'OTP verified successfully. Job completed.',
+      completionOtpVerified: true,
+      job
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

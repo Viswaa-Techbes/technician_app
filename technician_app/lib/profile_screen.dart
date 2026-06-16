@@ -9,6 +9,8 @@ import 'features/reviews/providers/review_providers.dart';
 import 'features/reviews/services/review_service.dart';
 import 'features/reviews/screens/technician_reviews_screen.dart';
 import 'login_screen.dart';
+import 'screens/penalties_screen.dart';
+import 'screens/cancelled_jobs_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -93,12 +95,20 @@ class ProfileScreen extends ConsumerWidget {
                           ),
                           const SizedBox(width: 16),
                           Expanded(
-                            child: _buildMetricTile(
-                              context,
-                              penaltyPoints.toString(),
-                              "Penalties",
-                              Icons.warning_amber_rounded,
-                              penaltyPoints > 0 ? const Color(0xFFEF4444) : const Color(0xFF64748B),
+                            child: GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const PenaltiesScreen()),
+                                );
+                              },
+                              child: _buildMetricTile(
+                                context,
+                                penaltyPoints.toString(),
+                                "Penalties",
+                                Icons.warning_amber_rounded,
+                                penaltyPoints > 0 ? const Color(0xFFEF4444) : const Color(0xFF64748B),
+                              ),
                             ),
                           ),
                         ],
@@ -127,6 +137,24 @@ class ProfileScreen extends ConsumerWidget {
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(builder: (context) => const AccountDetailsScreen()),
+                        ),
+                      ),
+                      _buildMenuAction(
+                        Icons.warning_amber_rounded,
+                        "My Penalties",
+                        "View applied penalties and status",
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const PenaltiesScreen()),
+                        ),
+                      ),
+                      _buildMenuAction(
+                        Icons.cancel_schedule_send_rounded,
+                        "Cancelled Projects",
+                        "View cancelled service bookings",
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const CancelledJobsScreen()),
                         ),
                       ),
                       _buildMenuAction(Icons.lock_outline_rounded, "Privacy & Security", "Password and biometric lock"),

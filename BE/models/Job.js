@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+require('./JobStatusHistory');
 
 const JOB_STATUSES = [
   'pending',
@@ -396,6 +397,58 @@ jobSchema.index({ assignedTechnician: 1, status: 1 });
 jobSchema.index({ assignedManager: 1, createdAt: -1 });
 jobSchema.index({ 'cctvDetails.category.slug': 1, 'cctvDetails.subcategory.slug': 1 });
 jobSchema.index({ 'cctvDetails.cameraType.slug': 1, status: 1, paymentStatus: 1 });
+
+// Automatically audit job status changes
+jobSchema.pre('save', function(next) {
+  if (this.isModified('status')) {
+    this._wasStatusModified = true;
+  }
+  next();
+});
+
+jobSchema.post('save', async function(doc) {
+  if (doc._wasStatusModified) {
+    try {
+      const JobStatusHistory = mongoose.model('JobStatusHistory');
+      await JobStatusHistory.create({
+        jobId: doc._id,
+        status: doc.status,
+        changedBy: doc.assignedTechnician || null,
+        note: 'Status updated',
+      });
+    } catch (err) {
+      console.error('[JobStatusHistory] Error logging pre-save status change:', err);
+    }
+  }
+});
+
+jobSchema.pre('findOneAndUpdate', async function() {
+  const update = this.getUpdate();
+  let status = null;
+  if (update) {
+    if (update.status) status = update.status;
+    else if (update.$set && update.$set.status) status = update.$set.status;
+  }
+  if (status) {
+    this._newStatusForHistory = status;
+  }
+});
+
+jobSchema.post('findOneAndUpdate', async function(doc) {
+  if (doc && this._newStatusForHistory) {
+    try {
+      const JobStatusHistory = mongoose.model('JobStatusHistory');
+      await JobStatusHistory.create({
+        jobId: doc._id,
+        status: this._newStatusForHistory,
+        changedBy: doc.assignedTechnician || null,
+        note: 'Status updated',
+      });
+    } catch (err) {
+      console.error('[JobStatusHistory] Error logging query status change:', err);
+    }
+  }
+});
 
 module.exports = mongoose.model('Job', jobSchema);
 module.exports.JOB_STATUSES = JOB_STATUSES;
