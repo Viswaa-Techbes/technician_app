@@ -177,6 +177,11 @@ class StatusChip extends StatelessWidget {
         label = 'COMPLETED';
         icon = Icons.task_alt_rounded;
         break;
+      case JobStatus.cancelled:
+        color = const Color(0xFFEF4444);
+        label = 'CANCELLED';
+        icon = Icons.cancel_rounded;
+        break;
     }
 
     return Container(

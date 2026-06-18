@@ -1490,6 +1490,8 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
           color: const Color(0xFFF59E0B),
           icon: Icons.star_rounded,
         );
+      case JobStatus.cancelled:
+        return const SizedBox();
     }
   }
 }

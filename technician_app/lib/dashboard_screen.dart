@@ -701,7 +701,7 @@ class _UberJobPopupState extends ConsumerState<UberJobPopup> with SingleTickerPr
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 28,
-                    fontWeight: FontWeight.extrabold,
+                    fontWeight: FontWeight.w800,
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -741,7 +741,7 @@ class _UberJobPopupState extends ConsumerState<UberJobPopup> with SingleTickerPr
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 42,
-                          fontWeight: FontWeight.black,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     ],
