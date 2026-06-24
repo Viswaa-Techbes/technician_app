@@ -160,7 +160,7 @@ class _WorksheetViewerScreenState extends ConsumerState<WorksheetViewerScreen> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.slate.shade900,
+                    color: Colors.blueGrey.shade900,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Column(
@@ -180,15 +180,15 @@ class _WorksheetViewerScreenState extends ConsumerState<WorksheetViewerScreen> {
                       const SizedBox(height: 10),
                       Text(
                         'Booking: ${_worksheet!['bookingId']}',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.extrabold, fontSize: 16),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16),
                       ),
                       const SizedBox(height: 4),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.between,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
                             'Status: ${status.toString().toUpperCase()}',
-                            style: const TextStyle(color: Colors.emerald, fontWeight: FontWeight.bold, fontSize: 12),
+                            style: const TextStyle(color: const Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 12),
                           ),
                           Text(
                             _worksheet!['completionOtpVerified'] == true ? 'OTP Verified' : 'Standard Handover',
@@ -296,7 +296,7 @@ class _WorksheetViewerScreenState extends ConsumerState<WorksheetViewerScreen> {
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(color: Colors.slate.shade50, borderRadius: BorderRadius.circular(8)),
+                          decoration: BoxDecoration(color: Colors.blueGrey.shade50, borderRadius: BorderRadius.circular(8)),
                           child: Text(_worksheet!['requestedWorkDescription'] ?? 'Standard CCTV Setup.', style: const TextStyle(fontSize: 12.5)),
                         ),
                         const SizedBox(height: 12),
@@ -305,8 +305,8 @@ class _WorksheetViewerScreenState extends ConsumerState<WorksheetViewerScreen> {
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(color: Colors.slate.shade50, borderRadius: BorderRadius.circular(8)),
-                          child: Text(_worksheet!['technicianObservations'] ?? 'No findings logged.', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.slate.shade800)),
+                          decoration: BoxDecoration(color: Colors.blueGrey.shade50, borderRadius: BorderRadius.circular(8)),
+                          child: Text(_worksheet!['technicianObservations'] ?? 'No findings logged.', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.blueGrey.shade800)),
                         ),
                       ],
                     ),
@@ -337,7 +337,7 @@ class _WorksheetViewerScreenState extends ConsumerState<WorksheetViewerScreen> {
                                 },
                                 children: [
                                   TableRow(
-                                    decoration: BoxDecoration(color: Colors.slate.shade900),
+                                    decoration: BoxDecoration(color: Colors.blueGrey.shade900),
                                     children: const [
                                       TableCell(child: Padding(padding: EdgeInsets.all(8.0), child: Text('Item', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)))),
                                       TableCell(child: Padding(padding: EdgeInsets.all(8.0), child: Text('Qty', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)))),
@@ -421,14 +421,14 @@ class _WorksheetViewerScreenState extends ConsumerState<WorksheetViewerScreen> {
                 // Invoice Summary panel
                 Card(
                   elevation: 0,
-                  color: Colors.slate.shade50,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.slate.shade200)),
+                  color: Colors.blueGrey.shade50,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.blueGrey.shade200)),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.between,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text('Labour Charges', style: TextStyle(color: AppTheme.textSecondaryColor)),
                             Text('₹${labourCost.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -436,7 +436,7 @@ class _WorksheetViewerScreenState extends ConsumerState<WorksheetViewerScreen> {
                         ),
                         const SizedBox(height: 6),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.between,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text('Materials Subtotal', style: TextStyle(color: AppTheme.textSecondaryColor)),
                             Text('₹${materialCost.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -444,10 +444,10 @@ class _WorksheetViewerScreenState extends ConsumerState<WorksheetViewerScreen> {
                         ),
                         const Divider(height: 16),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.between,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Total Billed amount', style: TextStyle(fontWeight: FontWeight.extrabold, fontSize: 14)),
-                            Text('₹${totalCost.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.extrabold, fontSize: 16, color: AppTheme.primaryColor)),
+                            const Text('Total Billed amount', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                            Text('₹${totalCost.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.primaryColor)),
                           ],
                         ),
                       ],
@@ -493,17 +493,19 @@ class _WorksheetViewerScreenState extends ConsumerState<WorksheetViewerScreen> {
         InkWell(
           onTap: hasPhoto ? () => _openLightbox(photoUrl) : null,
           borderRadius: BorderRadius.circular(12),
-          child: Container(
+          child: AspectRatio(
             aspectRatio: 1,
-            decoration: BoxDecoration(
-              color: Colors.slate.shade100,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.borderColor),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.blueGrey.shade100,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.borderColor),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: hasPhoto
+                  ? Image.network(photoUrl, fit: BoxFit.cover)
+                  : const Icon(Icons.camera_alt_outlined, color: Colors.blueGrey, size: 20),
             ),
-            clipBehavior: Clip.antiAlias,
-            child: hasPhoto
-                ? Image.network(photoUrl, fit: BoxFit.cover)
-                : const Icon(Icons.camera_alt_outlined, color: Colors.slate, size: 20),
           ),
         ),
       ],

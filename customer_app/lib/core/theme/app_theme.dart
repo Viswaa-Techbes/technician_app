@@ -19,7 +19,7 @@ class AppTheme {
       cardColor: cardColor,
       fontFamily: 'Segoe UI',
       textTheme: const TextTheme(
-        headlineLarge: TextStyle(fontSize: 28, fontWeight: FontWeight.extrabold, color: textPrimaryColor, letterSpacing: -0.5),
+        headlineLarge: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: textPrimaryColor, letterSpacing: -0.5),
         headlineMedium: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textPrimaryColor, letterSpacing: -0.3),
         titleLarge: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: textPrimaryColor),
         titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textPrimaryColor),

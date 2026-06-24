@@ -152,7 +152,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       
       _nameController.text = addr['name'] ?? _nameController.text;
       _phoneController.text = addr['mobile'] ?? _phoneController.text;
-      _addressController.text = addr['address'] ?? [addr['addressLine1'], addr['addressLine2']].filter((s) => s != null).join(', ');
+      _addressController.text = addr['address'] ?? [addr['addressLine1'], addr['addressLine2']].where((s) => s != null).join(', ');
       _pincode = addr['pincode'] ?? '';
       _city = addr['city'] ?? '';
       _state = addr['state'] ?? '';
@@ -407,7 +407,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               const SizedBox(height: 24),
               const Text(
                 'Booking Confirmed!',
-                style: TextStyle(fontWeight: FontWeight.extrabold, fontSize: 18, color: AppTheme.textPrimaryColor),
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppTheme.textPrimaryColor),
               ),
               const SizedBox(height: 8),
               const Text(
@@ -681,7 +681,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.between,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(item.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                                     Text('₹${(item.priceValue).toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
@@ -691,7 +691,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                 if (materialsList.isNotEmpty) ...[
                                   const SizedBox(height: 4),
                                   ...materialsList.map((m) => Row(
-                                        mainAxisAlignment: MainAxisAlignment.between,
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text('  • ${m['name']} ×${m['qty']}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
                                           Text('₹${(m['total'] as num).toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
@@ -704,18 +704,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         }),
                         const Divider(height: 16),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.between,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text('Grand Total', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                            Text('₹${total.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.extrabold, fontSize: 16, color: AppTheme.textPrimaryColor)),
+                            Text('₹${total.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.textPrimaryColor)),
                           ],
                         ),
                         const SizedBox(height: 6),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.between,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text('50% Advance Payable Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor)),
-                            Text('₹${advance.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.extrabold, fontSize: 15, color: AppTheme.primaryColor)),
+                            Text('₹${advance.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppTheme.primaryColor)),
                           ],
                         ),
                         const SizedBox(height: 4),

@@ -13,7 +13,7 @@ import '../../features/checkout/screens/checkout_screen.dart';
 import '../../features/dashboard/screens/dashboard_screen.dart';
 import '../../features/tracking/screens/live_tracking_screen.dart';
 import '../../features/reports/screens/worksheet_viewer.dart';
-import '../..//features/auth/providers/auth_provider.dart';
+import '../../features/auth/providers/auth_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);

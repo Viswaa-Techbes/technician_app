@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/network/dio_client.dart';
@@ -68,9 +69,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
           final payCount = raw['metrics']?.containsKey('payments') == true ? raw['metrics']['payments'] : 0;
 
           _metrics = [
-            {'title': 'Upcoming services', 'value': '$upcoming', 'icon': Icons.calendar_today, 'color': Colors.emerald},
+            {'title': 'Upcoming services', 'value': '$upcoming', 'icon': Icons.calendar_today, 'color': const Color(0xFF10B981)},
             {'title': 'Order history', 'value': '$history', 'icon': Icons.history, 'color': Colors.blue},
-            {'title': 'Saved addresses', 'value': '$savedAddr', 'icon': Icons.map, 'color': Colors.emerald},
+            {'title': 'Saved addresses', 'value': '$savedAddr', 'icon': Icons.map, 'color': const Color(0xFF10B981)},
             {'title': 'Payments', 'value': '$payCount', 'icon': Icons.payment, 'color': Colors.blue},
           ];
 
@@ -181,7 +182,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
                       return IconButton(
                         icon: Icon(
                           Icons.star,
-                          color: starVal <= _reviewRating ? Colors.amber.shade600 : Colors.slate.shade300,
+                          color: starVal <= _reviewRating ? Colors.amber.shade600 : Colors.blueGrey.shade300,
                           size: 32,
                         ),
                         onPressed: () {
@@ -305,7 +306,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.slate.shade900,
+                color: Colors.blueGrey.shade900,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
@@ -403,7 +404,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.between,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
                       child: Text(
@@ -413,7 +414,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
                     ),
                     Text(
                       '₹${(b['amount'] ?? b['price'] ?? 0).toStringAsFixed(0)}',
-                      style: const TextStyle(fontWeight: FontWeight.extrabold, fontSize: 15, color: AppTheme.primaryColor),
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppTheme.primaryColor),
                     ),
                   ],
                 ),
@@ -432,7 +433,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
-                    color: paymentStatus == 'paid' ? Colors.emerald : Colors.amber.shade700,
+                    color: paymentStatus == 'paid' ? const Color(0xFF10B981) : Colors.amber.shade700,
                   ),
                 )),
                 const SizedBox(height: 6),
@@ -498,8 +499,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
                 ]
               ],
             ),
-          );
-        },
+          ),
+        );
+      },
     );
   }
 
@@ -520,7 +522,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
               addr['city'],
               addr['state'],
               addr['pincode']
-            ].filter((s) => s != null && s.toString().isNotEmpty).join(', ');
+            ].where((s) => s != null && s.toString().isNotEmpty).join(', ');
 
         return Card(
           elevation: 0,
@@ -616,7 +618,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
                 const SizedBox(height: 2),
                 Text(
                   p['status']?.toString().toUpperCase() ?? 'SUCCESS',
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.emerald),
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF10B981)),
                 ),
               ],
             ),
@@ -710,8 +712,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
   }
 
   Widget _statusBadge(String status) {
-    Color bg = Colors.slate.shade100;
-    Color fg = Colors.slate.shade700;
+    Color bg = Colors.blueGrey.shade100;
+    Color fg = Colors.blueGrey.shade700;
 
     switch (status.toLowerCase()) {
       case 'pending':
@@ -757,7 +759,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inbox_outlined, size: 48, color: Colors.slate.shade300),
+            Icon(Icons.inbox_outlined, size: 48, color: Colors.blueGrey.shade300),
             const SizedBox(height: 12),
             Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
             const SizedBox(height: 4),

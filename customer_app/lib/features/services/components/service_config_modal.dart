@@ -373,7 +373,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.between,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: Column(
@@ -403,7 +403,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
           // Stepper Header
           Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-            color: Colors.slate.shade50,
+            color: Colors.blueGrey.shade50,
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -431,14 +431,14 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
                             border: Border.all(
                               color: isActive
                                   ? AppTheme.primaryColor
-                                  : (isDone ? Colors.transparent : Colors.slate.shade300),
+                                  : (isDone ? Colors.transparent : Colors.blueGrey.shade300),
                             ),
                           ),
                           child: Row(
                             children: [
                               CircleAvatar(
                                 radius: 8,
-                                backgroundColor: isActive ? Colors.white : (isDone ? AppTheme.primaryColor : Colors.slate.shade400),
+                                backgroundColor: isActive ? Colors.white : (isDone ? AppTheme.primaryColor : Colors.blueGrey.shade400),
                                 child: isDone
                                     ? const Icon(Icons.check, size: 10, color: Colors.white)
                                     : Text(
@@ -470,7 +470,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
                           width: 20,
                           height: 1,
                           margin: const EdgeInsets.symmetric(horizontal: 4),
-                          color: isDone ? AppTheme.primaryColor : Colors.slate.shade300,
+                          color: isDone ? AppTheme.primaryColor : Colors.blueGrey.shade300,
                         ),
                     ],
                   );
@@ -606,7 +606,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
               secondary: Text(
                 '₹${price.toStringAsFixed(0)}',
                 style: TextStyle(
-                  fontWeight: FontWeight.extrabold,
+                  fontWeight: FontWeight.w800,
                   color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
                   fontSize: 15,
                 ),
@@ -976,10 +976,10 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
   Widget _buildPriceBreakdownCard() {
     return Card(
       elevation: 0,
-      color: Colors.slate.shade50,
+      color: Colors.blueGrey.shade50,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.slate.shade200),
+        side: BorderSide(color: Colors.blueGrey.shade200),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -1002,15 +1002,15 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
             if (_labourCost > 0) _buildPriceLine('Labour Charges', _labourCost),
             const Divider(height: 16),
             Row(
-              mainAxisAlignment: MainAxisAlignment.between,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
                   'Est. Total',
-                  style: TextStyle(fontWeight: FontWeight.extrabold, fontSize: 16, color: AppTheme.textPrimaryColor),
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.textPrimaryColor),
                 ),
                 Text(
                   '₹${_grandTotal.toStringAsFixed(0)}',
-                  style: const TextStyle(fontWeight: FontWeight.extrabold, fontSize: 18, color: AppTheme.primaryColor),
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppTheme.primaryColor),
                 ),
               ],
             ),
@@ -1029,7 +1029,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.between,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor)),
           Text('₹${amount.toStringAsFixed(0)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),

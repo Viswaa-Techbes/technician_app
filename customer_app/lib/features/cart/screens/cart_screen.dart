@@ -122,12 +122,12 @@ class CartScreen extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.slate.shade100,
+                          color: Colors.blueGrey.shade100,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           serviceType,
-                          style: TextStyle(fontSize: 11, color: Colors.slate.shade700, fontWeight: FontWeight.w600),
+                          style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade700, fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
@@ -153,7 +153,7 @@ class CartScreen extends ConsumerWidget {
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.between,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         '• ${m['name']} (${m['qty']} ${m['unit']})',
@@ -171,7 +171,7 @@ class CartScreen extends ConsumerWidget {
 
             const Divider(height: 20),
             Row(
-              mainAxisAlignment: MainAxisAlignment.between,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
                   'Item Total',
@@ -179,7 +179,7 @@ class CartScreen extends ConsumerWidget {
                 ),
                 Text(
                   '₹${(item.priceValue * item.qty).toStringAsFixed(0)}',
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.extrabold, color: AppTheme.primaryColor),
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.primaryColor),
                 ),
               ],
             ),
@@ -209,7 +209,7 @@ class CartScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.between,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Subtotal', style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor)),
                 Text('₹${cartNotifier.subtotal.toStringAsFixed(0)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
@@ -217,7 +217,7 @@ class CartScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 6),
             Row(
-              mainAxisAlignment: MainAxisAlignment.between,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('GST Tax (18%)', style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor)),
                 Text('₹${cartNotifier.gstTax.toStringAsFixed(0)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
@@ -225,15 +225,15 @@ class CartScreen extends ConsumerWidget {
             ),
             const Divider(height: 16),
             Row(
-              mainAxisAlignment: MainAxisAlignment.between,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
                   'Grand Total',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.extrabold, color: AppTheme.textPrimaryColor),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.textPrimaryColor),
                 ),
                 Text(
                   '₹${cartNotifier.totalAmount.toStringAsFixed(0)}',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.extrabold, color: AppTheme.textPrimaryColor),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.textPrimaryColor),
                 ),
               ],
             ),

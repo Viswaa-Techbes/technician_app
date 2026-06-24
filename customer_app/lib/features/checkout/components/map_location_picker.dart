@@ -312,7 +312,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.slate.shade50,
+            color: Colors.blueGrey.shade50,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppTheme.borderColor),
           ),

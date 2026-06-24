@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../models/service_model.dart';
 import '../../../repositories/service_repository.dart';
 import '../../auth/providers/auth_provider.dart';
 
@@ -88,7 +89,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     'Instant Field Service Rollout\nfor SMBs & Teams',
                     style: TextStyle(
                       fontSize: 24,
-                      fontWeight: FontWeight.extrabold,
+                      fontWeight: FontWeight.w800,
                       color: AppTheme.textPrimaryColor,
                       height: 1.25,
                       letterSpacing: -0.5,
@@ -313,7 +314,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const SizedBox(height: 6),
                   Text(
                     service.title,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.extrabold, color: AppTheme.textPrimaryColor),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.textPrimaryColor),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -328,7 +329,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     children: [
                       Text(
                         service.price,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.extrabold, color: AppTheme.textPrimaryColor),
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.textPrimaryColor),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

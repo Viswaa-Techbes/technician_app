@@ -83,7 +83,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const Center(
                   child: Text(
                     'Welcome Back',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.extrabold, color: AppTheme.textPrimaryColor, letterSpacing: -0.5),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.textPrimaryColor, letterSpacing: -0.5),
                   ),
                 ),
                 const SizedBox(height: 6),
