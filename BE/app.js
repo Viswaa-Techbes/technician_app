@@ -49,6 +49,17 @@ const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+// Explicitly add all production frontend domains
+const productionDomains = [
+  'https://techbes.co.in',
+  'https://www.techbes.co.in'
+];
+productionDomains.forEach((domain) => {
+  if (!allowedOrigins.includes(domain)) {
+    allowedOrigins.push(domain);
+  }
+});
+
 // Add default local dev ports if not present
 if (!allowedOrigins.includes('http://localhost:3000')) {
   allowedOrigins.push('http://localhost:3000');
@@ -69,7 +80,7 @@ app.use(cors({
     }
     
     // Check wildcard *.vercel.app (e.g. preview deployments)
-    const isVercelApp = /^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(origin);
+    const isVercelApp = /^https?:\/\/[a-zA-Z0-9-]+\.vercel\.app$/i.test(origin);
     if (isVercelApp) {
       return callback(null, true);
     }
@@ -83,7 +94,7 @@ app.use(cors({
     // Check custom wildcard matching if allowedOrigins contains a wildcard pattern
     for (const pattern of allowedOrigins) {
       if (pattern.includes('*')) {
-        const regex = new RegExp('^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '[a-zA-Z0-9-]+') + '$');
+        const regex = new RegExp('^' + pattern.replace(/\./g, '\\.').replace(/\*/g, '[a-zA-Z0-9-]+') + '$', 'i');
         if (regex.test(origin)) {
           return callback(null, true);
         }
