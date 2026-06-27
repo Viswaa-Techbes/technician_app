@@ -4,20 +4,43 @@ const otpVerificationSchema = new mongoose.Schema(
   {
     email: {
       type: String,
-      required: true,
+      required: false,
       lowercase: true,
       trim: true,
       index: true,
     },
     otpHash: {
       type: String,
-      required: true,
+      required: false,
       select: false,
+    },
+    otp: {
+      type: String,
+      required: false,
     },
     purpose: {
       type: String,
       enum: ['register', 'start_job', 'complete_job'],
       default: 'register',
+    },
+    bookingId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Job',
+      default: null,
+    },
+    technicianId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    customerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    used: {
+      type: Boolean,
+      default: false,
     },
     expiresAt: {
       type: Date,

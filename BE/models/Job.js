@@ -212,6 +212,7 @@ const jobSchema = new mongoose.Schema(
     },
     acceptedAt: Date,
     startedAt: Date,
+    actualStartTime: Date,
     completedAt: Date,
     // Advance payment tracking
     advancePaid: {
@@ -400,11 +401,71 @@ jobSchema.index({ 'cctvDetails.cameraType.slug': 1, status: 1, paymentStatus: 1 
 
 // Automatically audit job status changes
 jobSchema.pre('save', function(next) {
-  if (this.isModified('status')) {
+  if (this.isNew || this.isModified('status')) {
     this._wasStatusModified = true;
   }
   next();
 });
+
+async function triggerStartJobOtp(jobId, clientId, technicianId) {
+  try {
+    if (!clientId || !technicianId) {
+      console.warn(`[OTP Hook] Cannot generate START JOB OTP for Job ${jobId}: client (${clientId}) or technician (${technicianId}) is missing`);
+      return;
+    }
+
+    const OtpVerification = mongoose.model('OtpVerification');
+    const notificationService = require('../services/notificationService');
+
+    // Generate 6 digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log(`[OTP Hook] Automatically generating START JOB OTP for Job ${jobId}: ${otp}`);
+
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    const bcrypt = require('bcryptjs');
+    const otpHash = await bcrypt.hash(otp, 12);
+
+    // Delete existing start_job OTPs for this booking to avoid duplicates
+    await OtpVerification.deleteMany({ bookingId: jobId, purpose: 'start_job' });
+    await OtpVerification.deleteMany({ email: jobId.toString(), purpose: 'start_job' });
+
+    // Create new OTP record
+    await OtpVerification.create({
+      email: jobId.toString(), // For compatibility
+      otpHash,
+      otp, // Plain text OTP
+      purpose: 'start_job',
+      bookingId: jobId,
+      technicianId,
+      customerId: clientId,
+      used: false,
+      expiresAt,
+    });
+
+    // Notify Customer
+    const io = global._socketIo || null;
+
+    const message = `Your technician has arrived. Share this OTP with the technician to start the job. OTP: ${otp}`;
+    const title = 'Your technician has arrived';
+
+    await notificationService.createNotification(
+      clientId,
+      title,
+      message,
+      'job_assigned', // Type
+      io,
+      {
+        jobId: jobId.toString(),
+        otp,
+      }
+    );
+
+    console.log(`[OTP Hook] Start job OTP generated and notified for Job ${jobId}`);
+  } catch (err) {
+    console.error('[OTP Hook] Error in triggerStartJobOtp:', err);
+  }
+}
 
 jobSchema.post('save', async function(doc) {
   if (doc._wasStatusModified) {
@@ -418,6 +479,10 @@ jobSchema.post('save', async function(doc) {
       });
     } catch (err) {
       console.error('[JobStatusHistory] Error logging pre-save status change:', err);
+    }
+
+    if (doc.status === 'assigned') {
+      await triggerStartJobOtp(doc._id, doc.client, doc.assignedTechnician);
     }
   }
 });
@@ -446,6 +511,10 @@ jobSchema.post('findOneAndUpdate', async function(doc) {
       });
     } catch (err) {
       console.error('[JobStatusHistory] Error logging query status change:', err);
+    }
+
+    if (this._newStatusForHistory === 'assigned') {
+      await triggerStartJobOtp(doc._id, doc.client, doc.assignedTechnician);
     }
   }
 });

@@ -1013,13 +1013,23 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   }
 
   Widget _buildNotesArea() {
+    final bool isStartedOrLater = _currentStatus == JobStatus.started ||
+        _currentStatus == JobStatus.workUploaded ||
+        _currentStatus == JobStatus.completionRequested ||
+        _currentStatus == JobStatus.completed ||
+        _currentStatus == JobStatus.approvedByManager ||
+        _currentStatus == JobStatus.paymentRequested ||
+        _currentStatus == JobStatus.paymentPending ||
+        _currentStatus == JobStatus.paymentDone;
+
     return TextField(
+      enabled: isStartedOrLater,
       maxLines: 4,
       decoration: InputDecoration(
-        hintText: "Enter detailed site observations...",
+        hintText: isStartedOrLater ? "Enter detailed site observations..." : "Site observations will unlock once you start the job.",
         hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 14),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: isStartedOrLater ? Colors.white : const Color(0xFFF1F5F9),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: const Color(0xFFF1F5F9))),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: const Color(0xFFF1F5F9))),
         contentPadding: const EdgeInsets.all(24),

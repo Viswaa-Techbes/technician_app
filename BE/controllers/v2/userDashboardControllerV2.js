@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const User = require('../../models/User');
 const UserProfile = require('../../models/UserProfile');
 const Address = require('../../models/Address');
@@ -69,10 +70,31 @@ async function deleteAddress(req, res, next) {
 
 async function getBookings(req, res, next) {
   try {
-    const data = await Job.find({ client: req.user.id, useNewFlow: true })
-      .sort({ createdAt: -1 })
-      .populate('assignedTechnician', 'name phone mobileNumber')
-      .lean();
+    const [bookings, activeOtps] = await Promise.all([
+      Job.find({ client: req.user.id, useNewFlow: true })
+        .sort({ createdAt: -1 })
+        .populate('assignedTechnician', 'name phone mobileNumber')
+        .lean(),
+      mongoose.model('OtpVerification').find({
+        customerId: req.user.id,
+        purpose: 'start_job',
+        used: false,
+        expiresAt: { $gt: new Date() }
+      }).lean()
+    ]);
+
+    const otpMap = {};
+    activeOtps.forEach(o => {
+      if (o.bookingId) {
+        otpMap[o.bookingId.toString()] = o.otp;
+      }
+    });
+
+    const data = bookings.map(b => ({
+      ...b,
+      startJobOtp: otpMap[b._id.toString()] || null
+    }));
+
     res.json({ success: true, data });
   } catch (err) { next(err); }
 }
@@ -102,22 +124,41 @@ async function getServiceReports(req, res, next) {
 
 async function getDashboard(req, res, next) {
   try {
-    const [profileRes, addresses, bookings, payments, reports] = await Promise.all([
+    const [profileRes, addresses, bookings, payments, reports, activeOtps] = await Promise.all([
       Promise.all([User.findById(req.user.id).select('name email phone mobileNumber createdAt').lean(), UserProfile.findOne({ userId: req.user.id }).lean()]),
       Address.find({ userId: req.user.id }).sort({ isDefault: -1, createdAt: -1 }).lean(),
       Job.find({ client: req.user.id, useNewFlow: true }).sort({ createdAt: -1 }).populate('assignedTechnician', 'name phone mobileNumber').lean(),
       Payment.find({ userId: req.user.id }).sort({ createdAt: -1 }).lean(),
       Job.find({ client: req.user.id, status: { $in: ['completed', 'payment_done'] } }).populate('assignedTechnician', 'name').lean(),
+      mongoose.model('OtpVerification').find({
+        customerId: req.user.id,
+        purpose: 'start_job',
+        used: false,
+        expiresAt: { $gt: new Date() }
+      }).lean(),
     ]);
     const [user, profile] = profileRes;
+
+    const otpMap = {};
+    activeOtps.forEach(o => {
+      if (o.bookingId) {
+        otpMap[o.bookingId.toString()] = o.otp;
+      }
+    });
+
+    const bookingsWithOtp = bookings.map(b => ({
+      ...b,
+      startJobOtp: otpMap[b._id.toString()] || null
+    }));
+
     const upcomingStatuses = ['confirmed', 'assigned', 'travelling', 'arrived'];
-    const upcomingBookings = bookings.filter((job) => upcomingStatuses.includes(job.status));
+    const upcomingBookings = bookingsWithOtp.filter((job) => upcomingStatuses.includes(job.status));
     res.json({
       success: true,
       data: {
         profile: { ...user, profilePhoto: profile?.profilePhoto || '' },
         addresses,
-        bookings,
+        bookings: bookingsWithOtp,
         upcomingBookings,
         payments,
         serviceReports: reports.map((job) => ({
@@ -129,7 +170,7 @@ async function getDashboard(req, res, next) {
         })),
         metrics: {
           upcomingServices: upcomingBookings.length,
-          orderHistory: bookings.length,
+          orderHistory: bookingsWithOtp.length,
           savedAddresses: addresses.length,
           payments: payments.length,
           totalPaid: asMoney(payments.filter(p => ['paid', 'verified'].includes(p.status)).reduce((sum, p) => sum + (Number(p.amount) || 0), 0) / 100),

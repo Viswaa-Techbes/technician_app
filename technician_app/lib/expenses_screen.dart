@@ -118,6 +118,16 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
           .snapshots(),
       builder: (context, snapshot) {
         final docs = snapshot.data?.docs ?? [];
+        // Filter projects on client side to only show active/started ones
+        final activeDocs = docs.where((d) {
+          try {
+            final s = d['status'] as String?;
+            return s == 'started' || s == 'in_progress' || s == 'inProgress' || s == 'work_uploaded';
+          } catch (_) {
+            return false;
+          }
+        }).toList();
+
         return DropdownButtonFormField<String>(
           initialValue: _selectedProjectId,
           decoration: InputDecoration(
@@ -127,7 +137,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
             floatingLabelBehavior: FloatingLabelBehavior.always,
           ),
-          items: docs.map((d) => DropdownMenuItem(
+          items: activeDocs.map((d) => DropdownMenuItem(
             value: d.id,
             child: Text(d['serviceName'] ?? 'Unnamed Project', style: const TextStyle(fontSize: 14)),
           )).toList(),

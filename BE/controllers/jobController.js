@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const jobService = require('../services/jobService');
 const Job = require('../models/Job');
 const notificationService = require('../services/notificationService');
@@ -50,16 +51,26 @@ async function getJobDetails(req, res, next) {
       return res.status(404).json({ success: false, message: 'Job not found' });
     }
 
-    if (req.user.role === 'manager' && job.assignedManager.toString() !== req.user.id) {
+    if (req.user.role === 'manager' && job.assignedManager && job.assignedManager.toString() !== req.user.id) {
         return res.status(403).json({ success: false, message: 'Access denied' });
     }
     if (req.user.role === 'technician' && job.assignedTechnician && job.assignedTechnician._id.toString() !== req.user.id) {
         return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
+    const otpRecord = await mongoose.model('OtpVerification').findOne({
+      $or: [
+        { bookingId: job._id, purpose: 'start_job', used: false, expiresAt: { $gt: new Date() } },
+        { email: jobId.toString(), purpose: 'start_job', used: false, expiresAt: { $gt: new Date() } }
+      ]
+    }).lean();
+
+    const jobObj = job.toObject();
+    jobObj.startJobOtp = otpRecord ? otpRecord.otp : null;
+
     return res.json({
       success: true,
-      data: job,
+      data: jobObj,
     });
   } catch (err) {
     next(err);

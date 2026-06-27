@@ -416,9 +416,9 @@ class ApiService {
 
   // --- OTP Start / Complete Methods ---
   Future<Map<String, dynamic>> requestStartOtp(String jobId) async {
-    debugPrint('[ApiService] POST $baseUrl/api/v2/dispatch/otp/start/$jobId');
+    debugPrint('[ApiService] POST $baseUrl/api/v2/otp/start/$jobId');
     final res = await http.post(
-      Uri.parse("$baseUrl/api/v2/dispatch/otp/start/$jobId"),
+      Uri.parse("$baseUrl/api/v2/otp/start/$jobId"),
       headers: _headers,
     );
     final json = jsonDecode(res.body) as Map<String, dynamic>;
@@ -429,9 +429,9 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> verifyStartOtp(String jobId, String otp) async {
-    debugPrint('[ApiService] POST $baseUrl/api/v2/dispatch/otp/start/$jobId/verify');
+    debugPrint('[ApiService] POST $baseUrl/api/v2/otp/start/$jobId/verify');
     final res = await http.post(
-      Uri.parse("$baseUrl/api/v2/dispatch/otp/start/$jobId/verify"),
+      Uri.parse("$baseUrl/api/v2/otp/start/$jobId/verify"),
       headers: _headers,
       body: jsonEncode({"otp": otp}),
     );
