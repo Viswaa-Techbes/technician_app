@@ -109,4 +109,88 @@ router.get('/reviews', adminControllerV2.getReviews);
 router.get('/attendance', adminControllerV2.getAttendance);
 router.get('/addresses', adminControllerV2.getAddresses);
 
+// ─── Dynamic Category & Subcategory Management ────────────────────────────────
+const Category = require('../../models/Category');
+const SubCategory = require('../../models/SubCategory');
+
+// Categories CRUD
+router.get('/catalog/categories', async (req, res) => {
+  try {
+    const cats = await Category.find().sort({ sortOrder: 1 }).lean();
+    res.json({ success: true, data: cats });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+router.post('/catalog/categories', async (req, res) => {
+  try {
+    const cat = await Category.create(req.body);
+    res.status(201).json({ success: true, data: cat });
+  } catch (e) { res.status(400).json({ success: false, message: e.message }); }
+});
+
+router.put('/catalog/categories/:id', async (req, res) => {
+  try {
+    const cat = await Category.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    if (!cat) return res.status(404).json({ success: false, message: 'Category not found' });
+    res.json({ success: true, data: cat });
+  } catch (e) { res.status(400).json({ success: false, message: e.message }); }
+});
+
+router.delete('/catalog/categories/:id', async (req, res) => {
+  try {
+    await Category.findByIdAndDelete(req.params.id);
+    await SubCategory.deleteMany({ categoryId: req.params.id });
+    res.json({ success: true, message: 'Category and its subcategories deleted' });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// Subcategories CRUD
+router.get('/catalog/subcategories', async (req, res) => {
+  try {
+    const filter = req.query.categoryId ? { categoryId: req.query.categoryId } : {};
+    const subs = await SubCategory.find(filter).sort({ sortOrder: 1 }).populate('categoryId', 'name slug').lean();
+    res.json({ success: true, data: subs });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+router.post('/catalog/subcategories', async (req, res) => {
+  try {
+    const sub = await SubCategory.create(req.body);
+    res.status(201).json({ success: true, data: sub });
+  } catch (e) { res.status(400).json({ success: false, message: e.message }); }
+});
+
+router.put('/catalog/subcategories/:id', async (req, res) => {
+  try {
+    const sub = await SubCategory.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    if (!sub) return res.status(404).json({ success: false, message: 'Subcategory not found' });
+    res.json({ success: true, data: sub });
+  } catch (e) { res.status(400).json({ success: false, message: e.message }); }
+});
+
+router.delete('/catalog/subcategories/:id', async (req, res) => {
+  try {
+    await SubCategory.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Subcategory deleted' });
+  } catch (e) { res.status(500).json({ success: false, message: e.message }); }
+});
+
+// Manage packages within a subcategory
+router.put('/catalog/subcategories/:id/packages', async (req, res) => {
+  try {
+    const sub = await SubCategory.findByIdAndUpdate(req.params.id, { packages: req.body.packages }, { new: true });
+    if (!sub) return res.status(404).json({ success: false, message: 'Subcategory not found' });
+    res.json({ success: true, data: sub.packages });
+  } catch (e) { res.status(400).json({ success: false, message: e.message }); }
+});
+
+// Manage booking questions within a subcategory
+router.put('/catalog/subcategories/:id/questions', async (req, res) => {
+  try {
+    const sub = await SubCategory.findByIdAndUpdate(req.params.id, { bookingQuestions: req.body.questions }, { new: true });
+    if (!sub) return res.status(404).json({ success: false, message: 'Subcategory not found' });
+    res.json({ success: true, data: sub.bookingQuestions });
+  } catch (e) { res.status(400).json({ success: false, message: e.message }); }
+});
+
 module.exports = router;

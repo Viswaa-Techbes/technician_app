@@ -133,6 +133,41 @@ const jobSchema = new mongoose.Schema(
       of: String,
       default: {},
     },
+    // ─── Dynamic Catalog Reference Fields ─────────────────────────────────────
+    categoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Category',
+      default: null,
+    },
+    subcategoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'SubCategory',
+      default: null,
+    },
+    packageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+    },
+    bookingAnswers: [
+      {
+        question: { type: String, default: '' },
+        answer: { type: mongoose.Schema.Types.Mixed, default: '' },
+        _id: false,
+      }
+    ],
+    uploadedImages: { type: [String], default: [] },
+    geoLocation: {
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
+    },
+    addressDetails: {
+      pincode: { type: String, default: '' },
+      area: { type: String, default: '' },
+      city: { type: String, default: '' },
+      district: { type: String, default: '' },
+      state: { type: String, default: '' },
+      addressType: { type: String, default: 'home' },
+    },
     cctvDetails: {
       category: {
         id: { type: mongoose.Schema.Types.ObjectId, ref: 'CctvCategory', default: null },
