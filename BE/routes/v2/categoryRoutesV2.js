@@ -43,6 +43,19 @@ router.get('/categories/:slug/subcategories', async (req, res) => {
   }
 });
 
+// GET /api/v2/catalog/subcategories
+router.get('/subcategories', async (req, res) => {
+  try {
+    const subs = await SubCategory.find({ isActive: true })
+      .populate('categoryId', 'name slug')
+      .sort({ sortOrder: 1, name: 1 })
+      .lean();
+    res.json({ success: true, data: subs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // GET /api/v2/catalog/subcategories/:slug
 router.get('/subcategories/:slug', async (req, res) => {
   try {
