@@ -5,9 +5,21 @@ const SubCategory = require('../../models/SubCategory');
 
 // ─── Public Catalog Endpoints ─────────────────────────────────────────────────
 
+// Dynamic Auto-Seeding Trigger Helper
+const ensureSeeded = async () => {
+  try {
+    const { runSeed } = require('../../utils/catalogSeeder');
+    await runSeed();
+  } catch (err) {
+    console.error("Auto-seeding check failed:", err.message);
+  }
+};
+
+
 // GET /api/v2/catalog/categories
 router.get('/categories', async (req, res) => {
   try {
+    await ensureSeeded();
     const categories = await Category.find({ isActive: true })
       .sort({ sortOrder: 1, name: 1 })
       .lean();
@@ -16,6 +28,7 @@ router.get('/categories', async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
 
 // GET /api/v2/catalog/categories/:slug
 router.get('/categories/:slug', async (req, res) => {
@@ -46,7 +59,9 @@ router.get('/categories/:slug/subcategories', async (req, res) => {
 // GET /api/v2/catalog/subcategories
 router.get('/subcategories', async (req, res) => {
   try {
+    await ensureSeeded();
     const subs = await SubCategory.find({ isActive: true })
+
       .populate('categoryId', 'name slug')
       .sort({ sortOrder: 1, name: 1 })
       .lean();

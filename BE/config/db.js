@@ -51,6 +51,14 @@ async function connectDB() {
   }
 
   try {
+    const { runSeed } = require('../utils/catalogSeeder');
+    await runSeed();
+  } catch (seedErr) {
+    console.warn('[db] Auto-seeding catalog failed:', seedErr.message);
+  }
+
+
+  try {
     const db = mongoose.connection.db;
     const paymentCollection = db.collection('payments');
     const indexes = await paymentCollection.indexes();
