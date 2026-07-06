@@ -6,6 +6,7 @@ import 'features/auth/presentation/providers/auth_provider.dart';
 import 'manager_main_screen.dart';
 import 'widgets.dart';
 import 'core/security/rbac_constants.dart' as role_enum;
+import 'screens/kyc_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -310,9 +311,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (!mounted) return;
 
-      final Widget nextScreen = session.role == role_enum.Role.manager
-              ? const ManagerMainScreen()
-              : const MainScreen();
+      Widget nextScreen;
+      if (session.role == role_enum.Role.manager) {
+        nextScreen = const ManagerMainScreen();
+      } else {
+        if (session.kycStatus != 'Approved') {
+          nextScreen = const KycScreen();
+        } else {
+          nextScreen = const MainScreen();
+        }
+      }
 
       Navigator.pushReplacement(
         context,

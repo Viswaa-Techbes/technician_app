@@ -254,15 +254,17 @@ class User {
   final String mobileNumber;
   final String email;
   final Role role;
-  final String token;
+  final String kycStatus;
+  final String? token;
 
   const User({
     required this.id,
     required this.name,
     required this.mobileNumber,
-    this.email = '',
+    required this.email,
     required this.role,
-    required this.token,
+    this.kycStatus = 'Pending',
+    this.token,
   });
 
   factory User.fromMap(Map<String, dynamic> map) {
@@ -270,12 +272,13 @@ class User {
       id: map['id']?.toString() ?? '',
       name: map['name']?.toString() ?? 'User',
       mobileNumber: map['mobileNumber']?.toString() ?? '',
-      email: map['email']?.toString() ?? '',
+      email: map['email'] ?? '',
       role: Role.values.firstWhere(
-        (e) => e.name == map['role'],
+        (e) => e.name == (map['role'] ?? 'technician'),
         orElse: () => Role.technician,
       ),
-      token: map['token']?.toString() ?? '',
+      kycStatus: map['kycStatus'] ?? 'Pending',
+      token: map['token'],
     );
   }
 
@@ -286,8 +289,8 @@ class User {
       'mobileNumber': mobileNumber,
       'email': email,
       'role': role.name,
+      'kycStatus': kycStatus,
       'token': token,
     };
   }
 }
-

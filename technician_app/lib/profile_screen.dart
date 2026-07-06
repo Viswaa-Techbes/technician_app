@@ -11,6 +11,7 @@ import 'features/reviews/screens/technician_reviews_screen.dart';
 import 'login_screen.dart';
 import 'screens/penalties_screen.dart';
 import 'screens/cancelled_jobs_screen.dart';
+import 'screens/kyc_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -128,6 +129,15 @@ class ProfileScreen extends ConsumerWidget {
                               technicianName: userName,
                             ),
                           ),
+                        ),
+                      ),
+                      _buildMenuAction(
+                        Icons.file_copy_outlined,
+                        "Technician KYC",
+                        "Manage your verification documents",
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const KycScreen()),
                         ),
                       ),
                       _buildMenuAction(

@@ -20,7 +20,10 @@ const paymentRoutesV2 = require('./routes/v2/paymentRoutesV2');
 const attendanceRoutesV2 = require('./routes/v2/attendanceRoutesV2');
 const notificationRoutesV2 = require('./routes/v2/notificationRoutesV2');
 const bookingRoutesV2 = require('./routes/v2/bookingRoutesV2');
+const kycRoutesV2 = require('./routes/v2/kycRoutesV2');
+const customerRoutesV2 = require('./routes/v2/customerRoutesV2');
 const cctvRoutesV2 = require('./routes/v2/cctvRoutesV2');
+const aiRoutesV2 = require('./routes/v2/aiRoutesV2');
 const materialRoutesV2 = require('./routes/v2/materialRoutesV2');
 const leadRoutesV2 = require('./routes/v2/leadRoutesV2');
 const locationRoutesV2 = require('./routes/v2/locationRoutesV2');
@@ -160,6 +163,9 @@ app.use('/api/v2/cctv', cctvRoutesV2);
 app.use('/api/v2/materials', materialRoutesV2);
 app.use('/api/v2/leads', leadRoutesV2);
 app.use('/api/v2/cart', cartRoutesV2);
+app.use('/api/v2/kyc', kycRoutesV2);
+app.use('/api/v2/customer', customerRoutesV2);
+app.use('/api/v2/ai', aiRoutesV2);
 
 // Backwards-compatible API aliases used by frontends
 app.use('/api/bookings', bookingRoutesV2);
@@ -186,6 +192,7 @@ app.use('/api/v2/worksheets', worksheetRoutesV2);
 app.use('/api/v2/otp', otpRoutesV2);
 app.use('/api/v2/dispatch/otp', otpRoutesV2);
 app.use('/api/v2/catalog', categoryRoutesV2);
+app.use('/api/v2/kyc', kycRoutesV2);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });

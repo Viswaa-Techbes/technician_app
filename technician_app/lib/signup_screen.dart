@@ -6,6 +6,7 @@ import 'features/auth/presentation/providers/auth_provider.dart';
 import 'manager_main_screen.dart';
 import 'main_screen.dart';
 import 'widgets.dart';
+import 'screens/kyc_screen.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -311,9 +312,16 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
       if (!mounted) return;
 
-      final nextScreen = session.role == Role.technician
-          ? const MainScreen()
-          : const ManagerMainScreen();
+      Widget nextScreen;
+      if (session.role == Role.manager) {
+        nextScreen = const ManagerMainScreen();
+      } else {
+        if (session.kycStatus != 'Approved') {
+          nextScreen = const KycScreen();
+        } else {
+          nextScreen = const MainScreen();
+        }
+      }
 
       Navigator.pushAndRemoveUntil(
         context,

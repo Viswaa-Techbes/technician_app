@@ -60,6 +60,29 @@ const userSchema = new mongoose.Schema(
       default: 'OFFLINE',
     },
     // ─── Technician Profile Fields ────────────────────────────────────────────
+    kycStatus: {
+      type: String,
+      enum: ['Pending', 'Submitted', 'Approved', 'Rejected'],
+      default: 'Pending',
+    },
+    kycDetails: {
+      aadhaarNumber: { type: String, default: '' },
+      aadhaarImageFront: { type: String, default: '' },
+      aadhaarImageBack: { type: String, default: '' },
+      panNumber: { type: String, default: '' },
+      panImage: { type: String, default: '' },
+      bankDetails: {
+        accountName: { type: String, default: '' },
+        accountNumber: { type: String, default: '' },
+        ifscCode: { type: String, default: '' },
+        bankName: { type: String, default: '' },
+      },
+      signatureImage: { type: String, default: '' },
+    },
+    kycRejectionReason: {
+      type: String,
+      default: '',
+    },
     employeeId: {
       type: String,
       unique: true,
@@ -364,6 +387,9 @@ userSchema.methods.toSafeObject = function toSafeObject() {
     performanceScore: this.performanceScore,
     penaltyPoints: this.penaltyPoints,
     penalties: this.penalties,
+    kycStatus: this.kycStatus,
+    kycDetails: this.kycDetails,
+    kycRejectionReason: this.kycRejectionReason,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,
   };

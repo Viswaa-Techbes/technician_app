@@ -71,6 +71,7 @@ class AuthNotifier extends StateNotifier<User?> {
         (e) => e.name == (backendUser['role'] ?? 'technician'),
         orElse: () => Role.technician,
       ),
+      kycStatus: backendUser['kycStatus'] ?? 'Pending',
       token: token,
     );
 
@@ -125,6 +126,7 @@ class AuthNotifier extends StateNotifier<User?> {
       mobileNumber: backendUser['mobileNumber'] ?? mobileNumber.trim(),
       email: backendUser['email'] ?? '',
       role: role,
+      kycStatus: backendUser['kycStatus'] ?? 'Pending',
       token: token,
     );
 
