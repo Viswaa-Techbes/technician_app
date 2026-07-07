@@ -3,7 +3,7 @@ const Wallet = require('../../models/Wallet');
 const WalletTransaction = require('../../models/WalletTransaction');
 const SupportTicket = require('../../models/SupportTicket');
 const Review = require('../../models/Review');
-const Booking = require('../../models/Booking');
+const Job = require('../../models/Job');
 
 // --- WALLET ---
 async function getWallet(req, res) {
@@ -100,10 +100,12 @@ async function getDashboardStats(req, res) {
     let upcomingBookings = [];
     
     try {
-      totalBookings = await Booking.countDocuments({ customer: userId });
-      completedBookings = await Booking.countDocuments({ customer: userId, status: 'Completed' });
-      upcomingBookings = await Booking.find({ customer: userId, status: { $in: ['Pending', 'Assigned', 'In Progress'] } }).sort({ createdAt: -1 }).limit(3);
-    } catch(e) {}
+      totalBookings = await Job.countDocuments({ customer: userId });
+      completedBookings = await Job.countDocuments({ customer: userId, status: 'Completed' });
+      upcomingBookings = await Job.find({ customer: userId, status: { $in: ['Pending', 'Assigned', 'In Progress'] } }).sort({ createdAt: -1 }).limit(3);
+    } catch(e) {
+      console.error("Dashboard stats error:", e);
+    }
 
     let wallet = await Wallet.findOne({ user: userId });
     
