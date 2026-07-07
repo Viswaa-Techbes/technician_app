@@ -44,6 +44,7 @@ const routingRoutesV2 = require('./routes/v2/routingRoutesV2');
 const worksheetRoutesV2 = require('./routes/v2/worksheetRoutesV2');
 const otpRoutesV2 = require('./routes/v2/otpRoutesV2');
 const categoryRoutesV2 = require('./routes/v2/categoryRoutesV2');
+const walletRoutesV2 = require('./routes/v2/walletRoutesV2');
 
 const errorHandler = require('./middlewares/errorHandler');
 
@@ -165,6 +166,7 @@ app.use('/api/v2/leads', leadRoutesV2);
 app.use('/api/v2/cart', cartRoutesV2);
 app.use('/api/v2/kyc', kycRoutesV2);
 app.use('/api/v2/customer', customerRoutesV2);
+app.use('/api/v2/wallet', walletRoutesV2);
 app.use('/api/v2/ai', aiRoutesV2);
 
 // Backwards-compatible API aliases used by frontends
