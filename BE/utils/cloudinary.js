@@ -19,7 +19,7 @@ if (hasCloudinaryConfig) {
   });
 }
 
-const uploadToCloudinary = async (fileBuffer, fileName) => {
+const uploadToCloudinary = async (fileBuffer, fileName, options = {}) => {
   if (!hasCloudinaryConfig) {
     throw new Error(`Missing Cloudinary environment variables: ${requiredEnv.join(', ')}`);
   }
@@ -30,19 +30,28 @@ const uploadToCloudinary = async (fileBuffer, fileName) => {
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
 
+  const folder = options.folder || 'technician_app/work_proofs';
+  const public_id = options.publicId || `${Date.now()}-${safeName || 'work-proof'}`;
+  const resource_type = options.resource_type || 'auto';
+
+  const uploadOptions = {
+    folder,
+    public_id,
+    resource_type,
+  };
+
+  if (resource_type !== 'raw' && !options.isRaw) {
+    uploadOptions.fetch_format = 'webp';
+    uploadOptions.format = 'webp';
+    uploadOptions.transformation = [
+      { width: 1280, crop: 'limit' },
+      { quality: 75 }
+    ];
+  }
+
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        folder: 'technician_app/work_proofs',
-        public_id: `${Date.now()}-${safeName || 'work-proof'}`,
-        resource_type: 'auto',
-        fetch_format: 'webp',
-        format: 'webp',
-        transformation: [
-          { width: 1280, crop: 'limit' },
-          { quality: 75 }
-        ]
-      },
+      uploadOptions,
       (error, result) => {
         if (error) return reject(error);
         resolve(result);

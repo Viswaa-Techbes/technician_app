@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
 
 import '../services/api_service.dart';
 import '../features/auth/presentation/providers/auth_provider.dart';
@@ -29,13 +30,22 @@ class _KycScreenState extends ConsumerState<KycScreen> {
   final _bankNameController = TextEditingController();
   final _skillsController = TextEditingController();
 
-  // Images URLs or local paths
+  // Document objects and URLs
   String? _aadhaarFrontUrl;
   String? _aadhaarBackUrl;
   String? _panUrl;
   String? _signatureUrl;
+  String? _bankProofUrl;
+  String? _selfieUrl;
 
-  final ImagePicker _picker = ImagePicker();
+  Map<String, dynamic>? _aadhaarFrontDoc;
+  Map<String, dynamic>? _aadhaarBackDoc;
+  Map<String, dynamic>? _panDoc;
+  Map<String, dynamic>? _signatureDoc;
+  Map<String, dynamic>? _bankProofDoc;
+  Map<String, dynamic>? _selfieDoc;
+
+  String _uploadProgressText = "";
 
   @override
   void initState() {
@@ -63,13 +73,32 @@ class _KycScreenState extends ConsumerState<KycScreen> {
           _rejectionReason = data['kycRejectionReason'] ?? '';
           _kycData = data['kycDetails'] ?? {};
           
+          final kycDocs = data['kycDocuments'] ?? {};
+          _aadhaarFrontDoc = kycDocs['aadhaarFront'];
+          _aadhaarBackDoc = kycDocs['aadhaarBack'];
+          _panDoc = kycDocs['panCard'];
+          _signatureDoc = kycDocs['signature'];
+          _bankProofDoc = kycDocs['bankProof'];
+          _selfieDoc = kycDocs['selfie'];
+
           if (_kycData != null) {
             _aadhaarController.text = _kycData!['aadhaarNumber'] ?? '';
             _panController.text = _kycData!['panNumber'] ?? '';
-            _aadhaarFrontUrl = _kycData!['aadhaarImageFront'];
-            _aadhaarBackUrl = _kycData!['aadhaarImageBack'];
-            _panUrl = _kycData!['panImage'];
-            _signatureUrl = _kycData!['signatureImage'];
+            
+            _aadhaarFrontUrl = _aadhaarFrontDoc?['url'] ?? _kycData!['aadhaarImageFront'];
+            _aadhaarBackUrl = _aadhaarBackDoc?['url'] ?? _kycData!['aadhaarImageBack'];
+            _panUrl = _panDoc?['url'] ?? _kycData!['panImage'];
+            _signatureUrl = _signatureDoc?['url'] ?? _kycData!['signatureImage'];
+            _bankProofUrl = _bankProofDoc?['url'];
+            _selfieUrl = _selfieDoc?['url'];
+
+            // Initialize Doc maps from legacy URLs if they are not yet set
+            _aadhaarFrontDoc ??= _aadhaarFrontUrl != null ? {'url': _aadhaarFrontUrl, 'type': 'image'} : null;
+            _aadhaarBackDoc ??= _aadhaarBackUrl != null ? {'url': _aadhaarBackUrl, 'type': 'image'} : null;
+            _panDoc ??= _panUrl != null ? {'url': _panUrl, 'type': 'image'} : null;
+            _signatureDoc ??= _signatureUrl != null ? {'url': _signatureUrl, 'type': 'image'} : null;
+            _bankProofDoc ??= _bankProofUrl != null ? {'url': _bankProofUrl, 'type': 'image'} : null;
+            _selfieDoc ??= _selfieUrl != null ? {'url': _selfieUrl, 'type': 'image'} : null;
             
             final bank = _kycData!['bankDetails'] ?? {};
             _accNameController.text = bank['accountName'] ?? '';
@@ -91,27 +120,85 @@ class _KycScreenState extends ConsumerState<KycScreen> {
     }
   }
 
-  Future<String?> _uploadImage(String fieldName) async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image == null) return null;
-
-    setState(() => _isLoading = true);
+  Future<Map<String, dynamic>?> _uploadDocument(String fieldName) async {
     try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+      );
+      if (result == null || result.files.isEmpty) return null;
+      final file = result.files.first;
+
+      // Validate file size (10 MB limit)
+      const int maxSizeBytes = 10 * 1024 * 1024;
+      if (file.size > maxSizeBytes) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('File size exceeds the 10MB limit.')),
+          );
+        }
+        return null;
+      }
+
+      final filePath = file.path;
+      if (filePath == null) return null;
+
       final session = ref.read(authProvider);
       final api = ref.read(apiServiceProvider);
-      final request = http.MultipartRequest('POST', Uri.parse('${api.baseUrl}/api/v2/upload'));
-      request.headers['Authorization'] = 'Bearer ${session!.token}';
-      request.files.add(await http.MultipartFile.fromPath('file', image.path));
+      final uploadUrl = Uri.parse('${api.baseUrl}/api/v2/upload');
 
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
+      Map<String, dynamic>? finalResult;
+      
+      // Retry loop (3 attempts)
+      for (int attempt = 1; attempt <= 3; attempt++) {
+        try {
+          setState(() {
+            _isLoading = true;
+            _uploadProgressText = "Uploading $fieldName: 0%";
+          });
 
-      if (response.statusCode == 201) {
-        final data = json.decode(response.body);
-        return data['fileUrl'];
-      } else {
-        throw Exception("Upload failed");
+          final request = TrackedMultipartRequest(
+            'POST',
+            uploadUrl,
+            onProgress: (bytes, totalBytes) {
+              if (totalBytes > 0) {
+                final percentage = (bytes / totalBytes * 100).toInt();
+                setState(() {
+                  _uploadProgressText = "Uploading $fieldName: $percentage%";
+                });
+              }
+            },
+          );
+
+          request.headers['Authorization'] = 'Bearer ${session!.token}';
+          request.files.add(await http.MultipartFile.fromPath('file', filePath));
+
+          final streamedResponse = await request.send();
+          final response = await http.Response.fromStream(streamedResponse);
+
+          if (response.statusCode == 201 || response.statusCode == 200) {
+            final data = json.decode(response.body);
+            if (data['success'] == true) {
+              finalResult = {
+                'url': data['url'] ?? data['fileUrl'],
+                'publicId': data['publicId'] ?? data['public_id'],
+                'type': data['type'] ?? (filePath.toLowerCase().endsWith('.pdf') ? 'pdf' : 'image'),
+                'uploadedAt': DateTime.now().toIso8601String(),
+              };
+              break; // Success! Break out of retry loop.
+            }
+          }
+          throw Exception("Server returned status code ${response.statusCode}");
+        } catch (e) {
+          debugPrint("Upload attempt $attempt failed: $e");
+          if (attempt == 3) {
+            throw Exception("Failed to upload after 3 attempts: $e");
+          }
+          await Future.delayed(const Duration(seconds: 1)); // Delay before retry
+        }
       }
+
+      return finalResult;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload Error: $e')));
@@ -123,7 +210,21 @@ class _KycScreenState extends ConsumerState<KycScreen> {
   }
 
   Future<void> _submitKyc() async {
+    // Validate that all 6 required documents are uploaded
+    if (_aadhaarFrontDoc == null ||
+        _aadhaarBackDoc == null ||
+        _panDoc == null ||
+        _signatureDoc == null ||
+        _bankProofDoc == null ||
+        _selfieDoc == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please upload all 6 required KYC documents.')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
+    _uploadProgressText = "Submitting KYC...";
     try {
       final session = ref.read(authProvider);
       final api = ref.read(apiServiceProvider);
@@ -131,18 +232,22 @@ class _KycScreenState extends ConsumerState<KycScreen> {
 
       final body = {
         "aadhaarNumber": _aadhaarController.text,
-        "aadhaarImageFront": _aadhaarFrontUrl,
-        "aadhaarImageBack": _aadhaarBackUrl,
         "panNumber": _panController.text,
-        "panImage": _panUrl,
         "bankDetails": {
           "accountName": _accNameController.text,
           "accountNumber": _accNoController.text,
           "ifscCode": _ifscController.text,
           "bankName": _bankNameController.text
         },
-        "signatureImage": _signatureUrl,
-        "skills": _skillsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+        "skills": _skillsController.text.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+        "kycDocuments": {
+          "aadhaarFront": _aadhaarFrontDoc,
+          "aadhaarBack": _aadhaarBackDoc,
+          "panCard": _panDoc,
+          "signature": _signatureDoc,
+          "bankProof": _bankProofDoc,
+          "selfie": _selfieDoc
+        }
       };
 
       final response = await http.put(url, headers: {
@@ -167,7 +272,10 @@ class _KycScreenState extends ConsumerState<KycScreen> {
     }
   }
 
-  Widget _buildImageUploader(String title, String? url, Function(String?) onUploaded) {
+  Widget _buildDocUploader(String title, Map<String, dynamic>? doc, Function(Map<String, dynamic>?) onUploaded) {
+    final url = doc?['url'];
+    final isPdf = doc?['type'] == 'pdf' || (url != null && url.toLowerCase().endsWith('.pdf'));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -175,8 +283,8 @@ class _KycScreenState extends ConsumerState<KycScreen> {
         const SizedBox(height: 8),
         InkWell(
           onTap: _kycStatus == 'Approved' || _kycStatus == 'Submitted' ? null : () async {
-            final uploadedUrl = await _uploadImage(title);
-            if (uploadedUrl != null) onUploaded(uploadedUrl);
+            final uploadedDoc = await _uploadDocument(title);
+            if (uploadedDoc != null) onUploaded(uploadedDoc);
           },
           child: Container(
             height: 120,
@@ -187,7 +295,18 @@ class _KycScreenState extends ConsumerState<KycScreen> {
               color: Colors.grey.shade50
             ),
             child: url != null && url.isNotEmpty
-                ? Image.network(url, fit: BoxFit.contain)
+                ? (isPdf 
+                    ? const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.picture_as_pdf, color: Colors.red, size: 40),
+                            SizedBox(height: 4),
+                            Text("PDF Document", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red)),
+                          ],
+                        ),
+                      )
+                    : Image.network(url, fit: BoxFit.contain))
                 : const Center(child: Icon(Icons.upload_file, color: Colors.grey)),
           ),
         ),
@@ -203,7 +322,19 @@ class _KycScreenState extends ConsumerState<KycScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Technician KYC')),
       body: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
+        ? Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(
+                  _uploadProgressText.isNotEmpty ? _uploadProgressText : "Loading...", 
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)
+                ),
+              ],
+            ),
+          )
         : SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -216,12 +347,12 @@ class _KycScreenState extends ConsumerState<KycScreen> {
                 const Divider(),
                 TextField(controller: _aadhaarController, decoration: const InputDecoration(labelText: 'Aadhaar Number'), enabled: !readOnly),
                 const SizedBox(height: 16),
-                _buildImageUploader("Aadhaar Front Image", _aadhaarFrontUrl, (url) => setState(() => _aadhaarFrontUrl = url)),
-                _buildImageUploader("Aadhaar Back Image", _aadhaarBackUrl, (url) => setState(() => _aadhaarBackUrl = url)),
+                _buildDocUploader("Aadhaar Front Image / PDF", _aadhaarFrontDoc, (doc) => setState(() => _aadhaarFrontDoc = doc)),
+                _buildDocUploader("Aadhaar Back Image / PDF", _aadhaarBackDoc, (doc) => setState(() => _aadhaarBackDoc = doc)),
                 
                 TextField(controller: _panController, decoration: const InputDecoration(labelText: 'PAN Number'), enabled: !readOnly),
                 const SizedBox(height: 16),
-                _buildImageUploader("PAN Card Image", _panUrl, (url) => setState(() => _panUrl = url)),
+                _buildDocUploader("PAN Card Image / PDF", _panDoc, (doc) => setState(() => _panDoc = doc)),
                 
                 const SizedBox(height: 24),
                 const Text("Bank Details", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -230,6 +361,13 @@ class _KycScreenState extends ConsumerState<KycScreen> {
                 TextField(controller: _accNoController, decoration: const InputDecoration(labelText: 'Account Number'), enabled: !readOnly),
                 TextField(controller: _ifscController, decoration: const InputDecoration(labelText: 'IFSC Code'), enabled: !readOnly),
                 TextField(controller: _bankNameController, decoration: const InputDecoration(labelText: 'Bank Name'), enabled: !readOnly),
+                const SizedBox(height: 16),
+                _buildDocUploader("Bank Proof (Cancelled Cheque / Passbook)", _bankProofDoc, (doc) => setState(() => _bankProofDoc = doc)),
+                
+                const SizedBox(height: 24),
+                const Text("Selfie", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Divider(),
+                _buildDocUploader("Selfie Image", _selfieDoc, (doc) => setState(() => _selfieDoc = doc)),
                 
                 const SizedBox(height: 24),
                 const Text("Professional Details", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -240,7 +378,7 @@ class _KycScreenState extends ConsumerState<KycScreen> {
                   enabled: !readOnly
                 ),
                 const SizedBox(height: 16),
-                _buildImageUploader("Digital Signature", _signatureUrl, (url) => setState(() => _signatureUrl = url)),
+                _buildDocUploader("Digital Signature", _signatureDoc, (doc) => setState(() => _signatureDoc = doc)),
                 
                 const SizedBox(height: 32),
                 if (!readOnly)
@@ -290,5 +428,32 @@ class _KycScreenState extends ConsumerState<KycScreen> {
       decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(8)),
       child: Text(text, style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
     );
+  }
+}
+
+class TrackedMultipartRequest extends http.MultipartRequest {
+  final void Function(int bytes, int totalBytes) onProgress;
+
+  TrackedMultipartRequest(
+    String method,
+    Uri url, {
+    required this.onProgress,
+  }) : super(method, url);
+
+  @override
+  http.ByteStream finalize() {
+    final byteStream = super.finalize();
+    final total = contentLength;
+    int bytes = 0;
+
+    final transformer = StreamTransformer<List<int>, List<int>>.fromHandlers(
+      handleData: (List<int> data, EventSink<List<int>> sink) {
+        bytes += data.length;
+        onProgress(bytes, total);
+        sink.add(data);
+      },
+    );
+
+    return http.ByteStream(byteStream.transform(transformer));
   }
 }

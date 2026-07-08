@@ -79,6 +79,44 @@ const userSchema = new mongoose.Schema(
       },
       signatureImage: { type: String, default: '' },
     },
+    kycDocuments: {
+      aadhaarFront: {
+        url: { type: String, default: '' },
+        publicId: { type: String, default: '' },
+        type: { type: String, default: '' },
+        uploadedAt: { type: Date }
+      },
+      aadhaarBack: {
+        url: { type: String, default: '' },
+        publicId: { type: String, default: '' },
+        type: { type: String, default: '' },
+        uploadedAt: { type: Date }
+      },
+      panCard: {
+        url: { type: String, default: '' },
+        publicId: { type: String, default: '' },
+        type: { type: String, default: '' },
+        uploadedAt: { type: Date }
+      },
+      signature: {
+        url: { type: String, default: '' },
+        publicId: { type: String, default: '' },
+        type: { type: String, default: '' },
+        uploadedAt: { type: Date }
+      },
+      bankProof: {
+        url: { type: String, default: '' },
+        publicId: { type: String, default: '' },
+        type: { type: String, default: '' },
+        uploadedAt: { type: Date }
+      },
+      selfie: {
+        url: { type: String, default: '' },
+        publicId: { type: String, default: '' },
+        type: { type: String, default: '' },
+        uploadedAt: { type: Date }
+      }
+    },
     kycRejectionReason: {
       type: String,
       default: '',
@@ -389,6 +427,7 @@ userSchema.methods.toSafeObject = function toSafeObject() {
     penalties: this.penalties,
     kycStatus: this.kycStatus,
     kycDetails: this.kycDetails,
+    kycDocuments: this.kycDocuments,
     kycRejectionReason: this.kycRejectionReason,
     createdAt: this.createdAt,
     updatedAt: this.updatedAt,

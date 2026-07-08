@@ -47,6 +47,8 @@ async function runVerification() {
           bankName: 'HDFC'
         },
         signatureImage: 'http://cloudinary.com/sig.jpg',
+        bankProofUrl: 'http://cloudinary.com/bankproof.jpg',
+        selfieUrl: 'http://cloudinary.com/selfie.jpg',
         skills: ['CCTV', 'Networking', 'Intercom']
       }
     });

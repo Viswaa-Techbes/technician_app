@@ -7,7 +7,7 @@ const User = require('../../models/User');
  */
 exports.getMyKyc = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('kycStatus kycDetails kycRejectionReason skills employeeStatus');
+    const user = await User.findById(req.user.id).select('kycStatus kycDetails kycDocuments kycRejectionReason skills employeeStatus');
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
@@ -32,7 +32,8 @@ exports.submitKyc = async (req, res) => {
       panImage,
       bankDetails,
       signatureImage,
-      skills
+      skills,
+      kycDocuments
     } = req.body;
 
     const user = await User.findById(req.user.id);
@@ -44,20 +45,69 @@ exports.submitKyc = async (req, res) => {
       return res.status(400).json({ success: false, message: 'KYC is already approved.' });
     }
 
-    // Update KYC Details
+    // Merge document structure
+    const mergedDocs = {
+      ...(user.kycDocuments || {})
+    };
+
+    if (kycDocuments) {
+      for (const [key, value] of Object.entries(kycDocuments)) {
+        if (value && value.url) {
+          mergedDocs[key] = {
+            url: value.url,
+            publicId: value.publicId || '',
+            type: value.type || 'image',
+            uploadedAt: value.uploadedAt ? new Date(value.uploadedAt) : new Date()
+          };
+        }
+      }
+    }
+
+    // Legacy fields fallback mapping
+    if (aadhaarImageFront) {
+      mergedDocs.aadhaarFront = { url: aadhaarImageFront, publicId: '', type: 'image', uploadedAt: new Date() };
+    }
+    if (aadhaarImageBack) {
+      mergedDocs.aadhaarBack = { url: aadhaarImageBack, publicId: '', type: 'image', uploadedAt: new Date() };
+    }
+    if (panImage) {
+      mergedDocs.panCard = { url: panImage, publicId: '', type: 'image', uploadedAt: new Date() };
+    }
+    if (signatureImage) {
+      mergedDocs.signature = { url: signatureImage, publicId: '', type: 'image', uploadedAt: new Date() };
+    }
+    if (req.body.bankProofUrl) {
+      mergedDocs.bankProof = { url: req.body.bankProofUrl, publicId: '', type: 'image', uploadedAt: new Date() };
+    }
+    if (req.body.selfieUrl) {
+      mergedDocs.selfie = { url: req.body.selfieUrl, publicId: '', type: 'image', uploadedAt: new Date() };
+    }
+
+    // Enforce validation for all 6 required documents
+    const requiredDocs = ['aadhaarFront', 'aadhaarBack', 'panCard', 'signature', 'bankProof', 'selfie'];
+    for (const docKey of requiredDocs) {
+      if (!mergedDocs[docKey] || !mergedDocs[docKey].url) {
+        return res.status(400).json({ success: false, message: `Missing required KYC document: ${docKey}` });
+      }
+    }
+
+    // Save back to user
+    user.kycDocuments = mergedDocs;
+
+    // Maintain backward-compatible kycDetails
     user.kycDetails = {
       aadhaarNumber: aadhaarNumber || user.kycDetails?.aadhaarNumber,
-      aadhaarImageFront: aadhaarImageFront || user.kycDetails?.aadhaarImageFront,
-      aadhaarImageBack: aadhaarImageBack || user.kycDetails?.aadhaarImageBack,
+      aadhaarImageFront: mergedDocs.aadhaarFront.url,
+      aadhaarImageBack: mergedDocs.aadhaarBack.url,
       panNumber: panNumber || user.kycDetails?.panNumber,
-      panImage: panImage || user.kycDetails?.panImage,
+      panImage: mergedDocs.panCard.url,
       bankDetails: {
         accountName: bankDetails?.accountName || user.kycDetails?.bankDetails?.accountName,
         accountNumber: bankDetails?.accountNumber || user.kycDetails?.bankDetails?.accountNumber,
         ifscCode: bankDetails?.ifscCode || user.kycDetails?.bankDetails?.ifscCode,
         bankName: bankDetails?.bankName || user.kycDetails?.bankDetails?.bankName,
       },
-      signatureImage: signatureImage || user.kycDetails?.signatureImage,
+      signatureImage: mergedDocs.signature.url,
     };
 
     if (skills && Array.isArray(skills)) {
@@ -87,7 +137,7 @@ exports.submitKyc = async (req, res) => {
 exports.getPendingKyc = async (req, res) => {
   try {
     const technicians = await User.find({ role: 'technician', kycStatus: 'Submitted' })
-      .select('name email mobileNumber kycStatus kycDetails createdAt skills employeeCode profilePhoto')
+      .select('name email mobileNumber kycStatus kycDetails kycDocuments createdAt skills employeeCode profilePhoto')
       .sort({ updatedAt: 1 });
 
     res.status(200).json({ success: true, count: technicians.length, data: technicians });

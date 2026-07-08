@@ -32,12 +32,23 @@ router.post('/', upload.single('file'), async (req, res) => {
     return res.status(400).json({ success: false, message: 'No file uploaded' });
   }
   try {
-    const result = await uploadToCloudinary(req.file.buffer, req.file.originalname);
+    const isPdf = req.file.mimetype.toLowerCase().includes('pdf') || req.file.originalname.toLowerCase().endsWith('.pdf');
+    const folder = `techbes/kyc/${req.user.id}`;
+    const options = {
+      folder,
+      resource_type: isPdf ? 'raw' : 'image',
+      isRaw: isPdf
+    };
+    const result = await uploadToCloudinary(req.file.buffer, req.file.originalname, options);
+    const type = isPdf ? 'pdf' : 'image';
+
     return res.status(201).json({
       success: true,
+      url: result.secure_url,
       fileUrl: result.secure_url,
-      originalName: req.file.originalname,
+      publicId: result.public_id,
       public_id: result.public_id,
+      type
     });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Cloudinary upload failed', error: error.message });
