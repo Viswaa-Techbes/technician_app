@@ -20,8 +20,9 @@ class AuthRepositoryImpl implements AuthRepository {
     });
     
     final userModel = UserModel.fromJson(response.data);
-    if (userModel.token.isNotEmpty) {
-      await _storage.saveToken(userModel.token);
+    final token = userModel.token;
+    if (token != null && token.isNotEmpty) {
+      await _storage.saveToken(token);
       await _storage.saveRole(userModel.role.name);
     }
     return userModel;

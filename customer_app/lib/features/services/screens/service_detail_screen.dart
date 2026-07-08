@@ -315,7 +315,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                       ),
                       const Divider(height: 24),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.between,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -324,7 +324,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                               const SizedBox(height: 2),
                               Text(
                                 _service!.price,
-                                style: const TextStyle(fontWeight: FontWeight.extrabold, fontSize: 18, color: AppTheme.textPrimaryColor),
+                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppTheme.textPrimaryColor),
                               ),
                             ],
                           ),
@@ -504,7 +504,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
             children: [
               Text(
                 title,
-                style: const TextStyle(fontWeight: FontWeight.extrabold, fontSize: 16, color: AppTheme.textPrimaryColor),
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.textPrimaryColor),
               ),
               const SizedBox(height: 12),
               child,

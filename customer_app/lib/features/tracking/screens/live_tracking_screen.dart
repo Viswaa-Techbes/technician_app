@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:latlong2/latlong2.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../../core/theme/app_theme.dart';
 import '../../../core/network/dio_client.dart';
@@ -217,14 +218,14 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: _isLiveConnected ? Colors.emerald : Colors.red,
+                    color: _isLiveConnected ? const Color(0xFF10B981) : Colors.red,
                     shape: BoxShape.circle,
                   ),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   _isLiveConnected ? 'Live' : 'Offline',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _isLiveConnected ? Colors.emerald : Colors.red),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _isLiveConnected ? const Color(0xFF10B981) : Colors.red),
                 ),
               ],
             ),
@@ -267,7 +268,7 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
                           boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
                         ),
                         child: const CircleAvatar(
-                          backgroundColor: Colors.emerald,
+                          backgroundColor: Color(0xFF10B981),
                           child: Icon(Icons.home, color: Colors.white, size: 20),
                         ),
                       ),
@@ -332,7 +333,7 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
                                 _techLatLng == null 
                                     ? 'Technician on the way' 
                                     : 'Arriving in $_etaMinutes mins',
-                                style: const TextStyle(fontWeight: FontWeight.extrabold, fontSize: 16, color: AppTheme.textPrimaryColor),
+                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.textPrimaryColor),
                               ),
                               Text(
                                 _techLatLng == null 
@@ -352,7 +353,7 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
                       children: [
                         CircleAvatar(
                           radius: 22,
-                          backgroundColor: Colors.slate.shade100,
+                          backgroundColor: Colors.blueGrey.shade50,
                           backgroundImage: _techPhoto.isNotEmpty ? NetworkImage(_techPhoto) : null,
                           child: _techPhoto.isEmpty ? const Icon(Icons.person, color: AppTheme.textSecondaryColor) : null,
                         ),

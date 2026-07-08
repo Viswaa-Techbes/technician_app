@@ -306,7 +306,7 @@ class _WorksheetViewerScreenState extends ConsumerState<WorksheetViewerScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(color: Colors.blueGrey.shade50, borderRadius: BorderRadius.circular(8)),
-                          child: Text(_worksheet!['technicianObservations'] ?? 'No findings logged.', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.blueGrey.shade800)),
+                          child: Text(_worksheet!['technicianObservations'] ?? 'No findings logged.', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.blueGrey.shade800)),
                         ),
                       ],
                     ),

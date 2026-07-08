@@ -537,7 +537,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.between,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       addr['label'] ?? 'Address',
@@ -614,7 +614,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text('₹${amount.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.extrabold, fontSize: 14.5)),
+                Text('₹${amount.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5)),
                 const SizedBox(height: 2),
                 Text(
                   p['status']?.toString().toUpperCase() ?? 'SUCCESS',
@@ -653,7 +653,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.between,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       'Booking #${rep['bookingNumber'] ?? rep['jobId']}',
@@ -703,7 +703,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
 
   Widget _buildDetailRow(String label, Widget value) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.between,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
         value,
