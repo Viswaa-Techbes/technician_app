@@ -4,7 +4,7 @@ export function getBackendUrl(path = '') {
   const baseUrl =
     process.env.BACKEND_API_URL ||
     process.env.NEXT_PUBLIC_BACKEND_API_URL ||
-    'https://technician-app.onrender.com'
+    'https://api.techbes.co.in'
 
   return `${baseUrl.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`
 }

@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
       response.cookies.set('tb_session_id', sessionId, { maxAge: 60 * 60 * 24 * 365, path: '/' });
     }
 
-    const backendBase = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://technician-app.onrender.com';
+    const backendBase = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_BACKEND_API_URL || 'https://api.techbes.co.in';
     const trackUrl = `${backendBase.replace(/\/$/, '')}/api/v2/analytics/visitors/track`;
 
     // We don't await this to avoid blocking the response

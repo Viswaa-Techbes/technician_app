@@ -1,5 +1,5 @@
 class ApiConfig {
-  static const String baseUrl = "https://technician-app.onrender.com";
+  static const String baseUrl = "https://api.techbes.co.in";
 
   // Auth endpoints
   static const String login = "/api/auth/login";

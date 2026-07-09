@@ -1,5 +1,5 @@
 class ApiConfig {
-  static const String baseUrl = "https://technician-app.onrender.com";
+  static const String baseUrl = "https://api.techbes.co.in";
   
   // Auth
   static const String login = "/auth/login";
@@ -27,7 +27,7 @@ class ApiConfig {
   static const String notifications = "/notifications";
   
   // Socket
-  static const String socketUrl = "https://technician-app.onrender.com";
+  static const String socketUrl = "https://api.techbes.co.in";
 }
 
 class AppConstants {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const BACKEND_URL = process.env.BACKEND_API_URL || 'https://technician-app.onrender.com'
+const BACKEND_URL = process.env.BACKEND_API_URL || 'https://api.techbes.co.in'
 
 export async function POST(req: Request) {
   try {

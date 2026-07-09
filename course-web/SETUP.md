@@ -24,8 +24,8 @@ To access the course admin dashboard, configure these variables on the backend R
 
 Set the backend URL in the course web environment:
 
-- `BACKEND_API_URL=https://technician-app.onrender.com`
-- `NEXT_PUBLIC_BACKEND_API_URL=https://technician-app.onrender.com`
+- `BACKEND_API_URL=https://api.techbes.co.in`
+- `NEXT_PUBLIC_BACKEND_API_URL=https://api.techbes.co.in`
 
 For email functionality with Resend, add:
 - `RESEND_API_KEY` - Your Resend API key from https://resend.com
