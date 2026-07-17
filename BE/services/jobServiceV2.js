@@ -21,7 +21,42 @@ async function createBookingV2(bookingData) {
     addressId,
     googleMapsLink,
     googleMapLink,
+    products,
   } = bookingData;
+
+  // 1. Date Validation (Check for past dates)
+  if (date) {
+    const bookingDateObj = new Date(date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    bookingDateObj.setHours(0, 0, 0, 0);
+    if (bookingDateObj < today) {
+      const err = new Error('Booking date cannot be in the past');
+      err.statusCode = 400;
+      throw err;
+    }
+  }
+
+  // 2. Time Slot Validation (Check if already booked)
+  if (date && timeSlot) {
+    const existingBooking = await Job.findOne({
+      bookingDate: date,
+      timeSlot: timeSlot,
+      status: { $ne: 'Cancelled' }
+    });
+    if (existingBooking) {
+      const err = new Error('The selected time slot is already booked. Please choose another slot.');
+      err.statusCode = 400;
+      throw err;
+    }
+  }
+
+  // 3. Remove Cash on Delivery Validation
+  if (bookingData.paymentMethod === 'cod') {
+    const err = new Error('Cash on Delivery is no longer accepted. Please pay online or via Wallet.');
+    err.statusCode = 400;
+    throw err;
+  }
   const grandTotal = Number(
     cctvDetails?.priceBreakdown?.grandTotal ?? bookingData.totalAmount ?? bookingData.priceValue ?? 0
   ) || 0;
@@ -66,7 +101,11 @@ async function createBookingV2(bookingData) {
     amount: grandTotal,
     advanceAmount: Math.round(grandTotal / 2),
     remainingAmount: Math.max(grandTotal - Math.round(grandTotal / 2), 0),
-    cctvDetails: cctvDetails || undefined,
+    products: products || cctvDetails?.products || undefined,
+    cctvDetails: cctvDetails ? {
+      ...cctvDetails,
+      products: cctvDetails.products || products || undefined
+    } : undefined,
     v2Metadata: {
       lat: String(lat || ''),
       lng: String(lng || ''),

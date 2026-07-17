@@ -88,7 +88,7 @@ async function calculateCctvPrice(input = {}) {
   const wireLength = Math.max(Number(input.wireLength) || 0, 0);
   const installationArea = input.installationArea === 'outdoor' ? 'outdoor' : 'indoor';
   const addonIds = Array.isArray(input.addonIds) ? input.addonIds : [];
-  
+
   const ServiceMaterial = require('../models/ServiceMaterial');
   const addons = [];
   if (addonIds.length) {
@@ -154,7 +154,7 @@ async function calculateCctvPrice(input = {}) {
       total: roundAmount(price * qty),
     };
   });
-  
+
   const addonsTotal = roundAmount(selectedAddons.reduce((sum, addon) => sum + addon.total, 0));
   const subtotal = roundAmount(baseCharge + cameraTotal + areaCharge + wireTotal + addonsTotal);
   const discountTotal = Math.min(adjustmentAmount(config.discount, subtotal), subtotal);

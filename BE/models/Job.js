@@ -148,6 +148,16 @@ const jobSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       default: null,
     },
+    products: [
+      {
+        product: { type: String, trim: true },
+        variant: { type: String, trim: true },
+        quantity: { type: Number, min: 1 },
+        unitPrice: { type: Number, min: 0 },
+        total: { type: Number, min: 0 },
+        _id: false
+      }
+    ],
     bookingAnswers: [
       {
         question: { type: String, default: '' },
@@ -175,6 +185,22 @@ const jobSchema = new mongoose.Schema(
       formattedAddress: { type: String, default: '' },
     },
     cctvDetails: {
+      propertyType: { type: String, default: '' },
+      cameraTypes: [
+        {
+          type: { type: String, default: '' },
+          quantity: { type: Number, default: 0 },
+          _id: false
+        }
+      ],
+      installationType: { type: String, default: '' },
+      wiringRequired: { type: Boolean, default: false },
+      cableLength: { type: Number, default: 0 },
+      existingCable: { type: Boolean, default: false },
+      dvrRequired: { type: Boolean, default: false },
+      dvrChannels: { type: Number, default: 0 },
+      networkRack: { type: Boolean, default: false },
+      monitorMounting: { type: Boolean, default: false },
       category: {
         id: { type: mongoose.Schema.Types.ObjectId, ref: 'CctvCategory', default: null },
         name: { type: String, default: '', trim: true },
@@ -222,7 +248,24 @@ const jobSchema = new mongoose.Schema(
         taxableAmount: { type: Number, default: 0, min: 0 },
         taxTotal: { type: Number, default: 0, min: 0 },
         grandTotal: { type: Number, default: 0, min: 0 },
+        cameraInstallation: { type: Number, default: 0 },
+        cableCharge: { type: Number, default: 0 },
+        dvrCharge: { type: Number, default: 0 },
+        rackCharge: { type: Number, default: 0 },
+        monitorCharge: { type: Number, default: 0 },
+        gst: { type: Number, default: 0 },
+        discount: { type: Number, default: 0 },
       },
+      products: [
+        {
+          product: { type: String, trim: true },
+          variant: { type: String, trim: true },
+          quantity: { type: Number, min: 1 },
+          unitPrice: { type: Number, min: 0 },
+          total: { type: Number, min: 0 },
+          _id: false
+        }
+      ],
       notes: { type: String, default: '', trim: true },
     },
     additionalChargesStatus: {
