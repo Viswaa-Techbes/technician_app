@@ -21,11 +21,9 @@ class AppTheme {
       colorScheme: const ColorScheme.light(
         primary: primaryColor,
         secondary: secondaryColor,
-        background: backgroundColor,
-        surface: cardColor,
+        surface: backgroundColor,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
-        onBackground: textPrimaryColor,
         onSurface: textPrimaryColor,
       ),
       textTheme: const TextTheme(
@@ -44,7 +42,7 @@ class AppTheme {
         iconTheme: IconThemeData(color: textPrimaryColor),
         titleTextStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textPrimaryColor),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: cardColor,
         elevation: 0,
         shape: RoundedRectangleBorder(

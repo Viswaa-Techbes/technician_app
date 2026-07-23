@@ -14,6 +14,7 @@ class ServiceConfigModal extends ConsumerStatefulWidget {
   final String categoryId;
   final String subcategoryId;
   final double defaultPrice;
+  final VoidCallback? onQuoteRequested;
 
   const ServiceConfigModal({
     super.key,
@@ -22,6 +23,7 @@ class ServiceConfigModal extends ConsumerStatefulWidget {
     required this.categoryId,
     required this.subcategoryId,
     required this.defaultPrice,
+    this.onQuoteRequested,
   });
 
   @override

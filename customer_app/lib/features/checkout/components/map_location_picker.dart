@@ -273,7 +273,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
                   onPositionChanged: (position, hasGesture) {
                     if (hasGesture) {
                       setState(() {
-                        _markerPosition = position.center;
+                        _markerPosition = position.center!;
                       });
                     }
                   },

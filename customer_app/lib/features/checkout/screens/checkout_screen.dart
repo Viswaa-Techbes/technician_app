@@ -359,7 +359,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               CircleAvatar(
                 radius: 28,
                 backgroundColor: const Color(0xFFD1FAE5),
-                child: Icon(Icons.check, size: 36, color: Colors.emerald.shade700),
+                child: Icon(Icons.check, size: 36, color: const Color(0xFF047857)),
               ),
               const SizedBox(height: 20),
               const Text('Booking Confirmed!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
