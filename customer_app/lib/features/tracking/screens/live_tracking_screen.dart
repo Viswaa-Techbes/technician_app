@@ -28,9 +28,10 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
   String? _errorMessage;
   Map<String, dynamic>? _booking;
   String? _assignedTechId;
-  String _techName = 'Technician';
+  String _techName = 'Technician Partner';
   String _techPhone = '';
   String _techPhoto = '';
+  String? _startJobOtp;
 
   // Coordinates
   LatLng? _customerLatLng;
@@ -73,6 +74,7 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
           
           setState(() {
             _booking = found;
+            _startJobOtp = found['startJobOtp']?.toString();
             _customerLatLng = custLat != null && custLng != null ? LatLng(custLat, custLng) : null;
             
             if (assigned != null) {
@@ -94,6 +96,7 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
           // Connect live socket
           _connectSocket();
           _recalculateStats();
+          _animateMapToFit();
         } else {
           setState(() {
             _errorMessage = 'Booking not found in dashboard archives.';
@@ -179,13 +182,11 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
     
     // Bounds calculations
     final bounds = LatLngBounds(_customerLatLng!, _techLatLng!);
-    _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50)));
+    _mapController.fitCamera(CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(60)));
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     if (_isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
@@ -205,10 +206,11 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
     }
 
     final initialCenter = _techLatLng ?? _customerLatLng ?? const LatLng(12.9716, 77.5946);
+    final status = (_booking?['status'] ?? _booking?['bookingStatus'] ?? 'pending').toString().toLowerCase();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Track Your Technician'),
+        title: const Text('Track Your Partner'),
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 16),
@@ -224,7 +226,7 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  _isLiveConnected ? 'Live' : 'Offline',
+                  _isLiveConnected ? 'Live' : 'GPS Offline',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _isLiveConnected ? const Color(0xFF10B981) : Colors.red),
                 ),
               ],
@@ -288,7 +290,7 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
                           boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6)],
                         ),
                         child: const CircleAvatar(
-                          backgroundColor: Colors.blue,
+                          backgroundColor: AppTheme.primaryColor,
                           child: Icon(Icons.motorcycle, color: Colors.white, size: 22),
                         ),
                       ),
@@ -302,94 +304,182 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
           Positioned(
             left: 16,
             right: 16,
-            bottom: 24,
-            child: Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              elevation: 8,
-              shadowColor: Colors.black.withOpacity(0.12),
-              child: Padding(
-                padding: const EdgeInsets.all(18.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Stats header
-                    Row(
+            bottom: 20,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // PIN Code Alert
+                if (_startJobOtp != null && _startJobOtp!.isNotEmpty && status == 'dispatched')
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.directions_bike, color: Colors.blue),
+                        const Text(
+                          'Share PIN to start service job:',
+                          style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _techLatLng == null 
-                                    ? 'Technician on the way' 
-                                    : 'Arriving in $_etaMinutes mins',
-                                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.textPrimaryColor),
-                              ),
-                              Text(
-                                _techLatLng == null 
-                                    ? 'Awaiting technician GPS signal' 
-                                    : '${_distanceKm.toStringAsFixed(1)} km away from your location',
-                                style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
-                              ),
-                            ],
-                          ),
+                        Text(
+                          _startJobOtp!,
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.5),
                         ),
                       ],
                     ),
-                    const Divider(height: 24),
+                  ),
 
-                    // Technician details
-                    Row(
+                Card(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  elevation: 8,
+                  shadowColor: Colors.black.withOpacity(0.12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(18.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        CircleAvatar(
-                          radius: 22,
-                          backgroundColor: Colors.blueGrey.shade50,
-                          backgroundImage: _techPhoto.isNotEmpty ? NetworkImage(_techPhoto) : null,
-                          child: _techPhoto.isEmpty ? const Icon(Icons.person, color: AppTheme.textSecondaryColor) : null,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                _techName,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                        // Stats header
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              const Text(
-                                'Certified Service Partner',
-                                style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11),
+                              child: const Icon(Icons.directions_bike, color: AppTheme.primaryColor),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _techLatLng == null 
+                                        ? 'Technician on the way' 
+                                        : 'Arriving in $_etaMinutes mins',
+                                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppTheme.textPrimaryColor),
+                                  ),
+                                  Text(
+                                    _techLatLng == null 
+                                        ? 'Awaiting technician GPS signal' 
+                                        : '${_distanceKm.toStringAsFixed(1)} km away from your location',
+                                    style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 11.5),
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                        if (_techPhone.isNotEmpty)
-                          IconButton(
-                            icon: const Icon(Icons.call, color: AppTheme.primaryColor),
-                            onPressed: () async {
-                              final url = Uri.parse('tel:$_techPhone');
-                              if (await canLaunchUrl(url)) await launchUrl(url);
-                            },
-                          ),
+                        const Divider(height: 24),
+
+                        // Technician details
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 22,
+                              backgroundColor: Colors.blueGrey.shade50,
+                              backgroundImage: _techPhoto.isNotEmpty ? NetworkImage(_techPhoto) : null,
+                              child: _techPhoto.isEmpty ? const Icon(Icons.person, color: AppTheme.textSecondaryColor) : null,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _techName,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textPrimaryColor),
+                                  ),
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.star, size: 12, color: Colors.amber),
+                                      SizedBox(width: 2),
+                                      Text(
+                                        '4.9 Rating • 5 yrs Exp',
+                                        style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 10.5),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (_techPhone.isNotEmpty)
+                              IconButton(
+                                icon: const Icon(Icons.call, color: AppTheme.primaryColor),
+                                onPressed: () async {
+                                  final url = Uri.parse('tel:$_techPhone');
+                                  if (await canLaunchUrl(url)) await launchUrl(url);
+                                },
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        
+                        // Milestone Progress Indicator
+                        _buildProgressTracker(status),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildProgressTracker(String status) {
+    int activeIdx = 0;
+    if (status == 'dispatched') activeIdx = 1;
+    if (status == 'in_progress' || status == 'active') activeIdx = 2;
+    if (status == 'completed') activeIdx = 3;
+
+    final steps = ['Confirmed', 'En Route', 'In Progress', 'Completed'];
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: List.generate(steps.length, (idx) {
+        final done = idx <= activeIdx;
+        final current = idx == activeIdx;
+        return Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: Container(height: 2, color: idx == 0 ? Colors.transparent : (done ? AppTheme.primaryColor : Colors.blueGrey.shade100))),
+                  CircleAvatar(
+                    radius: current ? 8 : 6,
+                    backgroundColor: done ? AppTheme.primaryColor : Colors.blueGrey.shade200,
+                    child: current ? const CircleAvatar(radius: 3, backgroundColor: Colors.white) : null,
+                  ),
+                  Expanded(child: Container(height: 2, color: idx == steps.length - 1 ? Colors.transparent : (idx < activeIdx ? AppTheme.primaryColor : Colors.blueGrey.shade100))),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                steps[idx],
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: current || done ? FontWeight.bold : FontWeight.normal,
+                  color: current ? AppTheme.primaryColor : (done ? AppTheme.textPrimaryColor : AppTheme.textSecondaryColor),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      }),
     );
   }
 }
