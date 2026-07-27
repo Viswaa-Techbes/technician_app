@@ -6,6 +6,7 @@ import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/otp_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
+import '../../features/auth/screens/splash_screen.dart';
 import '../../features/dashboard/screens/main_navigation_screen.dart';
 import '../../features/services/screens/service_detail_screen.dart';
 import '../../features/cart/screens/cart_screen.dart';
@@ -19,15 +20,16 @@ final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
 
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: '/splash',
     redirect: (context, state) {
       final isLoggingIn = state.matchedLocation == '/login' ||
           state.matchedLocation == '/register' ||
           state.matchedLocation == '/otp' ||
-          state.matchedLocation == '/forgot-password';
+          state.matchedLocation == '/forgot-password' ||
+          state.matchedLocation == '/splash';
 
       if (authState.status == AuthStatus.initial || authState.status == AuthStatus.loading) {
-        return null; // wait until auth state resolves
+        return '/splash';
       }
 
       final isLoggedIn = authState.status == AuthStatus.authenticated;
@@ -36,13 +38,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/login';
       }
 
-      if (isLoggedIn && isLoggingIn) {
+      if (isLoggedIn && (state.matchedLocation == '/login' || state.matchedLocation == '/splash')) {
         return '/';
       }
 
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(
         path: '/',
         builder: (context, state) => const MainNavigationScreen(),

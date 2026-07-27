@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/techbes_logo.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../models/service_model.dart';
 import '../../../repositories/service_repository.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../dashboard/screens/main_navigation_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -87,40 +89,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppTheme.primaryColor, AppTheme.secondaryColor],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              alignment: Alignment.center,
-              child: const Text(
-                'TB',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'TechBes Services',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
-                ),
-                Text(
-                  'Premium IT & Field Support',
-                  style: TextStyle(fontSize: 9.5, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500),
-                ),
-              ],
-            ),
-          ],
+        title: const TechBesLogo(
+          size: 32.0,
+          fontSize: 16.0,
         ),
         actions: [
           IconButton(
@@ -304,7 +275,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           final cat = ServiceRepository.categories[index];
                           return InkWell(
                             onTap: () {
-                              // Direct to Services list with selected category slug later
+                              ref.read(selectedCategoryProvider.notifier).state = cat.id;
+                              ref.read(navigationIndexProvider.notifier).state = 1;
                             },
                             child: Container(
                               width: 100,

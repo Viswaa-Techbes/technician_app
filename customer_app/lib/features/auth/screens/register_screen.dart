@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../repositories/auth_repository.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/techbes_logo.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -79,28 +80,39 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         decoration: AppTheme.heroGradient,
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              elevation: 4,
-              shadowColor: Colors.black.withOpacity(0.05),
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'Sign Up',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Register to book fast field services.',
-                      style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryColor),
-                    ),
-                    const SizedBox(height: 20),
-                    TextField(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Center(
+                  child: TechBesLogo(
+                    size: 44.0,
+                    fontSize: 22.0,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Card(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  elevation: 2,
+                  shadowColor: Colors.black.withOpacity(0.04),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Sign Up',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Register to book fast field services.',
+                          style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(height: 20),
+                        TextField(
                       controller: _nameController,
                       decoration: const InputDecoration(
                         labelText: 'Full Name',

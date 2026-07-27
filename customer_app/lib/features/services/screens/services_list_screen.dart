@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/network/dio_client.dart';
+import '../../../repositories/service_repository.dart';
+import '../../dashboard/screens/main_navigation_screen.dart';
 import '../components/service_config_modal.dart';
 
 class ServicesListScreen extends ConsumerStatefulWidget {
@@ -13,83 +15,55 @@ class ServicesListScreen extends ConsumerStatefulWidget {
 }
 
 class _ServicesListScreenState extends ConsumerState<ServicesListScreen> {
-  bool _isLoadingCategories = true;
-  String? _error;
-  List<dynamic> _categories = [];
-  String? _selectedCategorySlug;
   List<dynamic> _subcategories = [];
   bool _isLoadingSubcategories = false;
+  String? _loadedCategorySlug;
 
   @override
   void initState() {
     super.initState();
-    _fetchCategories();
-  }
-
-  Future<void> _fetchCategories() async {
-    setState(() {
-      _isLoadingCategories = true;
-      _error = null;
+    // Initial fetch of CCTV subcategories or whatever is selected
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final activeSlug = ref.read(selectedCategoryProvider);
+      _fetchSubcategories(activeSlug);
     });
-
-    try {
-      final client = ref.read(dioClientProvider);
-      final response = await client.get('/api/v2/catalog/categories');
-      if (response.data != null && response.data['success'] == true) {
-        setState(() {
-          _categories = response.data['data'] ?? [];
-          _isLoadingCategories = false;
-        });
-        if (_categories.isNotEmpty) {
-          _selectCategory(_categories[0]['slug']);
-        }
-      } else {
-        throw Exception('Failed to load categories');
-      }
-    } catch (e) {
-      debugPrint('Error loading categories: $e');
-      setState(() {
-        _error = 'Unable to connect to service catalog.';
-        _isLoadingCategories = false;
-        // Fallback to static values
-        _categories = [
-          {'name': 'CCTV', 'slug': 'cctv', 'description': 'Smart surveillance and security setups', 'icon': 'Camera'},
-          {'name': 'Networking', 'slug': 'networking', 'description': 'LAN, router and Mesh setups', 'icon': 'Network'},
-          {'name': 'Laptop Repair', 'slug': 'laptop', 'description': 'OS fixes and hardware repair', 'icon': 'Laptop'},
-          {'name': 'Desktop Setup', 'slug': 'desktop', 'description': 'Custom builds and diagnostic checkups', 'icon': 'Monitor'},
-          {'name': 'Business AMC', 'slug': 'amc', 'description': 'Preventive maintenance plans', 'icon': 'Zap'},
-        ];
-        if (_categories.isNotEmpty) {
-          _selectCategory(_categories[0]['slug']);
-        }
-      });
-    }
   }
 
-  Future<void> _selectCategory(String slug) async {
+  Future<void> _fetchSubcategories(String slug) async {
+    if (slug != 'cctv') {
+      setState(() {
+        _subcategories = [];
+        _loadedCategorySlug = slug;
+        _isLoadingSubcategories = false;
+      });
+      return;
+    }
+
     setState(() {
-      _selectedCategorySlug = slug;
       _isLoadingSubcategories = true;
+      _loadedCategorySlug = slug;
       _subcategories = [];
     });
 
     try {
       final client = ref.read(dioClientProvider);
-      final response = await client.get('/api/v2/catalog/categories/$slug/subcategories');
+      final response = await client.get('/api/v2/catalog/categories/cctv/subcategories');
       if (response.data != null && response.data['success'] == true) {
-        setState(() {
-          _subcategories = response.data['data'] ?? [];
-          _isLoadingSubcategories = false;
-        });
+        if (mounted) {
+          setState(() {
+            _subcategories = response.data['data'] ?? [];
+            _isLoadingSubcategories = false;
+          });
+        }
       } else {
         throw Exception('Failed to load subcategories');
       }
     } catch (e) {
       debugPrint('Error loading subcategories: $e');
-      setState(() {
-        _isLoadingSubcategories = false;
-        // Offline Fallbacks
-        if (slug == 'cctv') {
+      if (mounted) {
+        setState(() {
+          _isLoadingSubcategories = false;
+          // Robust Fallbacks for CCTV subcategories
           _subcategories = [
             {
               '_id': '1000',
@@ -128,17 +102,8 @@ class _ServicesListScreenState extends ConsumerState<ServicesListScreen> {
               'description': 'Schedule a free on-site survey for custom security planning and estimation.',
             }
           ];
-        } else {
-          _subcategories = [
-            {
-              '_id': '2000',
-              'name': 'Standard Diagnostics & Service',
-              'slug': 'standard-diagnostics',
-              'description': 'Audit and troubleshoot configurations.',
-            }
-          ];
-        }
-      });
+        });
+      }
     }
   }
 
@@ -154,7 +119,7 @@ class _ServicesListScreenState extends ConsumerState<ServicesListScreen> {
         return ServiceConfigModal(
           serviceSlug: subcategory['slug'] ?? '',
           serviceName: subcategory['name'] ?? '',
-          categoryId: _selectedCategorySlug ?? 'cctv',
+          categoryId: 'cctv',
           subcategoryId: subcategory['_id']?.toString() ?? subcategory['id']?.toString() ?? '1000',
           defaultPrice: (subcategory['packages'] != null && subcategory['packages'].isNotEmpty)
               ? (subcategory['packages'][0]['price'] as num).toDouble()
@@ -169,7 +134,6 @@ class _ServicesListScreenState extends ConsumerState<ServicesListScreen> {
       case 'cctv':
         return Icons.videocam;
       case 'networking':
-      case 'network':
         return Icons.router;
       case 'laptop':
         return Icons.laptop;
@@ -177,13 +141,16 @@ class _ServicesListScreenState extends ConsumerState<ServicesListScreen> {
         return Icons.monitor;
       case 'server':
         return Icons.dns;
-      case 'amc':
       case 'electronic-contracts':
-        return Icons.electrical_services;
+        return Icons.article_outlined;
       case 'home-automation':
-        return Icons.home_repair_service;
+        return Icons.home_outlined;
       case 'website-development':
-        return Icons.public;
+        return Icons.language;
+      case 'software-licensing':
+        return Icons.card_membership_outlined;
+      case 'cyber-security':
+        return Icons.security_outlined;
       default:
         return Icons.category;
     }
@@ -201,10 +168,13 @@ class _ServicesListScreenState extends ConsumerState<ServicesListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoadingCategories) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
-      );
+    final selectedCategorySlug = ref.watch(selectedCategoryProvider);
+
+    // Sync subcategory loading if category slug changed
+    if (_loadedCategorySlug != selectedCategorySlug) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fetchSubcategories(selectedCategorySlug);
+      });
     }
 
     return Scaffold(
@@ -228,12 +198,14 @@ class _ServicesListScreenState extends ConsumerState<ServicesListScreen> {
               border: Border(right: BorderSide(color: AppTheme.borderColor)),
             ),
             child: ListView.builder(
-              itemCount: _categories.length,
+              itemCount: ServiceRepository.categories.length,
               itemBuilder: (context, index) {
-                final cat = _categories[index];
-                final isSelected = _selectedCategorySlug == cat['slug'];
+                final cat = ServiceRepository.categories[index];
+                final isSelected = selectedCategorySlug == cat.id;
                 return InkWell(
-                  onTap: () => _selectCategory(cat['slug']),
+                  onTap: () {
+                    ref.read(selectedCategoryProvider.notifier).state = cat.id;
+                  },
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
                     decoration: BoxDecoration(
@@ -249,15 +221,15 @@ class _ServicesListScreenState extends ConsumerState<ServicesListScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          _getCategoryIcon(cat['slug']),
+                          _getCategoryIcon(cat.id),
                           color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
-                          size: 26,
+                          size: 24,
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          cat['name'] ?? '',
+                          cat.title,
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 10.5,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                             color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
                           ),
@@ -273,123 +245,212 @@ class _ServicesListScreenState extends ConsumerState<ServicesListScreen> {
             ),
           ),
 
-          // Right content for Subcategories list
+          // Right content panel: Subcategories or Coming Soon
           Expanded(
             child: Container(
               color: AppTheme.backgroundColor,
-              child: _isLoadingSubcategories
-                  ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
-                  : _subcategories.isEmpty
-                      ? const Center(child: Text('No services found in this category'))
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _subcategories.length,
-                          itemBuilder: (context, index) {
-                            final sub = _subcategories[index];
-                            final startPrice = sub['packages'] != null && sub['packages'].isNotEmpty
-                                ? '₹${sub['packages'][0]['price']}'
-                                : (sub['slug'] == 'free-site-survey' ? 'Free' : '₹499');
+              child: selectedCategorySlug != 'cctv'
+                  ? ComingSoonPanel(
+                      categoryTitle: ServiceRepository.categories
+                          .firstWhere((c) => c.id == selectedCategorySlug,
+                              orElse: () => ServiceRepository.categories[0])
+                          .title,
+                    )
+                  : _isLoadingSubcategories
+                      ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+                      : _subcategories.isEmpty
+                          ? const Center(child: Text('No services found in this category'))
+                          : ListView.builder(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: _subcategories.length,
+                              itemBuilder: (context, index) {
+                                final sub = _subcategories[index];
+                                final startPrice = sub['packages'] != null && sub['packages'].isNotEmpty
+                                    ? '₹${sub['packages'][0]['price']}'
+                                    : (sub['slug'] == 'free-site-survey' ? 'Free' : '₹499');
 
-                            return Card(
-                              elevation: 0,
-                              margin: const EdgeInsets.only(bottom: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                side: const BorderSide(color: AppTheme.borderColor),
-                              ),
-                              child: InkWell(
-                                onTap: () => _openBookingWizard(sub),
-                                borderRadius: BorderRadius.circular(16),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 20,
-                                        backgroundColor: AppTheme.primaryColor.withOpacity(0.08),
-                                        child: Icon(
-                                          _getSubcategoryIcon(sub['slug'] ?? ''),
-                                          color: AppTheme.primaryColor,
-                                          size: 20,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 14),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              sub['name'] ?? '',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14,
-                                                color: AppTheme.textPrimaryColor,
-                                              ),
+                                return Card(
+                                  elevation: 0,
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    side: const BorderSide(color: AppTheme.borderColor),
+                                  ),
+                                  child: InkWell(
+                                    onTap: () => _openBookingWizard(sub),
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          CircleAvatar(
+                                            radius: 20,
+                                            backgroundColor: AppTheme.primaryColor.withOpacity(0.08),
+                                            child: Icon(
+                                              _getSubcategoryIcon(sub['slug'] ?? ''),
+                                              color: AppTheme.primaryColor,
+                                              size: 20,
                                             ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              sub['description'] ?? '',
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: AppTheme.textSecondaryColor,
-                                                height: 1.35,
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            const SizedBox(height: 10),
-                                            Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          ),
+                                          const SizedBox(width: 14),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  'Starting from: $startPrice',
+                                                  sub['name'] ?? '',
                                                   style: const TextStyle(
                                                     fontWeight: FontWeight.bold,
-                                                    fontSize: 12.5,
-                                                    color: AppTheme.primaryColor,
+                                                    fontSize: 14,
+                                                    color: AppTheme.textPrimaryColor,
                                                   ),
                                                 ),
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                                  decoration: BoxDecoration(
-                                                    color: AppTheme.primaryColor,
-                                                    borderRadius: BorderRadius.circular(12),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  sub['description'] ?? '',
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: AppTheme.textSecondaryColor,
+                                                    height: 1.35,
                                                   ),
-                                                  child: const Row(
-                                                    children: [
-                                                      Text(
-                                                        'Book Now',
-                                                        style: TextStyle(
-                                                          color: Colors.white,
-                                                          fontSize: 10.5,
-                                                          fontWeight: FontWeight.bold,
-                                                        ),
+                                                  maxLines: 2,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                                const SizedBox(height: 10),
+                                                Row(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  children: [
+                                                    Text(
+                                                      'Starting from: $startPrice',
+                                                      style: const TextStyle(
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: 12.5,
+                                                        color: AppTheme.primaryColor,
                                                       ),
-                                                      SizedBox(width: 4),
-                                                      Icon(
-                                                        Icons.arrow_forward,
-                                                        color: Colors.white,
-                                                        size: 11,
+                                                    ),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                                      decoration: BoxDecoration(
+                                                        color: AppTheme.primaryColor,
+                                                        borderRadius: BorderRadius.circular(12),
                                                       ),
-                                                    ],
-                                                  ),
+                                                      child: const Row(
+                                                        children: [
+                                                          Text(
+                                                            'Book Now',
+                                                            style: TextStyle(
+                                                              color: Colors.white,
+                                                              fontSize: 10.5,
+                                                              fontWeight: FontWeight.bold,
+                                                            ),
+                                                          ),
+                                                          SizedBox(width: 4),
+                                                          Icon(
+                                                            Icons.arrow_forward,
+                                                            color: Colors.white,
+                                                            size: 11,
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ],
                                             ),
-                                          ],
-                                        ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
+                                    ),
                                   ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                                );
+                              },
+                            ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class ComingSoonPanel extends StatelessWidget {
+  final String categoryTitle;
+
+  const ComingSoonPanel({super.key, required this.categoryTitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppTheme.secondaryColor.withOpacity(0.08),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.upcoming_outlined,
+                color: AppTheme.secondaryColor,
+                size: 64,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              "$categoryTitle Services",
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.extrabold,
+                color: AppTheme.textPrimaryColor,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              "Coming Soon",
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.secondaryColor,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              "We are currently setting up operations and certifying local technicians for this category. Full booking will be enabled shortly.",
+              style: TextStyle(
+                fontSize: 13,
+                color: AppTheme.textSecondaryColor,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("We'll notify you once this category goes live!"),
+                    backgroundColor: AppTheme.primaryColor,
+                  ),
+                );
+              },
+              icon: const Icon(Icons.notifications_active_outlined, size: 16),
+              label: const Text("Notify Me When Live"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

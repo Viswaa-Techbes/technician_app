@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/network/api_config.dart';
 import '../../../core/theme/app_theme.dart';
@@ -30,315 +31,350 @@ class ServiceConfigModal extends ConsumerStatefulWidget {
   ConsumerState<ServiceConfigModal> createState() => _ServiceConfigModalState();
 }
 
-class _MainCCTVConfig {
-  String propertyType = 'Home';
-  Map<String, bool> selectedCameraTypes = {}; // type -> true
-  Map<String, int> cameraQuantities = {}; // type -> qty
-  Map<String, String> cameraBrands = {}; // type -> brandId
-  Map<String, String> cameraModels = {}; // type -> modelId
-  
-  bool installationRequired = true;
-  String cableType = 'Cat6';
-  int cableLength = 20;
-  bool dvrRequired = false;
-  bool nvrRequired = false;
-  bool networkRack = false;
-  bool monitorMounting = false;
-  bool sdCardEnabled = false;
-  String sdCardCapacity = '64GB';
-  int sdCardQuantity = 1;
-}
-
 class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
+  int _step = 1;
   bool _isLoading = true;
+  bool _isSubmitting = false;
   String? _errorMessage;
-  int _currentStep = 1;
+  late Razorpay _razorpay;
 
-  // General service configs
-  List<dynamic> _serviceTypes = [];
-  List<dynamic> _materials = [];
-  Map<String, dynamic> _pricingRules = {};
+  // Static options for fallback and initial states
+  final List<String> _propertyTypes = ['Home', 'Apartment', 'Office', 'Shop', 'Warehouse', 'Factory', 'Other'];
+  final List<String> _cameraTypesList = ['IP Camera', 'Analog Camera', 'WiFi Indoor Camera', 'WiFi Outdoor Camera', '4G Camera', 'Solar Camera'];
+  final List<String> _cableTypesList = ['Cat6 Cable', '3+1 CCTV Cable'];
+  final List<String> _sdCardCapacities = ['32GB', '64GB', '128GB', '256GB'];
 
-  // CCTV-specific selections & metadata tables
-  final _cctv = _MainCCTVConfig();
+  // CCTV Form selections
+  String _cctvPropertyType = 'Home';
+  final Map<String, bool> _cctvSelectedCameraTypes = {'IP Camera': true};
+  final Map<String, int> _cctvCameraQuantities = {'IP Camera': 1};
+  final Map<String, String> _cctvCameraBrands = {};
+  final Map<String, String> _cctvCameraModels = {};
+  bool _cctvInstallationRequired = true;
+  String _cctvCableType = 'Cat6 Cable';
+  int _cctvCableLength = 20;
+  bool _cctvDvrRequired = false;
+  bool _cctvNvrRequired = false;
+  bool _cctvNetworkRack = false;
+  bool _cctvMonitorMounting = false;
+  bool _cctvSdCardEnabled = false;
+  String _cctvSdCardCapacity = '64GB';
+  int _cctvSdCardQuantity = 1;
+
+  // Metadata arrays from backend
   List<dynamic> _cctvBrands = [];
-  List<dynamic> _cctvModels = [];
+  List<dynamic> _cctvAllModels = [];
   List<dynamic> _cctvSdCards = [];
   List<dynamic> _cctvCables = [];
   List<dynamic> _cctvInstallationCharges = [];
   List<dynamic> _cctvAccessories = [];
 
-  // General selections
-  String _selectedServiceType = '';
-  final Map<String, int> _selectedMaterials = {}; // ID -> Qty
+  // Price calculations breakdown
+  double _packageCost = 0;
+  double _visitCharge = 499;
+  double _labourCost = 0;
+  double _discount = 0;
+  double _gst = 0;
+  double _grandTotal = 0;
+  bool _isCalculatingPrice = false;
 
-  // Address
-  String _mapLink = '';
-  double? _latitude;
-  double? _longitude;
-  String _pincode = '';
-  String _fullAddress = '';
-  String _city = '';
-  String _stateName = '';
-
-  // Schedule & Directives
+  // Date & Time slots
   DateTime? _selectedDate;
-  TimeOfDay? _selectedTime;
+  String _selectedTimeSlot = '09:00 AM - 11:00 AM';
+  final List<String> _timeSlots = [
+    '09:00 AM - 11:00 AM',
+    '11:00 AM - 01:00 PM',
+    '01:00 PM - 03:00 PM',
+    '03:00 PM - 05:00 PM',
+    '05:00 PM - 07:00 PM',
+  ];
   final _notesController = TextEditingController();
 
-  // Price calculations
-  double _baseFee = 0;
-  double _materialsCost = 0;
-  double _labourCost = 0;
-  double _grandTotal = 0;
-  bool _calculatingCctvPrice = false;
+  // Uploaded Images
+  final List<String> _uploadedImages = [];
+  bool _isSimulatingUpload = false;
 
-  bool get _isCctv => widget.serviceSlug == 'install-new-cctv';
+  // Service Location Address
+  List<dynamic> _savedAddresses = [];
+  String _selectedAddressId = 'new';
+  final _houseNumberController = TextEditingController();
+  final _streetController = TextEditingController();
+  final _areaController = TextEditingController();
+  final _landmarkController = TextEditingController();
+  final _pincodeController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _stateController = TextEditingController();
+  
+  double? _latitude;
+  double? _longitude;
+  String _mapLink = '';
+
+  // Payment configuration
+  String _paymentMethod = 'online'; // online (Razorpay) or wallet
+  double _walletBalance = 0.0;
+  String _customerName = '';
+  String _customerPhone = '';
 
   @override
   void initState() {
     super.initState();
-    _fetchServiceConfigs();
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    _fetchCctvMetadata();
+    _fetchAddressesAndWallet();
   }
 
   @override
   void dispose() {
     _notesController.dispose();
+    _houseNumberController.dispose();
+    _streetController.dispose();
+    _areaController.dispose();
+    _landmarkController.dispose();
+    _pincodeController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _razorpay.clear();
     super.dispose();
   }
 
-  Future<void> _fetchServiceConfigs() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
+  Future<void> _fetchCctvMetadata() async {
+    setState(() => _isLoading = true);
     try {
       final client = ref.read(dioClientProvider);
-      
-      if (_isCctv) {
-        // CCTV Metadata Concurrent Fetch
-        final results = await Future.wait([
-          client.get('/api/v2/cctv/brands'),
-          client.get('/api/v2/cctv/models'),
-          client.get('/api/v2/cctv/sd-cards'),
-          client.get('/api/v2/cctv/cable-pricings'),
-          client.get('/api/v2/cctv/installation-charges'),
-          client.get('/api/v2/cctv/accessories'),
-        ]);
+      final results = await Future.wait([
+        client.get('/api/v2/cctv/brands'),
+        client.get('/api/v2/cctv/models'),
+        client.get('/api/v2/cctv/sd-cards'),
+        client.get('/api/v2/cctv/cable-pricings'),
+        client.get('/api/v2/cctv/installation-charges'),
+        client.get('/api/v2/cctv/accessories'),
+      ]);
 
+      if (mounted) {
         setState(() {
           _cctvBrands = results[0].data['data'] ?? [];
-          _cctvModels = results[1].data['data'] ?? [];
+          _cctvAllModels = results[1].data['data'] ?? [];
           _cctvSdCards = results[2].data['data'] ?? [];
           _cctvCables = results[3].data['data'] ?? [];
           _cctvInstallationCharges = results[4].data['data'] ?? [];
           _cctvAccessories = results[5].data['data'] ?? [];
-          
-          // Initialise default camera setups
-          _cctv.selectedCameraTypes = {'IP Camera': true};
-          _cctv.cameraQuantities = {'IP Camera': 2};
-          if (_cctvBrands.isNotEmpty) {
-            _cctv.cameraBrands = {'IP Camera': _cctvBrands[0]['_id']};
-            final firstModel = _cctvModels.firstWhere(
-              (m) => m['cameraType'] == 'IP Camera' && m['brandId']?['_id'] == _cctvBrands[0]['_id'],
-              orElse: () => null,
-            );
-            if (firstModel != null) {
-              _cctv.cameraModels = {'IP Camera': firstModel['_id']};
-            }
-          }
-          
+
+          // Initialize defaults for first selected camera type
+          _initializeCameraDefaults();
           _isLoading = false;
         });
-        _calculateCctvPrice();
-      } else {
-        // General category configurations
-        final response = await client.get('${ApiConfig.serviceConfig}/${widget.serviceSlug}/config');
-        if (response.data != null && response.data['success'] == true) {
-          final data = response.data['data'];
-          setState(() {
-            _serviceTypes = data['serviceTypes'] ?? [];
-            _materials = data['materials'] ?? [];
-            _pricingRules = data['pricingRules'] ?? {};
-            if (_serviceTypes.isNotEmpty) {
-              _selectedServiceType = _serviceTypes[0]['name'] ?? '';
-            } else {
-              _selectedServiceType = widget.serviceName;
-            }
-            _isLoading = false;
-          });
-          _calculateGeneralPrice();
-        } else {
-          throw Exception();
-        }
+        _calculateEstimatePrice();
       }
     } catch (e) {
-      debugPrint('Error loading configs: $e');
-      setState(() {
-        _isLoading = false;
-        if (_isCctv) {
-          // Hardcoded CCTV parameters fallback for local dev offline
+      debugPrint('Metadata fetch failed: $e');
+      if (mounted) {
+        setState(() {
+          // Pre-populate offline fallback brands and models
           _cctvBrands = [
-            {'_id': 'b1', 'name': 'Hikvision'},
-            {'_id': 'b2', 'name': 'CP Plus'},
-            {'_id': 'b3', 'name': 'Dahua'}
+            {'_id': 'brand_hikvision', 'name': 'Hikvision'},
+            {'_id': 'brand_cpplus', 'name': 'CP Plus'},
+            {'_id': 'brand_dahua', 'name': 'Dahua'},
           ];
-          _cctvModels = [
-            {'_id': 'm1', 'name': '2MP Fixed Dome IP', 'cameraType': 'IP Camera', 'brandId': {'_id': 'b1'}, 'price': 1200},
-            {'_id': 'm2', 'name': '4MP Smart IP Bullet', 'cameraType': 'IP Camera', 'brandId': {'_id': 'b1'}, 'price': 2200},
+          _cctvAllModels = [
+            {'_id': 'model_hik_ip_2mp', 'name': '2MP Fixed Dome IP', 'cameraType': 'IP Camera', 'brandId': {'_id': 'brand_hikvision'}, 'price': 1400},
+            {'_id': 'model_hik_ip_4mp', 'name': '4MP Smart IP Bullet', 'cameraType': 'IP Camera', 'brandId': {'_id': 'brand_hikvision'}, 'price': 2200},
+            {'_id': 'model_cpp_analog_2mp', 'name': '2MP Dome Analog', 'cameraType': 'Analog Camera', 'brandId': {'_id': 'brand_cpplus'}, 'price': 900},
+            {'_id': 'model_cpp_analog_4mp', 'name': '4MP Bullet Analog', 'cameraType': 'Analog Camera', 'brandId': {'_id': 'brand_cpplus'}, 'price': 1600},
           ];
           _cctvSdCards = [
-            {'_id': 'sd1', 'capacity': '64GB', 'price': 450},
-            {'_id': 'sd2', 'capacity': '128GB', 'price': 850}
+            {'_id': 'sd_32', 'capacity': '32GB', 'price': 299},
+            {'_id': 'sd_64', 'capacity': '64GB', 'price': 499},
+            {'_id': 'sd_128', 'capacity': '128GB', 'price': 899},
           ];
-          _cctv.selectedCameraTypes = {'IP Camera': true};
-          _cctv.cameraQuantities = {'IP Camera': 2};
-          _cctv.cameraBrands = {'IP Camera': 'b1'};
-          _cctv.cameraModels = {'IP Camera': 'm1'};
-        } else {
-          _serviceTypes = [
-            {'name': 'Wired Service Repair', 'price': 499},
-            {'name': 'Device Diagnostic Visit', 'price': 299}
-          ];
-          _selectedServiceType = _serviceTypes[0]['name'];
-        }
-      });
-      if (_isCctv) _calculateCctvPrice(); else _calculateGeneralPrice();
+          _initializeCameraDefaults();
+          _isLoading = false;
+        });
+        _calculateEstimatePrice();
+      }
     }
   }
 
-  // Dynamic CCTV Pricing Call
-  Future<void> _calculateCctvPrice() async {
-    final hasCamera = _cctv.selectedCameraTypes.values.any((v) => v == true);
-    if (!hasCamera) return;
+  void _initializeCameraDefaults() {
+    for (final type in _cameraTypesList) {
+      if (_cctvBrands.isNotEmpty) {
+        _cctvCameraBrands[type] = _cctvBrands[0]['_id'];
+        final matchingModel = _cctvAllModels.firstWhere(
+          (m) => m['cameraType'] == type && (m['brandId']?['_id'] == _cctvBrands[0]['_id'] || m['brandId'] == _cctvBrands[0]['_id']),
+          orElse: () => _cctvAllModels.firstWhere((m) => m['cameraType'] == type, orElse: () => null),
+        );
+        if (matchingModel != null) {
+          _cctvCameraModels[type] = matchingModel['_id'];
+        }
+      }
+    }
+  }
 
-    setState(() => _calculatingCctvPrice = true);
+  Future<void> _fetchAddressesAndWallet() async {
+    try {
+      final client = ref.read(dioClientProvider);
+      final results = await Future.wait([
+        client.get('/api/user/addresses'),
+        client.get('/api/auth/me'),
+        client.get('/api/v2/wallet'),
+      ]);
 
-    final List<Map<String, dynamic>> cameraTypesPayload = [];
-    _cctv.selectedCameraTypes.forEach((type, selected) {
-      if (selected) {
-        cameraTypesPayload.add({
-          'type': type,
-          'brandId': _cctv.cameraBrands[type] ?? '',
-          'modelId': _cctv.cameraModels[type] ?? '',
-          'quantity': _cctv.cameraQuantities[type] ?? 1,
+      if (mounted) {
+        setState(() {
+          if (results[0].data != null && results[0].data['success'] == true) {
+            _savedAddresses = results[0].data['data'] ?? [];
+            if (_savedAddresses.isNotEmpty) {
+              _selectSavedAddress(_savedAddresses[0]);
+            }
+          }
+          if (results[1].data != null && results[1].data['success'] == true) {
+            final user = results[1].data['data'];
+            _customerName = user['name'] ?? '';
+            _customerPhone = user['mobileNumber'] ?? user['phone'] ?? '';
+          }
+          if (results[2].data != null && results[2].data['success'] == true) {
+            _walletBalance = (results[2].data['data']['balance'] as num).toDouble();
+          }
         });
       }
+    } catch (e) {
+      debugPrint('Addresses or profile load failed: $e');
+    }
+  }
+
+  void _selectSavedAddress(dynamic addr) {
+    setState(() {
+      _selectedAddressId = addr['_id'] ?? 'new';
+      _houseNumberController.text = addr['houseNumber'] ?? '';
+      _streetController.text = addr['street'] ?? '';
+      _areaController.text = addr['area'] ?? '';
+      _landmarkController.text = addr['landmark'] ?? '';
+      _pincodeController.text = addr['pincode'] ?? '';
+      _cityController.text = addr['city'] ?? '';
+      _stateController.text = addr['state'] ?? '';
+      _latitude = addr['latitude'] != null ? (addr['latitude'] as num).toDouble() : null;
+      _longitude = addr['longitude'] != null ? (addr['longitude'] as num).toDouble() : null;
+      _mapLink = addr['mapLink'] ?? '';
     });
+  }
+
+  void _resetAddressForm() {
+    setState(() {
+      _selectedAddressId = 'new';
+      _houseNumberController.clear();
+      _streetController.clear();
+      _areaController.clear();
+      _landmarkController.clear();
+      _pincodeController.clear();
+      _cityController.clear();
+      _stateController.clear();
+      _latitude = null;
+      _longitude = null;
+      _mapLink = '';
+    });
+  }
+
+  Future<void> _calculateEstimatePrice() async {
+    final activeTypes = _cctvSelectedCameraTypes.entries.where((e) => e.value).map((e) => e.key).toList();
+    if (activeTypes.isEmpty) {
+      setState(() {
+        _packageCost = 0;
+        _labourCost = 0;
+        _gst = 0;
+        _grandTotal = 0;
+      });
+      return;
+    }
+
+    setState(() => _isCalculatingPrice = true);
+
+    final List<Map<String, dynamic>> cameraTypesPayload = [];
+    for (final type in activeTypes) {
+      cameraTypesPayload.add({
+        'type': type,
+        'brandId': _cctvCameraBrands[type] ?? '',
+        'modelId': _cctvCameraModels[type] ?? '',
+        'quantity': _cctvCameraQuantities[type] ?? 1,
+      });
+    }
 
     final payload = {
       'subcategoryId': widget.subcategoryId,
       'subcategorySlug': widget.serviceSlug,
-      'propertyType': _cctv.propertyType,
+      'propertyType': _cctvPropertyType,
       'cameraTypes': cameraTypesPayload,
-      'installationRequired': _cctv.installationRequired,
-      'cableType': _cctv.cableType,
-      'cableLength': _cctv.cableLength,
-      'dvrRequired': _cctv.dvrRequired,
-      'nvrRequired': _cctv.nvrRequired,
-      'networkRack': _cctv.networkRack,
-      'monitorMounting': _cctv.monitorMounting,
-      'sdCardRequired': _cctv.sdCardEnabled,
-      'sdCardCapacity': _cctv.sdCardCapacity,
-      'sdCardQuantity': _cctv.sdCardQuantity,
+      'installationRequired': _cctvInstallationRequired,
+      'cableType': _cctvCableType,
+      'cableLength': _cctvCableLength,
+      'dvrRequired': _cctvDvrRequired,
+      'nvrRequired': _cctvNvrRequired,
+      'networkRack': _cctvNetworkRack,
+      'monitorMounting': _cctvMonitorMounting,
+      'sdCardRequired': _cctvSdCardEnabled,
+      'sdCardCapacity': _cctvSdCardCapacity,
+      'sdCardQuantity': _cctvSdCardQuantity,
     };
 
     try {
       final client = ref.read(dioClientProvider);
       final response = await client.post('/api/v2/cctv/calculate-price', data: payload);
       
-      if (response.data != null && response.data['success'] == true) {
-        final breakdown = response.data['data']['priceBreakdown'];
+      if (response.data != null && response.data['success'] == true && mounted) {
+        final pb = response.data['data']['priceBreakdown'];
         setState(() {
-          _baseFee = (breakdown['baseCharge'] as num).toDouble();
-          _materialsCost = (breakdown['cameraTotal'] as num).toDouble();
-          _labourCost = (breakdown['addonsTotal'] as num).toDouble();
-          _grandTotal = (breakdown['grandTotal'] as num).toDouble();
+          _packageCost = (pb['installationTotal'] as num).toDouble();
+          _visitCharge = (pb['baseCharge'] as num).toDouble();
+          
+          double otherAddons = 0;
+          otherAddons += (pb['cameraTotal'] as num).toDouble();
+          otherAddons += (pb['cableTotal'] as num).toDouble();
+          otherAddons += (pb['sdCardTotal'] as num).toDouble();
+          otherAddons += (pb['dvrTotal'] as num).toDouble();
+          otherAddons += (pb['nvrTotal'] as num).toDouble();
+          otherAddons += (pb['rackTotal'] as num).toDouble();
+          otherAddons += (pb['monitorTotal'] as num).toDouble();
+
+          _labourCost = otherAddons;
+          _discount = 0;
+          _gst = (pb['taxTotal'] as num).toDouble();
+          _grandTotal = (pb['grandTotal'] as num).toDouble();
+          _isCalculatingPrice = false;
         });
       }
     } catch (e) {
-      debugPrint('Price calculation failed: $e');
-      // Offline fallback simple pricing logic
-      double camSum = 0;
-      _cctv.selectedCameraTypes.forEach((type, sel) {
-        if (sel) {
-          final mod = _cctvModels.firstWhere((m) => m['_id'] == _cctv.cameraModels[type], orElse: () => null);
-          final price = (mod?['price'] as num?)?.toDouble() ?? 1200.0;
-          camSum += price * (_cctv.cameraQuantities[type] ?? 1);
-        }
-      });
-      double addonsSum = _cctv.cableLength * (_cctv.cableType == 'Cat6' ? 45.0 : 35.0);
-      if (_cctv.sdCardEnabled) addonsSum += _cctv.sdCardQuantity * 450.0;
-      
-      setState(() {
-        _baseFee = widget.defaultPrice;
-        _materialsCost = camSum;
-        _labourCost = addonsSum;
-        _grandTotal = _baseFee + _materialsCost + _labourCost;
-      });
-    } finally {
-      setState(() => _calculatingCctvPrice = false);
-    }
-  }
-
-  void _calculateGeneralPrice() {
-    double base = widget.defaultPrice;
-    if (_serviceTypes.isNotEmpty) {
-      final type = _serviceTypes.firstWhere((t) => t['name'] == _selectedServiceType, orElse: () => null);
-      if (type != null) {
-        base = (type['price'] as num).toDouble();
+      debugPrint('Price calculation API failed, using fallback calculations: $e');
+      // Offline/Error Local pricing fallback
+      double camerasTotal = 0;
+      for (final type in activeTypes) {
+        final modelId = _cctvCameraModels[type];
+        final model = _cctvAllModels.firstWhere((m) => m['_id'] == modelId, orElse: () => null);
+        final price = model != null ? (model['price'] as num).toDouble() : 1400.0;
+        camerasTotal += price * (_cctvCameraQuantities[type] ?? 1);
       }
-    }
 
-    double matCost = 0;
-    double labCost = 0;
-    _selectedMaterials.forEach((id, qty) {
-      final mat = _materials.firstWhere((m) => m['id'] == id || m['slug'] == id, orElse: () => null);
-      if (mat != null) {
-        final price = (mat['price'] as num).toDouble();
-        if (mat['isLabour'] == true || id == 'labour') {
-          labCost += price * qty;
-        } else {
-          matCost += price * qty;
-        }
+      double installationTotal = _cctvInstallationRequired ? (activeTypes.length * 400.0) : 0.0;
+      double cableTotal = _cctvInstallationRequired ? (_cctvCableLength * (_cctvCableType.contains('Cat6') ? 45.0 : 35.0)) : 0.0;
+      double sdTotal = _cctvSdCardEnabled ? (_cctvSdCardQuantity * (_cctvSdCardCapacity == '32GB' ? 299.0 : _cctvSdCardCapacity == '64GB' ? 499.0 : 899.0)) : 0.0;
+      double dvrTotal = _cctvDvrRequired ? 2500.0 : 0.0;
+      double nvrTotal = _cctvNvrRequired ? 3500.0 : 0.0;
+      double rackTotal = _cctvNetworkRack ? 1200.0 : 0.0;
+      double monitorTotal = _cctvMonitorMounting ? 800.0 : 0.0;
+      double baseVisit = widget.defaultPrice;
+
+      double subTotal = baseVisit + camerasTotal + installationTotal + cableTotal + sdTotal + dvrTotal + nvrTotal + rackTotal + monitorTotal;
+      double tax = subTotal * 0.18;
+
+      if (mounted) {
+        setState(() {
+          _packageCost = installationTotal;
+          _visitCharge = baseVisit;
+          _labourCost = camerasTotal + cableTotal + sdTotal + dvrTotal + nvrTotal + rackTotal + monitorTotal;
+          _gst = tax;
+          _grandTotal = subTotal + tax;
+          _isCalculatingPrice = false;
+        });
       }
-    });
-
-    setState(() {
-      _baseFee = _pricingRules['baseCharge'] != null 
-          ? (_pricingRules['baseCharge'] as num).toDouble() 
-          : base;
-      _materialsCost = matCost;
-      _labourCost = labCost;
-      _grandTotal = _baseFee + _materialsCost + _labourCost;
-    });
-  }
-
-  List<String> _getSteps() {
-    if (_isCctv) {
-      return ['Setup Details', 'Add-ons & Parts', 'Location', 'Schedule', 'Summary'];
-    }
-    return ['Type Selection', 'Materials', 'Location', 'Schedule', 'Summary'];
-  }
-
-  bool _isStepValid() {
-    switch (_currentStep) {
-      case 1:
-        if (_isCctv) {
-          return _cctv.selectedCameraTypes.values.any((v) => v == true);
-        }
-        return _selectedServiceType.isNotEmpty;
-      case 2:
-        return true;
-      case 3:
-        return _latitude != null && _longitude != null && _fullAddress.isNotEmpty;
-      case 4:
-        return _selectedDate != null && _selectedTime != null;
-      case 5:
-        return true;
-      default:
-        return false;
     }
   }
 
@@ -348,7 +384,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
         return DraggableScrollableSheet(
@@ -369,10 +405,10 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
                     _mapLink = 'https://maps.google.com/?q=${data.latitude},${data.longitude}';
                     _latitude = data.latitude;
                     _longitude = data.longitude;
-                    _pincode = data.pincode;
+                    _pincodeController.text = data.pincode;
                     _fullAddress = data.address;
-                    _city = data.city;
-                    _stateName = data.state;
+                    _cityController.text = data.city;
+                    _stateController.text = data.state;
                   });
                   context.pop();
                 },
@@ -384,177 +420,351 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
     );
   }
 
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? now.add(const Duration(days: 1)),
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 30)),
-    );
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
+  void _simulateImageUpload() async {
+    setState(() => _isSimulatingUpload = true);
+    await Future.delayed(const Duration(seconds: 1.5));
+    if (mounted) {
+      setState(() {
+        final mockIndex = _uploadedImages.length + 1;
+        _uploadedImages.add('https://images.unsplash.com/photo-1557862921-37829c790f19?w=600&fit=crop&q=80&mock=$mockIndex');
+        _isSimulatingUpload = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Site image uploaded successfully (Simulated)')),
+      );
     }
   }
 
-  Future<void> _pickTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: _selectedTime ?? const TimeOfDay(hour: 9, minute: 0),
-    );
-    if (picked != null) {
-      setState(() => _selectedTime = picked);
+  Map<String, dynamic> _buildBookingPayload() {
+    final dateStr = _selectedDate != null ? DateFormat('yyyy-MM-dd').format(_selectedDate!) : DateFormat('yyyy-MM-dd').format(DateTime.now().add(const Duration(days: 1)));
+    
+    final activeTypes = _cctvSelectedCameraTypes.entries.where((e) => e.value).map((e) => e.key).toList();
+    final List<Map<String, dynamic>> cameraTypesPayload = [];
+    for (final type in activeTypes) {
+      cameraTypesPayload.add({
+        'type': type,
+        'brandId': _cctvCameraBrands[type] ?? '',
+        'modelId': _cctvCameraModels[type] ?? '',
+        'quantity': _cctvCameraQuantities[type] ?? 1,
+      });
     }
+
+    final formattedAddress = '${_houseNumberController.text.trim()}, ${_streetController.text.trim()}, ${_areaController.text.trim()}, ${_landmarkController.text.trim()}, ${_cityController.text.trim()}, ${_stateController.text.trim()} - ${_pincodeController.text.trim()}';
+
+    return {
+      'service': widget.serviceName,
+      'serviceId': widget.subcategoryId,
+      'serviceName': widget.serviceName,
+      'address': formattedAddress,
+      'description': _notesController.text.isNotEmpty ? _notesController.text.trim() : 'Booking requested via customer app',
+      'date': dateStr,
+      'timeSlot': _selectedTimeSlot,
+      'customerName': _customerName.isNotEmpty ? _customerName : 'Techbes User',
+      'customerPhone': _customerPhone.isNotEmpty ? _customerPhone : '9900012345',
+      'totalAmount': _grandTotal,
+      'serviceType': 'installation',
+      'latitude': _latitude ?? 12.9716,
+      'longitude': _longitude ?? 77.5946,
+      'city': _cityController.text.trim(),
+      'state': _stateController.text.trim(),
+      'pincode': _pincodeController.text.trim(),
+      'bookingAnswers': [
+        {'question': 'Select Property Type', 'answer': _cctvPropertyType},
+        {'question': 'Active Camera Types', 'answer': activeTypes.join(', ')},
+      ],
+      'uploadedImages': _uploadedImages,
+      'houseNumber': _houseNumberController.text.trim(),
+      'street': _streetController.text.trim(),
+      'area': _areaController.text.trim(),
+      'landmark': _landmarkController.text.trim(),
+      'cctvDetails': {
+        'category': {'name': 'CCTV', 'slug': 'cctv'},
+        'subcategory': {'id': widget.subcategoryId, 'name': widget.serviceName, 'slug': widget.serviceSlug},
+        'propertyType': _cctvPropertyType,
+        'cameraTypes': cameraTypesPayload,
+        'installationRequired': _cctvInstallationRequired,
+        'cableType': _cctvCableType,
+        'cableLength': _cctvCableLength,
+        'dvrRequired': _cctvDvrRequired,
+        'nvrRequired': _cctvNvrRequired,
+        'networkRack': _cctvNetworkRack,
+        'monitorMounting': _cctvMonitorMounting,
+        'sdCardRequired': _cctvSdCardEnabled,
+        'sdCardCapacity': _cctvSdCardCapacity,
+        'sdCardQuantity': _cctvSdCardQuantity
+      }
+    };
   }
 
-  Map<String, dynamic> _buildConfigurationPayload() {
-    final dateStr = _selectedDate != null ? DateFormat('yyyy-MM-dd').format(_selectedDate!) : '';
-    final timeStr = _selectedTime != null 
-        ? '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}' 
-        : '';
+  void _handleSubmitBooking() async {
+    setState(() => _isSubmitting = true);
+    
+    // Create address if needed first
+    final client = ref.read(dioClientProvider);
+    String? finalAddressId = _selectedAddressId != 'new' ? _selectedAddressId : null;
 
-    if (_isCctv) {
-      final List<Map<String, dynamic>> materialsList = [];
-      _cctv.selectedCameraTypes.forEach((type, sel) {
-        if (sel) {
-          final mod = _cctvModels.firstWhere((m) => m['_id'] == _cctv.cameraModels[type], orElse: () => null);
-          materialsList.add({
-            'id': _cctv.cameraModels[type] ?? '',
-            'name': '$type (${mod?['name'] ?? 'Generic'})',
-            'unit': 'each',
-            'qty': _cctv.cameraQuantities[type] ?? 1,
-            'total': ((mod?['price'] ?? 1200) * (_cctv.cameraQuantities[type] ?? 1)).toDouble(),
+    if (_selectedAddressId == 'new') {
+      try {
+        final formattedAddress = '${_houseNumberController.text.trim()}, ${_streetController.text.trim()}, ${_areaController.text.trim()}, ${_landmarkController.text.trim()}, ${_cityController.text.trim()}, ${_stateController.text.trim()} - ${_pincodeController.text.trim()}';
+        
+        final addrRes = await client.post('/api/user/address', data: {
+          'houseNumber': _houseNumberController.text.trim(),
+          'street': _streetController.text.trim(),
+          'area': _areaController.text.trim(),
+          'landmark': _landmarkController.text.trim(),
+          'pincode': _pincodeController.text.trim(),
+          'city': _cityController.text.trim(),
+          'state': _stateController.text.trim(),
+          'latitude': _latitude ?? 12.9716,
+          'longitude': _longitude ?? 77.5946,
+          'manualNotes': _notesController.text.trim(),
+          'formattedAddress': formattedAddress,
+          'isDefault': _savedAddresses.isEmpty,
+        });
+
+        if (addrRes.data != null && addrRes.data['success'] == true && addrRes.data['data'] != null) {
+          finalAddressId = addrRes.data['data']['_id'];
+        }
+      } catch (e) {
+        debugPrint('Address creation failed, continuing with manual address: $e');
+      }
+    }
+
+    final payload = _buildBookingPayload();
+    if (finalAddressId != null) {
+      payload['addressId'] = finalAddressId;
+    }
+
+    try {
+      if (_paymentMethod == 'online') {
+        // Razorpay integration
+        final orderResponse = await client.post(ApiConfig.createOrder, data: {'bookingPayload': payload});
+        if (orderResponse.data != null) {
+          final orderData = orderResponse.data;
+          
+          final options = {
+            'key': orderData['keyId'] ?? orderData['key'] ?? '',
+            'amount': orderData['amount'],
+            'currency': orderData['currency'] ?? 'INR',
+            'name': 'Techbes Security',
+            'description': 'Booking advance payment for CCTV installation',
+            'order_id': orderData['orderId'] ?? orderData['id'] ?? '',
+            'prefill': {
+              'name': _customerName.isNotEmpty ? _customerName : 'Techbes User',
+              'contact': _customerPhone.isNotEmpty ? _customerPhone : '9900012345'
+            },
+            'timeout': 300,
+          };
+          _razorpay.open(options);
+        } else {
+          throw Exception('Failed to initiate Razorpay order on backend');
+        }
+      } else if (_paymentMethod == 'wallet') {
+        // Direct Wallet deduction
+        if (_walletBalance < _grandTotal) {
+          throw Exception('Insufficient wallet balance. Please add funds or pay online.');
+        }
+
+        // 1. Create booking
+        final bookingRes = await client.post('/api/v2/bookings/create', data: payload);
+        if (bookingRes.data != null && bookingRes.data['success'] == true) {
+          final job = bookingRes.data['data'] ?? bookingRes.data['job'];
+          final jobId = job['_id'] ?? job['id'];
+          
+          // 2. Pay using wallet balance
+          final payRes = await client.post('/api/v2/wallet/pay-booking', data: {
+            'jobId': jobId,
+            'amount': _grandTotal,
           });
+
+          if (payRes.data != null && payRes.data['success'] == true) {
+            _showSuccessDialog();
+          } else {
+            throw Exception(payRes.data['message'] ?? 'Wallet deduction failed.');
+          }
+        } else {
+          throw Exception('Booking creation failed');
         }
-      });
-      
-      // Add cable
-      materialsList.add({
-        'id': 'cable',
-        'name': '${_cctv.cableType} Cable',
-        'unit': 'meter',
-        'qty': _cctv.cableLength,
-        'total': (_cctv.cableLength * (_cctv.cableType == 'Cat6' ? 45.0 : 35.0)),
+      }
+    } catch (e) {
+      debugPrint('Checkout error: $e');
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+          _errorMessage = e.toString().replaceAll('Exception: ', '');
+        });
+      }
+    }
+  }
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    try {
+      final client = ref.read(dioClientProvider);
+      final verifyResponse = await client.post(ApiConfig.verifyPayment, data: {
+        'razorpay_order_id': response.orderId,
+        'razorpay_payment_id': response.paymentId,
+        'razorpay_signature': response.signature,
       });
 
-      return {
-        'serviceType': 'CCTV Setup Rollout',
-        'materials': materialsList,
-        'mapLink': _mapLink,
-        'latitude': _latitude,
-        'longitude': _longitude,
-        'pincode': _pincode,
-        'fullAddress': _fullAddress,
-        'city': _city,
-        'state': _stateName,
-        'date': dateStr,
-        'time': timeStr,
-        'notes': _notesController.text.trim(),
-        'priceBreakdown': {
-          'baseCharge': _baseFee,
-          'materialsTotal': _materialsCost,
-          'labourTotal': _labourCost,
-          'grandTotal': _grandTotal,
-        }
-      };
+      if (verifyResponse.data != null && verifyResponse.data['success'] == true && mounted) {
+        _showSuccessDialog();
+      } else {
+        throw Exception('Signature verification failed on server');
+      }
+    } catch (e) {
+      debugPrint('Verification error: $e');
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+          _errorMessage = 'Verification error: ${e.toString()}';
+        });
+      }
+    }
+  }
+
+  void _handlePaymentError(PaymentFailureResponse response) {
+    debugPrint('Payment failed: ${response.code} - ${response.message}');
+    if (mounted) {
+      setState(() {
+        _isSubmitting = false;
+        _errorMessage = 'Payment failed: ${response.message ?? 'Cancelled by user'}';
+      });
+    }
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              const CircleAvatar(
+                radius: 28,
+                backgroundColor: Color(0xFFD1FAE5),
+                child: Icon(Icons.check, color: Color(0xFF10B981), size: 36),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Booking Confirmed!',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.textPrimaryColor),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Your CCTV installation appointment is scheduled. We have verified your deposit and assigned a certified technician.',
+                style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryColor, height: 1.45),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx); // Close dialog
+                  Navigator.pop(context); // Close bottom sheet
+                  context.go('/'); // Back to home
+                },
+                child: const Text('Back to Home'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _goNext() {
+    if (_step == 1) {
+      final hasActive = _cctvSelectedCameraTypes.values.any((v) => v);
+      if (!hasActive) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select at least one camera type to continue')),
+        );
+        return;
+      }
+    } else if (_step == 4) {
+      if (_houseNumberController.text.isEmpty || _streetController.text.isEmpty || _pincodeController.text.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please fill in required address fields')),
+        );
+        return;
+      }
+    }
+    
+    if (_step < 6) {
+      setState(() {
+        _step++;
+        _errorMessage = null;
+      });
     } else {
-      // General service payload
-      final List<Map<String, dynamic>> materialsList = [];
-      _selectedMaterials.forEach((id, qty) {
-        final mat = _materials.firstWhere((m) => m['id'] == id || m['slug'] == id, orElse: () => null);
-        if (mat != null) {
-          final price = (mat['price'] as num).toDouble();
-          materialsList.add({
-            'id': id,
-            'name': mat['name'] ?? id,
-            'unit': mat['unit'] ?? 'each',
-            'qty': qty,
-            'total': price * qty,
-          });
-        }
-      });
-
-      return {
-        'serviceType': _selectedServiceType,
-        'materials': materialsList,
-        'mapLink': _mapLink,
-        'latitude': _latitude,
-        'longitude': _longitude,
-        'pincode': _pincode,
-        'fullAddress': _fullAddress,
-        'city': _city,
-        'state': _stateName,
-        'date': dateStr,
-        'time': timeStr,
-        'notes': _notesController.text.trim(),
-        'priceBreakdown': {
-          'baseCharge': _baseFee,
-          'materialsTotal': _materialsCost,
-          'labourTotal': _labourCost,
-          'grandTotal': _grandTotal,
-        }
-      };
+      _handleSubmitBooking();
     }
   }
 
-  void _dispatchBookNow() {
-    final payload = _buildConfigurationPayload();
-    final item = CartItem(
-      id: '${widget.serviceSlug}-${DateTime.now().millisecondsSinceEpoch}',
-      serviceId: int.tryParse(widget.subcategoryId) ?? 1000,
-      slug: widget.serviceSlug,
-      title: widget.serviceName,
-      priceValue: _grandTotal,
-      qty: 1,
-      config: payload,
-    );
-
-    // Clear cart and push
-    ref.read(cartProvider.notifier).clearCart();
-    ref.read(cartProvider.notifier).addItem(item);
-
-    context.pop();
-    context.push('/checkout');
+  void _goPrev() {
+    if (_step > 1) {
+      setState(() {
+        _step--;
+        _errorMessage = null;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const SizedBox(
-        height: 300,
+        height: 350,
         child: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
       );
     }
 
-    final steps = _getSteps();
     final theme = Theme.of(context);
+    final isLastStep = _step == 6;
 
     return Container(
-      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.92),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Drag handle
+          // Drag Indicator handle
           Center(
             child: Container(
               margin: const EdgeInsets.only(top: 10, bottom: 4),
-              width: 40,
+              width: 36,
               height: 4,
               decoration: BoxDecoration(color: Colors.blueGrey.shade100, borderRadius: BorderRadius.circular(2)),
             ),
           ),
 
-          // Title header
+          // Header
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Text(
-                    'Configure ${widget.serviceName}',
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Book CCTV Installation',
+                        style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontSize: 17),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Complete the steps to schedule your setup rollout',
+                        style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500),
+                      ),
+                    ],
                   ),
                 ),
                 IconButton(icon: const Icon(Icons.close, size: 20), onPressed: () => context.pop()),
@@ -563,585 +773,1095 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
           ),
           const Divider(height: 1),
 
-          // Stepper bar
-          Container(
-            color: Colors.blueGrey.shade50,
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: List.generate(steps.length, (idx) {
-                  final sNum = idx + 1;
-                  final active = sNum == _currentStep;
-                  final done = sNum < _currentStep;
-                  return Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: active ? AppTheme.primaryColor : (done ? AppTheme.primaryColor.withOpacity(0.08) : Colors.transparent),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: active ? AppTheme.primaryColor : Colors.blueGrey.shade200),
-                        ),
-                        child: Text(
-                          steps[idx],
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: active ? Colors.white : (done ? AppTheme.primaryColor : AppTheme.textSecondaryColor),
-                          ),
-                        ),
-                      ),
-                      if (idx < steps.length - 1)
-                        Container(width: 15, height: 1, color: done ? AppTheme.primaryColor : Colors.blueGrey.shade200, margin: const EdgeInsets.symmetric(horizontal: 4)),
-                    ],
-                  );
-                }),
-              ),
-            ),
-          ),
-          const Divider(height: 1),
+          // Horizontal Stepper Progress Bar
+          _buildStepperBar(),
 
-          // Content body
+          // Main Step Wizard Form View
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (_currentStep == 1) (_isCctv ? _buildCctvStep1() : _buildGeneralStep1()),
-                  if (_currentStep == 2) (_isCctv ? _buildCctvStep2() : _buildGeneralStep2()),
-                  if (_currentStep == 3) _buildLocationStep(),
-                  if (_currentStep == 4) _buildScheduleStep(),
-                  if (_currentStep == 5) _buildSummaryStep(),
-                ],
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 150),
+                child: _buildCurrentStepContent(),
               ),
             ),
           ),
 
-          // Footer actions
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                if (_currentStep > 1)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: OutlinedButton(
-                      onPressed: () => setState(() => _currentStep--),
-                      child: const Text('Back'),
-                    ),
-                  ),
-                Expanded(
-                  child: _currentStep < steps.length
-                      ? ElevatedButton(
-                          onPressed: _isStepValid() ? () => setState(() => _currentStep++) : null,
-                          child: const Text('Next Step'),
-                        )
-                      : ElevatedButton.icon(
-                          onPressed: _isStepValid() ? _dispatchBookNow : null,
-                          icon: const Icon(Icons.flash_on, size: 18),
-                          label: const Text('Book Schedule & Checkout'),
-                        ),
-                ),
-              ],
+          // Sticky pricing summary / checkout feedback bar
+          if (_errorMessage != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              color: Colors.red.shade50,
+              child: Text(
+                _errorMessage!,
+                style: TextStyle(color: Colors.red.shade800, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
             ),
-          ),
+
+          _buildBottomActionButtons(theme, isLastStep),
         ],
       ),
     );
   }
 
-  // General Setup Step Content
-  Widget _buildGeneralStep1() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Select Service Class', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        const SizedBox(height: 10),
-        ..._serviceTypes.map((type) {
-          final active = _selectedServiceType == type['name'];
-          final price = (type['price'] as num).toDouble();
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(
-              border: Border.all(color: active ? AppTheme.primaryColor : AppTheme.borderColor),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: RadioListTile<String>(
-              value: type['name'],
-              groupValue: _selectedServiceType,
-              activeColor: AppTheme.primaryColor,
-              title: Text(type['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              secondary: Text('₹${price.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold)),
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() => _selectedServiceType = val);
-                  _calculateGeneralPrice();
-                }
-              },
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  Widget _buildGeneralStep2() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Accessories Required (Optional)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        const SizedBox(height: 10),
-        if (_materials.isEmpty)
-          const Text('No dynamic materials configured.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor))
-        else
-          ..._materials.map((mat) {
-            final id = mat['id'] ?? mat['slug'];
-            final isSel = _selectedMaterials.containsKey(id);
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(border: Border.all(color: isSel ? AppTheme.primaryColor : AppTheme.borderColor), borderRadius: BorderRadius.circular(12)),
-              child: CheckboxListTile(
-                value: isSel,
-                activeColor: AppTheme.primaryColor,
-                title: Text(mat['name'], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                subtitle: Text('₹${mat['price']} per unit'),
-                onChanged: (_) {
-                  setState(() {
-                    if (isSel) {
-                      _selectedMaterials.remove(id);
-                    } else {
-                      _selectedMaterials[id] = 1;
-                    }
-                  });
-                  _calculateGeneralPrice();
-                },
-              ),
-            );
-          }),
-      ],
-    );
-  }
-
-  // CCTV Setup Step Content
-  Widget _buildCctvStep1() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Property Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          value: _cctv.propertyType,
-          decoration: const InputDecoration(labelText: 'Property Type'),
-          items: ['Home', 'Office', 'Shop', 'Apartment', 'Warehouse', 'Factory', 'Other']
-              .map((val) => DropdownMenuItem(value: val, child: Text(val)))
-              .toList(),
-          onChanged: (val) {
-            if (val != null) {
-              setState(() => _cctv.propertyType = val);
-              _calculateCctvPrice();
-            }
-          },
-        ),
-        const SizedBox(height: 16),
-        const Text('Camera Types Selection (Multiple Allowed)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        const SizedBox(height: 10),
-        ...['IP Camera', 'Analog Camera', 'WiFi Indoor Camera', 'WiFi Outdoor Camera', '4G Camera', 'Solar Camera'].map((type) {
-          final sel = _cctv.selectedCameraTypes[type] == true;
-          return Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              border: Border.all(color: sel ? AppTheme.primaryColor : AppTheme.borderColor),
-              borderRadius: BorderRadius.circular(12),
-              color: sel ? AppTheme.primaryColor.withOpacity(0.02) : Colors.white,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildStepperBar() {
+    final stepLabels = ['Details', 'Schedule', 'Images', 'Location', 'Estimate', 'Checkout'];
+    return Container(
+      color: const Color(0xFFF8FAFC), // Slate 50
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: List.generate(stepLabels.length, (idx) {
+            final active = (idx + 1) == _step;
+            final done = (idx + 1) < _step;
+            return Row(
               children: [
-                Row(
-                  children: [
-                    Checkbox(
-                      value: sel,
-                      activeColor: AppTheme.primaryColor,
-                      onChanged: (val) {
-                        setState(() {
-                          _cctv.selectedCameraTypes[type] = val ?? false;
-                          if (val == true && !_cctv.cameraQuantities.containsKey(type)) {
-                            _cctv.cameraQuantities[type] = 1;
-                            if (_cctvBrands.isNotEmpty) {
-                              _cctv.cameraBrands[type] = _cctvBrands[0]['_id'];
-                              final mods = _cctvModels.where((m) => m['cameraType'] == type && m['brandId']?['_id'] == _cctvBrands[0]['_id']).toList();
-                              if (mods.isNotEmpty) _cctv.cameraModels[type] = mods[0]['_id'];
-                            }
-                          }
-                        });
-                        _calculateCctvPrice();
-                      },
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: active 
+                      ? AppTheme.primaryColor 
+                      : (done ? const Color(0xFFD1FAE5) : Colors.white),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: active 
+                        ? AppTheme.primaryColor 
+                        : (done ? const Color(0xFF34D399) : const Color(0xFFCBD5E1)),
                     ),
-                    Text(type, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-                  ],
-                ),
-                if (sel) ...[
-                  const Divider(height: 12),
-                  Row(
+                  ),
+                  child: Row(
                     children: [
-                      // Brand
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: _cctv.cameraBrands[type],
-                          decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8), labelText: 'Brand'),
-                          items: _cctvBrands.map((b) => DropdownMenuItem<String>(value: b['_id'], child: Text(b['name']))).toList(),
-                          onChanged: (brandVal) {
-                            if (brandVal != null) {
-                              setState(() {
-                                _cctv.cameraBrands[type] = brandVal;
-                                final mods = _cctvModels.where((m) => m['cameraType'] == type && m['brandId']?['_id'] == brandVal).toList();
-                                if (mods.isNotEmpty) {
-                                  _cctv.cameraModels[type] = mods[0]['_id'];
-                                } else {
-                                  _cctv.cameraModels.remove(type);
-                                }
-                              });
-                              _calculateCctvPrice();
-                            }
-                          },
+                      if (done) 
+                        const Icon(Icons.check, size: 10, color: Color(0xFF065F46))
+                      else
+                        Text(
+                          '${idx + 1}',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.black,
+                            color: active ? Colors.white : AppTheme.textSecondaryColor,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Model
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: _cctv.cameraModels[type],
-                          decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8), labelText: 'Model'),
-                          items: _cctvModels
-                              .where((m) => m['cameraType'] == type && m['brandId']?['_id'] == _cctv.cameraBrands[type])
-                              .map((m) => DropdownMenuItem<String>(value: m['_id'], child: Text(m['name'])))
-                              .toList(),
-                          onChanged: (modVal) {
-                            if (modVal != null) {
-                              setState(() => _cctv.cameraModels[type] = modVal);
-                              _calculateCctvPrice();
-                            }
-                          },
+                      const SizedBox(width: 4),
+                      Text(
+                        stepLabels[idx],
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: active 
+                            ? Colors.white 
+                            : (done ? const Color(0xFF065F46) : AppTheme.textSecondaryColor),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  // Quantity
+                ),
+                if (idx < stepLabels.length - 1)
+                  Container(
+                    width: 14,
+                    height: 1.5,
+                    color: done ? const Color(0xFF34D399) : const Color(0xFFE2E8F0),
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                  ),
+              ],
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentStepContent() {
+    switch (_step) {
+      case 1:
+        return _buildStep1Details();
+      case 2:
+        return _buildStep2DateTime();
+      case 3:
+        return _buildStep3UploadImages();
+      case 4:
+        return _buildStep4Location();
+      case 5:
+        return _buildStep5Estimate();
+      case 6:
+        return _buildStep6CheckoutPay();
+      default:
+        return const SizedBox();
+    }
+  }
+
+  Widget _buildStep1Details() {
+    return Column(
+      key: const ValueKey('step_1'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('Select Property Type', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textPrimaryColor)),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _propertyTypes.map((type) {
+            final active = _cctvPropertyType == type;
+            return ChoiceChip(
+              label: Text(type),
+              selected: active,
+              onSelected: (selected) {
+                if (selected) {
+                  setState(() => _cctvPropertyType = type);
+                  _calculateEstimatePrice();
+                }
+              },
+              selectedColor: AppTheme.primaryColor.withOpacity(0.08),
+              labelStyle: TextStyle(
+                fontSize: 12,
+                fontWeight: active ? FontWeight.bold : FontWeight.normal,
+                color: active ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
+              ),
+              side: BorderSide(color: active ? AppTheme.primaryColor : const Color(0xFFE2E8F0)),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 20),
+        const Text('Choose Cameras to Install', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textPrimaryColor)),
+        const SizedBox(height: 4),
+        const Text('Select one or more camera types and configure their models & quantities.', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+        const SizedBox(height: 12),
+        ..._cameraTypesList.map((type) {
+          final isSelected = _cctvSelectedCameraTypes[type] ?? false;
+          final qty = _cctvCameraQuantities[type] ?? 1;
+          final activeBrand = _cctvCameraBrands[type] ?? '';
+          final activeModel = _cctvCameraModels[type] ?? '';
+
+          // Filter models matching active type and brand
+          final typeModels = _cctvAllModels.where((m) => m['cameraType'] == type).toList();
+          final brandModels = typeModels.where((m) => m['brandId']?['_id'] == activeBrand || m['brandId'] == activeBrand).toList();
+
+          return Card(
+            elevation: 0,
+            margin: const EdgeInsets.only(bottom: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(color: isSelected ? AppTheme.primaryColor : const Color(0xFFE2E8F0)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Quantity', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.remove_circle_outline, size: 20),
-                            onPressed: () {
-                              final q = _cctv.cameraQuantities[type] ?? 1;
-                              if (q > 1) {
-                                setState(() => _cctv.cameraQuantities[type] = q - 1);
-                                _calculateCctvPrice();
+                      SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: Checkbox(
+                          value: isSelected,
+                          onChanged: (val) {
+                            setState(() {
+                              _cctvSelectedCameraTypes[type] = val ?? false;
+                              if (val == true && !_cctvCameraQuantities.containsKey(type)) {
+                                _cctvCameraQuantities[type] = 1;
                               }
-                            },
+                            });
+                            _calculateEstimatePrice();
+                          },
+                          activeColor: AppTheme.primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(type, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                      const Spacer(),
+                      if (isSelected)
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle_outline, size: 20, color: AppTheme.primaryColor),
+                              onPressed: qty > 1 ? () {
+                                setState(() => _cctvCameraQuantities[type] = qty - 1);
+                                _calculateEstimatePrice();
+                              } : null,
+                            ),
+                            Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            IconButton(
+                              icon: const Icon(Icons.add_circle_outline, size: 20, color: AppTheme.primaryColor),
+                              onPressed: () {
+                                setState(() => _cctvCameraQuantities[type] = qty + 1);
+                                _calculateEstimatePrice();
+                              },
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                  if (isSelected) ...[
+                    const Divider(height: 16),
+                    Row(
+                      children: [
+                        // Brand Selector
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                isExpanded: true,
+                                value: activeBrand.isNotEmpty ? activeBrand : null,
+                                hint: const Text('Brand', style: TextStyle(fontSize: 11)),
+                                items: _cctvBrands.map<DropdownMenuItem<String>>((b) {
+                                  return DropdownMenuItem<String>(
+                                    value: b['_id'],
+                                    child: Text(b['name'] ?? '', style: const TextStyle(fontSize: 12)),
+                                  );
+                                }).toList(),
+                                onChanged: (val) {
+                                  setState(() {
+                                    _cctvCameraBrands[type] = val!;
+                                    final brandM = _cctvAllModels.where((m) => m['cameraType'] == type && (m['brandId']?['_id'] == val || m['brandId'] == val)).toList();
+                                    if (brandM.isNotEmpty) {
+                                      _cctvCameraModels[type] = brandM[0]['_id'];
+                                    }
+                                  });
+                                  _calculateEstimatePrice();
+                                },
+                              ),
+                            ),
                           ),
-                          Text('${_cctv.cameraQuantities[type] ?? 1}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          IconButton(
-                            icon: const Icon(Icons.add_circle_outline, size: 20, color: AppTheme.primaryColor),
-                            onPressed: () {
-                              final q = _cctv.cameraQuantities[type] ?? 1;
-                              setState(() => _cctv.cameraQuantities[type] = q + 1);
-                              _calculateCctvPrice();
-                            },
+                        ),
+                        const SizedBox(width: 10),
+                        // Model Selector
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                isExpanded: true,
+                                value: activeModel.isNotEmpty ? activeModel : null,
+                                hint: const Text('Resolution / Model', style: TextStyle(fontSize: 11)),
+                                items: (brandModels.isNotEmpty ? brandModels : typeModels).map<DropdownMenuItem<String>>((m) {
+                                  return DropdownMenuItem<String>(
+                                    value: m['_id'],
+                                    child: Text('${m['name']} (₹${m['price']})', style: const TextStyle(fontSize: 11)),
+                                  );
+                                }).toList(),
+                                onChanged: (val) {
+                                  setState(() => _cctvCameraModels[type] = val!);
+                                  _calculateEstimatePrice();
+                                },
+                              ),
+                            ),
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+        const SizedBox(height: 8),
+
+        // Cable configurations
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Installation Cabling', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                    Switch(
+                      value: _cctvInstallationRequired,
+                      onChanged: (val) {
+                        setState(() => _cctvInstallationRequired = val);
+                        _calculateEstimatePrice();
+                      },
+                      activeColor: AppTheme.primaryColor,
+                    ),
+                  ],
+                ),
+                if (_cctvInstallationRequired) ...[
+                  const Divider(height: 12),
+                  Row(
+                    children: [
+                      const Text('Cable Type', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
+                      const Spacer(),
+                      DropdownButton<String>(
+                        value: _cctvCableType,
+                        items: _cableTypesList.map((t) {
+                          return DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 12)));
+                        }).toList(),
+                        onChanged: (val) {
+                          setState(() => _cctvCableType = val!);
+                          _calculateEstimatePrice();
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Text('Estimated Length', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
+                      const Spacer(),
+                      Text('$_cctvCableLength m', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    ],
+                  ),
+                  Slider(
+                    value: _cctvCableLength.toDouble(),
+                    min: 0,
+                    max: 200,
+                    divisions: 40,
+                    label: '$_cctvCableLength meters',
+                    activeColor: AppTheme.primaryColor,
+                    onChanged: (val) {
+                      setState(() => _cctvCableLength = val.round());
+                    },
+                    onChangeEnd: (val) {
+                      _calculateEstimatePrice();
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Recorder and mounts
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Recorders & Mount Addons', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                const SizedBox(height: 8),
+                CheckboxListTile(
+                  title: const Text('CCTV DVR Installation Required', style: TextStyle(fontSize: 12)),
+                  value: _cctvDvrRequired,
+                  onChanged: (val) {
+                    setState(() => _cctvDvrRequired = val ?? false);
+                    _calculateEstimatePrice();
+                  },
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+                CheckboxListTile(
+                  title: const Text('CCTV NVR Installation Required', style: TextStyle(fontSize: 12)),
+                  value: _cctvNvrRequired,
+                  onChanged: (val) {
+                    setState(() => _cctvNvrRequired = val ?? false);
+                    _calculateEstimatePrice();
+                  },
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+                CheckboxListTile(
+                  title: const Text('Include Server Network Rack / Casing', style: TextStyle(fontSize: 12)),
+                  value: _cctvNetworkRack,
+                  onChanged: (val) {
+                    setState(() => _cctvNetworkRack = val ?? false);
+                    _calculateEstimatePrice();
+                  },
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+                CheckboxListTile(
+                  title: const Text('Add Monitor Wall Mounting Bracket', style: TextStyle(fontSize: 12)),
+                  value: _cctvMonitorMounting,
+                  onChanged: (val) {
+                    setState(() => _cctvMonitorMounting = val ?? false);
+                    _calculateEstimatePrice();
+                  },
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Storage / SD card configuration
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Memory Cards (Storage)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                    Switch(
+                      value: _cctvSdCardEnabled,
+                      onChanged: (val) {
+                        setState(() => _cctvSdCardEnabled = val);
+                        _calculateEstimatePrice();
+                      },
+                      activeColor: AppTheme.primaryColor,
+                    ),
+                  ],
+                ),
+                if (_cctvSdCardEnabled) ...[
+                  const Divider(height: 12),
+                  Row(
+                    children: [
+                      const Text('SD Card Capacity', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
+                      const Spacer(),
+                      DropdownButton<String>(
+                        value: _cctvSdCardCapacity,
+                        items: _sdCardCapacities.map((c) {
+                          return DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 12)));
+                        }).toList(),
+                        onChanged: (val) {
+                          setState(() => _cctvSdCardCapacity = val!);
+                          _calculateEstimatePrice();
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Text('Quantity', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline, size: 20, color: AppTheme.primaryColor),
+                        onPressed: _cctvSdCardQuantity > 1 ? () {
+                          setState(() => _cctvSdCardQuantity--);
+                          _calculateEstimatePrice();
+                        } : null,
+                      ),
+                      Text('$_cctvSdCardQuantity', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline, size: 20, color: AppTheme.primaryColor),
+                        onPressed: () {
+                          setState(() => _cctvSdCardQuantity++);
+                          _calculateEstimatePrice();
+                        },
                       ),
                     ],
                   ),
                 ],
               ],
             ),
-          );
-        }),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildCctvStep2() {
+  Widget _buildStep2DateTime() {
+    final formattedDate = _selectedDate != null 
+        ? DateFormat('EEEE, d MMMM yyyy').format(_selectedDate!) 
+        : 'Pick preferred schedule date';
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      key: const ValueKey('step_2'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Cabling Configuration', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const Text('Schedule Appointment Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         const SizedBox(height: 10),
-        DropdownButtonFormField<String>(
-          value: _cctv.cableType,
-          decoration: const InputDecoration(labelText: 'Cable Type'),
-          items: ['Cat6', '3+1 Cable', 'Cat6 Premium'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-          onChanged: (val) {
-            if (val != null) {
-              setState(() => _cctv.cableType = val);
-              _calculateCctvPrice();
+        ListTile(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          leading: const Icon(Icons.calendar_today, color: AppTheme.primaryColor),
+          title: Text(
+            formattedDate,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: _selectedDate != null ? FontWeight.bold : FontWeight.normal,
+              color: _selectedDate != null ? AppTheme.textPrimaryColor : AppTheme.textSecondaryColor,
+            ),
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            final now = DateTime.now();
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: _selectedDate ?? now.add(const Duration(days: 1)),
+              firstDate: now.add(const Duration(days: 1)),
+              lastDate: now.add(const Duration(days: 30)),
+            );
+            if (picked != null) {
+              setState(() => _selectedDate = picked);
             }
           },
         ),
+        const SizedBox(height: 24),
+        const Text('Choose Arrival Time Window', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 4),
+        const Text('Select an operational window for our technician to arrive.', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
         const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Cable Length: ${_cctv.cableLength} meters'),
-          ],
-        ),
-        Slider(
-          value: _cctv.cableLength.toDouble(),
-          min: 10,
-          max: 180,
-          divisions: 17,
-          activeColor: AppTheme.primaryColor,
-          onChanged: (val) {
-            setState(() => _cctv.cableLength = val.round());
-          },
-          onChangeEnd: (_) => _calculateCctvPrice(),
-        ),
-        const SizedBox(height: 16),
-        const Text('Recorders & Add-ons', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        const SizedBox(height: 8),
-        CheckboxListTile(
-          value: _cctv.dvrRequired,
-          activeColor: AppTheme.primaryColor,
-          title: const Text('DVR Required (Analog Setup)', style: TextStyle(fontSize: 13)),
-          onChanged: (val) {
-            setState(() {
-              _cctv.dvrRequired = val ?? false;
-              if (val == true) _cctv.nvrRequired = false;
-            });
-            _calculateCctvPrice();
-          },
-        ),
-        CheckboxListTile(
-          value: _cctv.nvrRequired,
-          activeColor: AppTheme.primaryColor,
-          title: const Text('NVR Required (IP Setup)', style: TextStyle(fontSize: 13)),
-          onChanged: (val) {
-            setState(() {
-              _cctv.nvrRequired = val ?? false;
-              if (val == true) _cctv.dvrRequired = false;
-            });
-            _calculateCctvPrice();
-          },
-        ),
-        CheckboxListTile(
-          value: _cctv.sdCardEnabled,
-          activeColor: AppTheme.primaryColor,
-          title: const Text('SD Card Required (WiFi Cameras)', style: TextStyle(fontSize: 13)),
-          onChanged: (val) {
-            setState(() => _cctv.sdCardEnabled = val ?? false);
-            _calculateCctvPrice();
-          },
-        ),
-        if (_cctv.sdCardEnabled) ...[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: DropdownButtonFormField<String>(
-              value: _cctv.sdCardCapacity,
-              decoration: const InputDecoration(labelText: 'SD Card Capacity'),
-              items: ['32GB', '64GB', '128GB', '256GB'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() => _cctv.sdCardCapacity = val);
-                  _calculateCctvPrice();
-                }
-              },
+        ..._timeSlots.map((slot) {
+          final isSelected = _selectedTimeSlot == slot;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: isSelected ? AppTheme.primaryColor : const Color(0xFFE2E8F0)),
             ),
+            child: RadioListTile<String>(
+              value: slot,
+              groupValue: _selectedTimeSlot,
+              title: Text(slot, style: TextStyle(fontSize: 13, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+              onChanged: (val) {
+                setState(() => _selectedTimeSlot = val!);
+              },
+              activeColor: AppTheme.primaryColor,
+              dense: true,
+            ),
+          );
+        }).toList(),
+        const SizedBox(height: 24),
+        const Text('Special Directives / Requirements', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _notesController,
+          maxLines: 3,
+          style: const TextStyle(fontSize: 13),
+          decoration: const InputDecoration(
+            hintText: 'Enter floor number, gate restrictions, or structural safety instructions here...',
           ),
-        ],
-        CheckboxListTile(
-          value: _cctv.networkRack,
-          activeColor: AppTheme.primaryColor,
-          title: const Text('Include Network Rack casing', style: TextStyle(fontSize: 13)),
-          onChanged: (val) {
-            setState(() => _cctv.networkRack = val ?? false);
-            _calculateCctvPrice();
-          },
-        ),
-        CheckboxListTile(
-          value: _cctv.monitorMounting,
-          activeColor: AppTheme.primaryColor,
-          title: const Text('Monitor wall mounting bracket', style: TextStyle(fontSize: 13)),
-          onChanged: (val) {
-            setState(() => _cctv.monitorMounting = val ?? false);
-            _calculateCctvPrice();
-          },
         ),
       ],
     );
   }
 
-  // Location Step
-  Widget _buildLocationStep() {
-    final hasLoc = _latitude != null && _longitude != null;
+  Widget _buildStep3UploadImages() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      key: const ValueKey('step_3'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Service Location', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const Text('Upload Site Images', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 4),
+        const Text('Attach pictures of camera mounting walls or DVR storage locations. Helps our engineer plan ahead.', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+        const SizedBox(height: 16),
+        
+        if (_uploadedImages.isNotEmpty) ...[
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+            ),
+            itemCount: _uploadedImages.length,
+            itemBuilder: (context, idx) {
+              return Stack(
+                children: [
+                  Positioned.fill(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        _uploadedImages[idx],
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: Colors.blueGrey.shade50,
+                          child: const Icon(Icons.image, color: Colors.blueGrey),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: CircleAvatar(
+                      radius: 12,
+                      backgroundColor: Colors.black.withOpacity(0.6),
+                      child: IconButton(
+                        icon: const Icon(Icons.close, size: 10, color: Colors.white),
+                        onPressed: () => setState(() => _uploadedImages.removeAt(idx)),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 20),
+        ],
+
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          child: InkWell(
+            onTap: _isSimulatingUpload ? null : _simulateImageUpload,
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 16),
+              child: Column(
+                children: [
+                  _isSimulatingUpload 
+                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor))
+                      : const Icon(Icons.cloud_upload_outlined, size: 40, color: AppTheme.primaryColor),
+                  const SizedBox(height: 12),
+                  Text(
+                    _isSimulatingUpload ? 'Uploading picture...' : 'Choose or Take Photo',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text('Supports JPG, PNG formats up to 5MB', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep4Location() {
+    return Column(
+      key: const ValueKey('step_4'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('Service Delivery Address', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         const SizedBox(height: 12),
-        if (hasLoc)
+        if (_savedAddresses.isNotEmpty) ...[
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFECFDF5),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                value: _selectedAddressId,
+                items: [
+                  ..._savedAddresses.map((a) {
+                    final display = a['formattedAddress'] ?? '${a['houseNumber']}, ${a['street']}, ${a['city']}';
+                    return DropdownMenuItem(
+                      value: a['_id'] as String,
+                      child: Text(display, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5)),
+                    );
+                  }),
+                  const DropdownMenuItem(
+                    value: 'new',
+                    child: Text('Add New Address', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 12.5)),
+                  ),
+                ],
+                onChanged: (val) {
+                  if (val == 'new') {
+                    _resetAddressForm();
+                  } else {
+                    final addr = _savedAddresses.firstWhere((a) => a['_id'] == val);
+                    _selectSavedAddress(addr);
+                  }
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        if (_latitude != null && _longitude != null)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFECFDF5), // Emerald 50
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: const Color(0xFFA7F3D0)),
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.check_circle, color: AppTheme.primaryColor, size: 20),
-                    SizedBox(width: 8),
-                    Text('Location Confirmed', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF065F46))),
+                    const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 18),
+                    const SizedBox(width: 8),
+                    const Text('Location Coordinates Pinned', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF065F46), fontSize: 12.5)),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: _openMapPicker,
+                      style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
+                      child: const Text('Re-Pin', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(_fullAddress, style: const TextStyle(fontSize: 12.5, color: Color(0xFF047857), height: 1.4)),
-                const SizedBox(height: 10),
-                TextButton(
-                  onPressed: _openMapPicker,
-                  style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor, padding: EdgeInsets.zero, minimumSize: Size.zero),
-                  child: const Text('Change Location Pin', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
+                if (_fullAddress.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(_fullAddress, style: const TextStyle(fontSize: 11.5, color: Color(0xFF047857), height: 1.45)),
+                ],
               ],
             ),
           )
         else
           Card(
             elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: AppTheme.borderColor)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
             child: InkWell(
               onTap: _openMapPicker,
               borderRadius: BorderRadius.circular(16),
               child: const Padding(
                 padding: EdgeInsets.symmetric(vertical: 36, horizontal: 16),
-                child: Center(
-                  child: Column(
-                    children: [
-                      Icon(Icons.map_outlined, size: 36, color: AppTheme.textSecondaryColor),
-                      SizedBox(height: 10),
-                      Text('Pin Location on Map', style: TextStyle(fontWeight: FontWeight.bold)),
-                      SizedBox(height: 4),
-                      Text('We use pin location to verify technicians coverage.', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
-                    ],
-                  ),
+                child: Column(
+                  children: [
+                    Icon(Icons.map_outlined, size: 36, color: AppTheme.primaryColor),
+                    SizedBox(height: 10),
+                    Text('Pin Location on Map', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    SizedBox(height: 4),
+                    Text('Coordinates are verified for technician travel eligibility', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
+                  ],
                 ),
               ),
             ),
           ),
-      ],
-    );
-  }
+        const SizedBox(height: 20),
 
-  // Schedule Step
-  Widget _buildScheduleStep() {
-    final fDate = _selectedDate != null ? DateFormat('EEEE, d MMM yyyy').format(_selectedDate!) : 'Select Date';
-    final fTime = _selectedTime != null ? _selectedTime!.format(context) : 'Select Arrival Slot';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Schedule Arrival Time', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        const SizedBox(height: 12),
-        ListTile(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: AppTheme.borderColor)),
-          leading: const Icon(Icons.calendar_today, color: AppTheme.primaryColor),
-          title: const Text('Preferred Date', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
-          subtitle: Text(fDate, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: _pickDate,
+        // Text Fields
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _houseNumberController,
+                decoration: const InputDecoration(labelText: 'House / Flat No.*', hintText: 'Flat 402'),
+                style: const TextStyle(fontSize: 12.5),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _pincodeController,
+                decoration: const InputDecoration(labelText: 'Pincode*', hintText: '560001'),
+                keyboardType: TextInputType.number,
+                style: const TextStyle(fontSize: 12.5),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
-        ListTile(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: AppTheme.borderColor)),
-          leading: const Icon(Icons.access_time, color: AppTheme.primaryColor),
-          title: const Text('Time Slot', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
-          subtitle: Text(fTime, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: _pickTime,
-        ),
-        const SizedBox(height: 16),
-        const Text('Special Directives', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        const SizedBox(height: 10),
         TextField(
-          controller: _notesController,
-          maxLines: 3,
-          decoration: const InputDecoration(hintText: 'Enter specific requirements, safety instructions or device details...'),
+          controller: _streetController,
+          decoration: const InputDecoration(labelText: 'Street Name / Apartment Name*', hintText: 'Green Glen Layout Road'),
+          style: const TextStyle(fontSize: 12.5),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _areaController,
+          decoration: const InputDecoration(labelText: 'Area / Landmark*', hintText: 'Behind Techbes Office'),
+          style: const TextStyle(fontSize: 12.5),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _cityController,
+                decoration: const InputDecoration(labelText: 'City*', hintText: 'Bengaluru'),
+                style: const TextStyle(fontSize: 12.5),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _stateController,
+                decoration: const InputDecoration(labelText: 'State*', hintText: 'Karnataka'),
+                style: const TextStyle(fontSize: 12.5),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  // Summary Step
-  Widget _buildSummaryStep() {
+  Widget _buildStep5Estimate() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      key: const ValueKey('step_5'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Configuration Review', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const Text('Review Estimate Breakdown', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         const SizedBox(height: 12),
         
-        // Dynamic estimate summary card
         Card(
-          color: Colors.blueGrey.shade50,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.blueGrey.shade200)),
+          color: const Color(0xFFF8FAFC), // Slate 50
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Row(
-                  children: [
-                    Icon(Icons.receipt_long, size: 18),
-                    SizedBox(width: 8),
-                    Text('Live Pricing Estimate', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                _buildPriceRow('Base Service Fee', _baseFee),
-                _buildPriceRow('Equipments / Add-ons', _materialsCost),
-                _buildPriceRow('Labour / Cable routing', _labourCost),
-                const Divider(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Grand Total', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                    _calculatingCctvPrice
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor))
-                        : Text('₹${_grandTotal.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: AppTheme.primaryColor)),
+                    const Text('Service package cost', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500)),
+                    Text('Rs. ${_packageCost.round()}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
                   ],
                 ),
-                const SizedBox(height: 4),
-                const Text('Taxes computed on checkout sheet.', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Technician visitation fee', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500)),
+                    Text('Rs. ${_visitCharge.round()}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
+                  ],
+                ),
+                if (_labourCost > 0) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Labor / Cabling & Hardware', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500)),
+                      Text('Rs. ${_labourCost.round()}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('GST (18%)', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500)),
+                    Text('Rs. ${_gst.round()}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
+                  ],
+                ),
+                const Divider(height: 24, color: Color(0xFFCBD5E1)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Grand Total', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
+                    _isCalculatingPrice
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor))
+                        : Text(
+                            'Rs. ${_grandTotal.round().toLocaleString()}',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppTheme.primaryColor),
+                          ),
+                  ],
+                ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 16),
-        const Text('Site layout instructions and address verification details are linked and will be processed immediately upon booking.', style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryColor, height: 1.4)),
+        const SizedBox(height: 20),
+        
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFBEB), // Amber 50
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFFDE68A)),
+          ),
+          child: const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline, size: 16, color: Color(0xFFD97706)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Prices cover baseline technician service & travel fees. Spare components or additional camera lengths recommended on-site will be billed separately by the engineer.',
+                  style: TextStyle(fontSize: 10.5, color: Color(0xFF92400E), height: 1.45, fontWeight: FontWeight.w500),
+                ),
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildPriceRow(String label, double val) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+  Widget _buildStep6CheckoutPay() {
+    return Column(
+      key: const ValueKey('step_6'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('Choose Payment Option', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 4),
+        const Text('Select a secure settlement method for the order deposit', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+        const SizedBox(height: 16),
+
+        // Pay Online option
+        InkWell(
+          onTap: () => setState(() => _paymentMethod = 'online'),
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _paymentMethod == 'online' ? AppTheme.primaryColor.withOpacity(0.04) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _paymentMethod == 'online' ? AppTheme.primaryColor : const Color(0xFFE2E8F0), width: 1.5),
+            ),
+            child: Row(
+              children: [
+                Radio<String>(
+                  value: 'online',
+                  groupValue: _paymentMethod,
+                  onChanged: (val) => setState(() => _paymentMethod = val!),
+                  activeColor: AppTheme.primaryColor,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Pay Online (Razorpay)',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _paymentMethod == 'online' ? AppTheme.primaryColor : AppTheme.textPrimaryColor),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Secure checkout supporting credit cards, debit cards, UPI, and net banking.',
+                        style: TextStyle(fontSize: 10.5, color: AppTheme.textSecondaryColor),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Pay from Wallet option
+        InkWell(
+          onTap: _walletBalance >= _grandTotal 
+              ? () => setState(() => _paymentMethod = 'wallet')
+              : null,
+          borderRadius: BorderRadius.circular(16),
+          child: Opacity(
+            opacity: _walletBalance >= _grandTotal ? 1.0 : 0.6,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _paymentMethod == 'wallet' ? AppTheme.primaryColor.withOpacity(0.04) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _paymentMethod == 'wallet' ? AppTheme.primaryColor : const Color(0xFFE2E8F0), width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  Radio<String>(
+                    value: 'wallet',
+                    groupValue: _paymentMethod,
+                    onChanged: _walletBalance >= _grandTotal 
+                        ? (val) => setState(() => _paymentMethod = val!)
+                        : null,
+                    activeColor: AppTheme.primaryColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'TechBes Wallet Balance',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _paymentMethod == 'wallet' ? AppTheme.primaryColor : AppTheme.textPrimaryColor),
+                            ),
+                            Text(
+                              'Available: ₹${_walletBalance.round()}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondaryColor),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Deduct the grand total directly from your registered Techbes wallet balance.',
+                          style: TextStyle(fontSize: 10.5, color: AppTheme.textSecondaryColor),
+                        ),
+                        if (_walletBalance < _grandTotal) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Insufficient balance. Need ₹${(_grandTotal - _walletBalance).round()} more.',
+                            style: const TextStyle(color: Colors.redAccent, fontSize: 9.5, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBottomActionButtons(ThemeData theme, bool isLastStep) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: AppTheme.borderColor)),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryColor)),
-          Text('₹${val.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
+          if (_step > 1)
+            OutlinedButton(
+              onPressed: _isSubmitting ? null : _goPrev,
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              ),
+              child: const Text('Back', style: TextStyle(fontSize: 12)),
+            )
+          else
+            const SizedBox(),
+          ElevatedButton(
+            onPressed: _isSubmitting ? null : _goNext,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isLastStep ? const Color(0xFF10B981) : AppTheme.primaryColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: _isSubmitting 
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : Text(
+                    isLastStep ? 'Confirm & Pay ₹${_grandTotal.round()}' : 'Continue',
+                    style: const TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+          ),
         ],
       ),
     );
+  }
+}
+
+extension NumberFormatting on int {
+  String toLocaleString() {
+    return NumberFormat('#,##,###', 'en_IN').format(this);
   }
 }

@@ -7,6 +7,9 @@ import 'bookings_tab.dart';
 import 'notifications_tab.dart';
 import 'profile_tab.dart';
 
+final navigationIndexProvider = StateProvider<int>((ref) => 0);
+final selectedCategoryProvider = StateProvider<String>((ref) => 'cctv');
+
 class MainNavigationScreen extends ConsumerStatefulWidget {
   const MainNavigationScreen({super.key});
 
@@ -15,7 +18,6 @@ class MainNavigationScreen extends ConsumerStatefulWidget {
 }
 
 class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
-  int _currentIndex = 0;
   late List<Widget> _screens;
 
   @override
@@ -31,13 +33,13 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   }
 
   void _onTabTapped(int index) {
-    setState(() {
-      _currentIndex = index;
-    });
+    ref.read(navigationIndexProvider.notifier).state = index;
   }
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = ref.watch(navigationIndexProvider);
+
     return Scaffold(
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
@@ -56,8 +58,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
           );
         },
         child: KeyedSubtree(
-          key: ValueKey<int>(_currentIndex),
-          child: _screens[_currentIndex],
+          key: ValueKey<int>(currentIndex),
+          child: _screens[currentIndex],
         ),
       ),
       bottomNavigationBar: Container(
@@ -102,7 +104,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
             }),
           ),
           child: NavigationBar(
-            selectedIndex: _currentIndex,
+            selectedIndex: currentIndex,
             onDestinationSelected: _onTabTapped,
             height: 70,
             elevation: 0,
