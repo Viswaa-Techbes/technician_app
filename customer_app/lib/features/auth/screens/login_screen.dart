@@ -69,7 +69,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     setState(() => _isSendingOtp = true);
     // Simulate sending OTP as the backend primarily supports email OTP for verification
-    await Future.delayed(const Duration(seconds: 1.5));
+    await Future.delayed(const Duration(milliseconds: 1500));
     if (mounted) {
       setState(() {
         _isSendingOtp = false;

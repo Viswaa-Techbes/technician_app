@@ -404,7 +404,7 @@ class ComingSoonPanel extends StatelessWidget {
               "$categoryTitle Services",
               style: const TextStyle(
                 fontSize: 20,
-                fontWeight: FontWeight.extrabold,
+                fontWeight: FontWeight.w800,
                 color: AppTheme.textPrimaryColor,
               ),
               textAlign: TextAlign.center,

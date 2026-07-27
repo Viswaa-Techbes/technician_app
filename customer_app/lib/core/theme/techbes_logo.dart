@@ -40,7 +40,7 @@ class TechBesLogo extends StatelessWidget {
             'T',
             style: TextStyle(
               fontSize: size * 0.55,
-              fontWeight: FontWeight.black,
+              fontWeight: FontWeight.w900,
               color: Colors.white,
             ),
           ),

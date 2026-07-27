@@ -108,6 +108,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
   double? _latitude;
   double? _longitude;
   String _mapLink = '';
+  String _fullAddress = '';
 
   // Payment configuration
   String _paymentMethod = 'online'; // online (Razorpay) or wallet
@@ -422,7 +423,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
 
   void _simulateImageUpload() async {
     setState(() => _isSimulatingUpload = true);
-    await Future.delayed(const Duration(seconds: 1.5));
+    await Future.delayed(const Duration(milliseconds: 1500));
     if (mounted) {
       setState(() {
         final mockIndex = _uploadedImages.length + 1;
@@ -839,7 +840,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
                           '${idx + 1}',
                           style: TextStyle(
                             fontSize: 9,
-                            fontWeight: FontWeight.black,
+                            fontWeight: FontWeight.w900,
                             color: active ? Colors.white : AppTheme.textSecondaryColor,
                           ),
                         ),
