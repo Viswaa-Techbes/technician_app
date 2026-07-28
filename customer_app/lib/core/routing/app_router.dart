@@ -25,8 +25,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLoggingIn = state.matchedLocation == '/login' ||
           state.matchedLocation == '/register' ||
           state.matchedLocation == '/otp' ||
-          state.matchedLocation == '/forgot-password' ||
-          state.matchedLocation == '/splash';
+          state.matchedLocation == '/forgot-password';
 
       if (authState.status == AuthStatus.initial || authState.status == AuthStatus.loading) {
         return '/splash';

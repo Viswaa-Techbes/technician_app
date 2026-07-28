@@ -84,17 +84,36 @@ class DioClient {
     if (e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.sendTimeout ||
         e.type == DioExceptionType.receiveTimeout) {
-      return Exception('Connection timed out. Please check your network.');
+      return NetworkException('Connection timed out. Please check your network.');
     }
     if (e.type == DioExceptionType.badResponse) {
+      final statusCode = e.response?.statusCode;
+      if (statusCode == 401 || statusCode == 403) {
+        final message = e.response?.data?['message'] ?? 'Unauthorized access.';
+        return UnauthorizedException(message);
+      }
       final message = e.response?.data?['message'] ?? 'Server error occurred.';
       return Exception(message);
     }
     if (e.type == DioExceptionType.connectionError) {
-      return Exception('No internet connection.');
+      return NetworkException('No internet connection.');
     }
     return Exception('Something went wrong. Please try again.');
   }
+}
+
+class UnauthorizedException implements Exception {
+  final String message;
+  UnauthorizedException(this.message);
+  @override
+  String toString() => message;
+}
+
+class NetworkException implements Exception {
+  final String message;
+  NetworkException(this.message);
+  @override
+  String toString() => message;
 }
 
 final dioClientProvider = Provider((ref) => DioClient(ref.watch(dioProvider)));

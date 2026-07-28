@@ -10,9 +10,9 @@ final authRepositoryProvider = Provider((ref) => AuthRepository(
 
 class AuthRepository {
   final DioClient _dioClient;
-  final SecureStorageService _storage;
+  final SecureStorageService storage;
 
-  AuthRepository(this._dioClient, this._storage);
+  AuthRepository(this._dioClient, this.storage);
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     final response = await _dioClient.post(ApiConfig.login, data: {
@@ -21,7 +21,10 @@ class AuthRepository {
     });
     final data = response.data;
     if (data['token'] != null) {
-      await _storage.saveToken(data['token']);
+      await storage.saveToken(data['token']);
+    }
+    if (data['user'] != null) {
+      await storage.saveUser(data['user']);
     }
     return data;
   }
@@ -58,24 +61,24 @@ class AuthRepository {
     });
     final data = response.data;
     if (data['token'] != null) {
-      await _storage.saveToken(data['token']);
+      await storage.saveToken(data['token']);
+    }
+    if (data['user'] != null) {
+      await storage.saveUser(data['user']);
     }
     return data;
   }
 
   Future<Map<String, dynamic>?> getSession() async {
-    try {
-      final response = await _dioClient.get(ApiConfig.session);
-      return response.data;
-    } catch (_) {
-      return null;
-    }
+    final response = await _dioClient.get(ApiConfig.session);
+    return response.data;
   }
 
   Future<void> logout() async {
     try {
       await _dioClient.post(ApiConfig.logout, data: {});
     } catch (_) {}
-    await _storage.deleteToken();
+    await storage.deleteToken();
+    await storage.deleteUser();
   }
 }
