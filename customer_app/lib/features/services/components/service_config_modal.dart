@@ -277,6 +277,20 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
   }
 
   Future<void> _calculateEstimatePrice() async {
+    if (widget.serviceSlug == 'rupee-one-test-service') {
+      setState(() {
+        _packageCost = 1.0;
+        _visitCharge = 1.0;
+        _labourCost = 0;
+        _discount = 0;
+        _gst = 0;
+        _grandTotal = 2.0;
+        _isCalculatingPrice = false;
+        _isLoading = false;
+      });
+      return;
+    }
+
     final activeTypes = _cctvSelectedCameraTypes.entries.where((e) => e.value).map((e) => e.key).toList();
     if (activeTypes.isEmpty) {
       setState(() {

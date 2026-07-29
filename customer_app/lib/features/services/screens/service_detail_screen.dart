@@ -57,6 +57,16 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
 
     if (_service == null) return;
 
+    if (_service!.categoryId != 'cctv') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This service category is coming soon. Booking is currently disabled.'),
+          backgroundColor: AppTheme.secondaryColor,
+        ),
+      );
+      return;
+    }
+
     // Show step config modal
     showModalBottomSheet(
       context: context,
@@ -82,6 +92,17 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
   }
 
   void _openQuoteModal() {
+    if (_service == null) return;
+    if (_service!.categoryId != 'cctv') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This service category is coming soon. Custom quotes are currently disabled.'),
+          backgroundColor: AppTheme.secondaryColor,
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (context) {

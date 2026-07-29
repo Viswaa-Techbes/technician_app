@@ -290,10 +290,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(_getCategoryIcon(cat.id), color: AppTheme.primaryColor, size: 28),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    cat.title.split(' ')[0],
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                                  const SizedBox(height: 6),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                    child: Text(
+                                      cat.title,
+                                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
                                 ],
                               ),
