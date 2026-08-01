@@ -48,36 +48,3 @@ flutter {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
 }
-
-tasks.register("copyBrandingAssets") {
-    doFirst {
-        val sourceFile = file("C:/Users/Viswaas-E/.gemini/antigravity-ide/brain/035171da-79e8-4e91-82c9-32f5857f77a7/media__1785338459115.png")
-        if (sourceFile.exists()) {
-            println("Gradle: Copying branding logo to assets and Android resources...")
-            // 1. Copy to assets/logos/logo.png
-            val assetLogoFile = file("../../assets/logos/logo.png")
-            assetLogoFile.parentFile.mkdirs()
-            sourceFile.copyTo(assetLogoFile, overwrite = true)
-
-            // 2. Copy to Android mipmap resource directories
-            val mipmapDirs = listOf(
-                "src/main/res/mipmap-mdpi",
-                "src/main/res/mipmap-hdpi",
-                "src/main/res/mipmap-xhdpi",
-                "src/main/res/mipmap-xxhdpi",
-                "src/main/res/mipmap-xxxhdpi"
-            )
-            for (dir in mipmapDirs) {
-                val destFile = file("$dir/ic_launcher.png")
-                destFile.parentFile.mkdirs()
-                sourceFile.copyTo(destFile, overwrite = true)
-            }
-        } else {
-            println("Gradle: Branding logo source file does not exist at ${sourceFile.absolutePath}")
-        }
-    }
-}
-
-tasks.named("preBuild") {
-    dependsOn("copyBrandingAssets")
-}

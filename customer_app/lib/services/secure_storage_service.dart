@@ -7,7 +7,11 @@ import '../core/utils/logger.dart';
 final secureStorageProvider = Provider((ref) => SecureStorageService());
 
 class SecureStorageService {
-  final _storage = const FlutterSecureStorage();
+  final _storage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true,
+    ),
+  );
   static const _tokenKey = "techbes_backend_token";
   static const _userKey = "techbes_backend_user";
 

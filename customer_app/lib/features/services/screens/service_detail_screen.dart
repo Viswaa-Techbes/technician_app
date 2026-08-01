@@ -8,6 +8,7 @@ import '../../../models/service_model.dart';
 import '../../../repositories/service_repository.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../components/service_config_modal.dart';
+import 'services_list_screen.dart';
 
 class ServiceDetailScreen extends ConsumerStatefulWidget {
   final String slug;
@@ -236,6 +237,15 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
       return Scaffold(
         appBar: AppBar(title: const Text('Service Not Found')),
         body: const Center(child: Text('The requested service could not be loaded.')),
+      );
+    }
+
+    if (_service!.categoryId != 'cctv') {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(_service!.title),
+        ),
+        body: ComingSoonPanel(categoryTitle: _service!.category),
       );
     }
 
