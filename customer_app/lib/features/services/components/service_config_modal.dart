@@ -40,7 +40,10 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
   late Razorpay _razorpay;
 
   // Static options for fallback and initial states
-  final List<String> _propertyTypes = ['Home', 'Apartment', 'Office', 'Shop', 'Warehouse', 'Factory', 'Other'];
+  List<dynamic> _bookingQuestions = [];
+  final Map<String, dynamic> _bookingAnswers = {};
+  bool _hasError = false;
+  String _errorText = '';
   final List<String> _cameraTypesList = ['IP Camera', 'Analog Camera', 'WiFi Indoor Camera', 'WiFi Outdoor Camera', '4G Camera', 'Solar Camera'];
   final List<String> _cableTypesList = ['Cat6 Cable', '3+1 CCTV Cable'];
   final List<String> _sdCardCapacities = ['32GB', '64GB', '128GB', '256GB'];
@@ -69,6 +72,12 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
   List<dynamic> _cctvCables = [];
   List<dynamic> _cctvInstallationCharges = [];
   List<dynamic> _cctvAccessories = [];
+
+  // CCTV Products variables
+  List<dynamic> _availableProducts = [];
+  final Map<String, bool> _selectedProductsCheckboxes = {};
+  final Map<String, int> _selectedProductQuantities = {};
+  final Map<String, String> _selectedProductVariants = {};
 
   // Price calculations breakdown
   double _packageCost = 0;
@@ -142,17 +151,27 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
   }
 
   Future<void> _fetchCctvMetadata() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+      _errorText = '';
+    });
     try {
       final client = ref.read(dioClientProvider);
-      final results = await Future.wait([
+      final List<Future<dynamic>> requests = [
         client.get('/api/v2/cctv/brands'),
         client.get('/api/v2/cctv/models'),
         client.get('/api/v2/cctv/sd-cards'),
         client.get('/api/v2/cctv/cable-pricings'),
         client.get('/api/v2/cctv/installation-charges'),
         client.get('/api/v2/cctv/accessories'),
-      ]);
+      ];
+      if (widget.serviceSlug == 'buy-cctv-products') {
+        requests.add(client.get('/api/v2/cctv/products'));
+      } else {
+        requests.add(client.get('/api/v2/catalog/subcategories/${widget.serviceSlug}/questions'));
+      }
+      final results = await Future.wait(requests);
 
       if (mounted) {
         setState(() {
@@ -162,6 +181,22 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
           _cctvCables = results[3].data['data'] ?? [];
           _cctvInstallationCharges = results[4].data['data'] ?? [];
           _cctvAccessories = results[5].data['data'] ?? [];
+          
+          if (widget.serviceSlug == 'buy-cctv-products') {
+            if (results.length > 6) {
+              _availableProducts = results[6].data['data'] ?? [];
+            }
+          } else {
+            if (results.length > 6) {
+              _bookingQuestions = results[6].data['data'] ?? [];
+              // Initialize answers with defaults
+              _bookingAnswers.clear();
+              for (var q in _bookingQuestions) {
+                final qText = q['question'] ?? '';
+                _bookingAnswers[qText] = q['type'] == 'multiselect' ? <String>[] : '';
+              }
+            }
+          }
 
           // Initialize defaults for first selected camera type
           _initializeCameraDefaults();
@@ -173,27 +208,10 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
       debugPrint('Metadata fetch failed: $e');
       if (mounted) {
         setState(() {
-          // Pre-populate offline fallback brands and models
-          _cctvBrands = [
-            {'_id': 'brand_hikvision', 'name': 'Hikvision'},
-            {'_id': 'brand_cpplus', 'name': 'CP Plus'},
-            {'_id': 'brand_dahua', 'name': 'Dahua'},
-          ];
-          _cctvAllModels = [
-            {'_id': 'model_hik_ip_2mp', 'name': '2MP Fixed Dome IP', 'cameraType': 'IP Camera', 'brandId': {'_id': 'brand_hikvision'}, 'price': 1400},
-            {'_id': 'model_hik_ip_4mp', 'name': '4MP Smart IP Bullet', 'cameraType': 'IP Camera', 'brandId': {'_id': 'brand_hikvision'}, 'price': 2200},
-            {'_id': 'model_cpp_analog_2mp', 'name': '2MP Dome Analog', 'cameraType': 'Analog Camera', 'brandId': {'_id': 'brand_cpplus'}, 'price': 900},
-            {'_id': 'model_cpp_analog_4mp', 'name': '4MP Bullet Analog', 'cameraType': 'Analog Camera', 'brandId': {'_id': 'brand_cpplus'}, 'price': 1600},
-          ];
-          _cctvSdCards = [
-            {'_id': 'sd_32', 'capacity': '32GB', 'price': 299},
-            {'_id': 'sd_64', 'capacity': '64GB', 'price': 499},
-            {'_id': 'sd_128', 'capacity': '128GB', 'price': 899},
-          ];
-          _initializeCameraDefaults();
+          _hasError = true;
+          _errorText = 'Could not retrieve configuration details from server. Please check your network and try again.';
           _isLoading = false;
         });
-        _calculateEstimatePrice();
       }
     }
   }
@@ -278,6 +296,39 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
   }
 
   Future<void> _calculateEstimatePrice() async {
+    if (widget.serviceSlug == 'buy-cctv-products') {
+      final productsTotal = _selectedProductsList.fold<double>(0, (sum, p) => sum + p['total']);
+      const deliveryCharge = 199.0;
+      final baseTotal = productsTotal + deliveryCharge;
+      final gstVal = (baseTotal * 0.18).roundToDouble();
+      final grandTotalVal = baseTotal + gstVal;
+
+      setState(() {
+        _packageCost = productsTotal;
+        _visitCharge = deliveryCharge;
+        _labourCost = 0;
+        _discount = 0;
+        _gst = gstVal;
+        _grandTotal = grandTotalVal;
+        _isCalculatingPrice = false;
+      });
+      return;
+    }
+
+    final isInstallation = widget.serviceSlug == 'install-new-cctv' || widget.serviceSlug.contains('install');
+    if (!isInstallation) {
+      setState(() {
+        _packageCost = widget.defaultPrice;
+        _visitCharge = 0.0;
+        _labourCost = 0.0;
+        _discount = 0.0;
+        _gst = (_packageCost * 0.18).roundToDouble();
+        _grandTotal = _packageCost + _gst;
+        _isCalculatingPrice = false;
+      });
+      return;
+    }
+
     final activeTypes = _cctvSelectedCameraTypes.entries.where((e) => e.value).map((e) => e.key).toList();
     if (activeTypes.isEmpty) {
       setState(() {
@@ -438,6 +489,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
   }
 
   Map<String, dynamic> _buildBookingPayload() {
+    final isBuyCctvProducts = widget.serviceSlug == 'buy-cctv-products';
     final dateStr = _selectedDate != null ? DateFormat('yyyy-MM-dd').format(_selectedDate!) : DateFormat('yyyy-MM-dd').format(DateTime.now().add(const Duration(days: 1)));
     
     final activeTypes = _cctvSelectedCameraTypes.entries.where((e) => e.value).map((e) => e.key).toList();
@@ -460,40 +512,56 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
       'address': formattedAddress,
       'description': _notesController.text.isNotEmpty ? _notesController.text.trim() : 'Booking requested via customer app',
       'date': dateStr,
-      'timeSlot': _selectedTimeSlot,
+      'timeSlot': isBuyCctvProducts ? null : _selectedTimeSlot,
       'customerName': _customerName.isNotEmpty ? _customerName : 'Techbes User',
       'customerPhone': _customerPhone.isNotEmpty ? _customerPhone : '9900012345',
       'totalAmount': _grandTotal,
-      'serviceType': 'installation',
+      'serviceType': isBuyCctvProducts ? 'other' : 'installation',
       'latitude': _latitude ?? 12.9716,
       'longitude': _longitude ?? 77.5946,
       'city': _cityController.text.trim(),
       'state': _stateController.text.trim(),
       'pincode': _pincodeController.text.trim(),
-      'bookingAnswers': [
-        {'question': 'Select Property Type', 'answer': _cctvPropertyType},
-        {'question': 'Active Camera Types', 'answer': activeTypes.join(', ')},
-      ],
-      'uploadedImages': _uploadedImages,
+      'bookingAnswers': isBuyCctvProducts ? <Map<String, dynamic>>[] : _bookingAnswers.entries.map((e) {
+        final val = e.value;
+        return {
+          'question': e.key,
+          'answer': val is List ? val.join(', ') : val.toString(),
+        };
+      }).toList(),
+      'uploadedImages': isBuyCctvProducts ? <String>[] : _uploadedImages,
       'houseNumber': _houseNumberController.text.trim(),
       'street': _streetController.text.trim(),
       'area': _areaController.text.trim(),
       'landmark': _landmarkController.text.trim(),
+      if (isBuyCctvProducts) 'products': _selectedProductsList,
       'cctvDetails': {
         'category': {'name': 'CCTV', 'slug': 'cctv'},
         'subcategory': {'id': widget.subcategoryId, 'name': widget.serviceName, 'slug': widget.serviceSlug},
-        'propertyType': _cctvPropertyType,
-        'cameraTypes': cameraTypesPayload,
-        'installationRequired': _cctvInstallationRequired,
-        'cableType': _cctvCableType,
-        'cableLength': _cctvCableLength,
-        'dvrRequired': _cctvDvrRequired,
-        'nvrRequired': _cctvNvrRequired,
-        'networkRack': _cctvNetworkRack,
-        'monitorMounting': _cctvMonitorMounting,
-        'sdCardRequired': _cctvSdCardEnabled,
-        'sdCardCapacity': _cctvSdCardCapacity,
-        'sdCardQuantity': _cctvSdCardQuantity
+        'priceBreakdown': {
+          'packageCost': _packageCost,
+          'visitCharge': _visitCharge,
+          'labourCost': _labourCost,
+          'discount': _discount,
+          'gst': _gst,
+          'grandTotal': _grandTotal,
+        },
+        'notes': _notesController.text.trim(),
+        if (isBuyCctvProducts) 'products': _selectedProductsList,
+        if (!isBuyCctvProducts) ...{
+          'propertyType': _cctvPropertyType,
+          'cameraTypes': cameraTypesPayload,
+          'installationRequired': _cctvInstallationRequired,
+          'cableType': _cctvCableType,
+          'cableLength': _cctvCableLength,
+          'dvrRequired': _cctvDvrRequired,
+          'nvrRequired': _cctvNvrRequired,
+          'networkRack': _cctvNetworkRack,
+          'monitorMounting': _cctvMonitorMounting,
+          'sdCardRequired': _cctvSdCardEnabled,
+          'sdCardCapacity': _cctvSdCardCapacity,
+          'sdCardQuantity': _cctvSdCardQuantity
+        }
       }
     };
   }
@@ -553,7 +621,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
             'amount': orderData['amount'],
             'currency': orderData['currency'] ?? 'INR',
             'name': 'Techbes Security',
-            'description': 'Booking advance payment for CCTV installation',
+            'description': widget.serviceSlug == 'buy-cctv-products' ? 'Payment for CCTV Products Order' : 'Booking advance payment for CCTV installation',
             'order_id': orderData['orderId'] ?? orderData['id'] ?? '',
             'prefill': {
               'name': _customerName.isNotEmpty ? _customerName : 'Techbes User',
@@ -639,6 +707,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
   }
 
   void _showSuccessDialog() {
+    final isBuyCctvProducts = widget.serviceSlug == 'buy-cctv-products';
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -655,14 +724,16 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
                 child: Icon(Icons.check, color: Color(0xFF10B981), size: 36),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Booking Confirmed!',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.textPrimaryColor),
+              Text(
+                isBuyCctvProducts ? 'Order Confirmed!' : 'Booking Confirmed!',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.textPrimaryColor),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Your CCTV installation appointment is scheduled. We have verified your deposit and assigned a certified technician.',
-                style: TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryColor, height: 1.45),
+              Text(
+                isBuyCctvProducts
+                    ? 'Your CCTV products purchase order is confirmed and will be shipped to your delivery address.'
+                    : 'Your CCTV installation appointment is scheduled. We have verified your deposit and assigned a certified technician.',
+                style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryColor, height: 1.45),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
@@ -682,18 +753,67 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
   }
 
   void _goNext() {
+    final isBuy = widget.serviceSlug == 'buy-cctv-products';
+    final isInstallation = widget.serviceSlug == 'install-new-cctv' || widget.serviceSlug.contains('install');
     if (_step == 1) {
-      final hasActive = _cctvSelectedCameraTypes.values.any((v) => v);
-      if (!hasActive) {
+      if (isBuy) {
+        if (_selectedProductsList.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select at least one product to continue')),
+          );
+          return;
+        }
+      } else {
+        // Validate required dynamic questions
+        for (var q in _bookingQuestions) {
+          final qText = q['question'] as String? ?? '';
+          final isRequired = q['required'] as bool? ?? false;
+          final answer = _bookingAnswers[qText];
+          if (isRequired) {
+            if (answer == null || 
+                (answer is String && answer.trim().isEmpty) ||
+                (answer is List && answer.isEmpty)) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Please answer: $qText')),
+              );
+              return;
+            }
+          }
+        }
+
+        if (isInstallation) {
+          final hasActive = _cctvSelectedCameraTypes.values.any((v) => v);
+          if (!hasActive) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please select at least one camera type to continue')),
+            );
+            return;
+          }
+        }
+      }
+    } else if (_step == 2) {
+      if (!isBuy && _selectedDate == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select at least one camera type to continue')),
+          const SnackBar(content: Text('Please select a scheduled date to continue')),
+        );
+        return;
+      }
+    } else if (_step == 3) {
+      if (isBuy && _selectedDate == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a delivery date to continue')),
         );
         return;
       }
     } else if (_step == 4) {
-      if (_houseNumberController.text.isEmpty || _streetController.text.isEmpty || _pincodeController.text.isEmpty) {
+      if (_houseNumberController.text.trim().isEmpty || 
+          _streetController.text.trim().isEmpty || 
+          _pincodeController.text.trim().isEmpty ||
+          _areaController.text.trim().isEmpty ||
+          _cityController.text.trim().isEmpty ||
+          _stateController.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please fill in required address fields')),
+          const SnackBar(content: Text('Please fill in all required address fields')),
         );
         return;
       }
@@ -720,6 +840,45 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
 
   @override
   Widget build(BuildContext context) {
+    if (_hasError) {
+      return SizedBox(
+        height: 350,
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Colors.red, size: 48),
+              const SizedBox(height: 16),
+              const Text(
+                'Failed to Load Details',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryColor),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _errorText,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _fetchCctvMetadata,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: const Text('Retry', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (_isLoading) {
       return const SizedBox(
         height: 350,
@@ -762,13 +921,15 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Book CCTV Installation',
+                        widget.serviceSlug == 'buy-cctv-products' ? 'Purchase CCTV Products' : 'Book CCTV Installation',
                         style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800, fontSize: 17),
                       ),
                       const SizedBox(height: 2),
-                      const Text(
-                        'Complete the steps to schedule your setup rollout',
-                        style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500),
+                      Text(
+                        widget.serviceSlug == 'buy-cctv-products'
+                            ? 'Select the equipment modules to deliver to your address'
+                            : 'Complete the steps to schedule your setup rollout',
+                        style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
@@ -811,7 +972,9 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
   }
 
   Widget _buildStepperBar() {
-    final stepLabels = ['Details', 'Schedule', 'Images', 'Location', 'Estimate', 'Checkout'];
+    final stepLabels = widget.serviceSlug == 'buy-cctv-products'
+        ? ['Products', 'Variants', 'Delivery', 'Address', 'Cart', 'Checkout']
+        : ['Details', 'Schedule', 'Images', 'Location', 'Estimate', 'Checkout'];
     return Container(
       color: const Color(0xFFF8FAFC), // Slate 50
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -879,6 +1042,24 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
   }
 
   Widget _buildCurrentStepContent() {
+    if (widget.serviceSlug == 'buy-cctv-products') {
+      switch (_step) {
+        case 1:
+          return _buildStep1SelectProducts();
+        case 2:
+          return _buildStep2QuantityVariants();
+        case 3:
+          return _buildStep3DeliveryDate();
+        case 4:
+          return _buildStep4Location();
+        case 5:
+          return _buildStep5CartReview();
+        case 6:
+          return _buildStep6CheckoutPay();
+        default:
+          return const SizedBox();
+      }
+    }
     switch (_step) {
       case 1:
         return _buildStep1Details();
@@ -898,171 +1079,498 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
   }
 
   Widget _buildStep1Details() {
+    final isInstallation = widget.serviceSlug == 'install-new-cctv' || widget.serviceSlug.contains('install');
+    
     return Column(
       key: const ValueKey('step_1'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Select Property Type', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textPrimaryColor)),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _propertyTypes.map((type) {
-            final active = _cctvPropertyType == type;
-            return ChoiceChip(
-              label: Text(type),
-              selected: active,
-              onSelected: (selected) {
-                if (selected) {
-                  setState(() => _cctvPropertyType = type);
-                  _calculateEstimatePrice();
-                }
-              },
-              selectedColor: AppTheme.primaryColor.withOpacity(0.08),
-              labelStyle: TextStyle(
-                fontSize: 12,
-                fontWeight: active ? FontWeight.bold : FontWeight.normal,
-                color: active ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
-              ),
-              side: BorderSide(color: active ? AppTheme.primaryColor : const Color(0xFFE2E8F0)),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 20),
-        const Text('Choose Cameras to Install', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textPrimaryColor)),
-        const SizedBox(height: 4),
-        const Text('Select one or more camera types and configure their models & quantities.', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
-        const SizedBox(height: 12),
-        ..._cameraTypesList.map((type) {
-          final isSelected = _cctvSelectedCameraTypes[type] ?? false;
-          final qty = _cctvCameraQuantities[type] ?? 1;
-          final activeBrand = _cctvCameraBrands[type] ?? '';
-          final activeModel = _cctvCameraModels[type] ?? '';
+        // 1. Dynamic Booking Questions
+        if (_bookingQuestions.isNotEmpty) ...[
+          ..._bookingQuestions.map((q) {
+            final qText = q['question'] as String? ?? '';
+            final qType = q['type'] as String? ?? 'text';
+            final options = (q['options'] as List?)?.map((o) => o.toString()).toList() ?? [];
+            final isRequired = q['required'] as bool? ?? false;
 
-          // Filter models matching active type and brand
-          final typeModels = _cctvAllModels.where((m) => m['cameraType'] == type).toList();
-          final brandModels = typeModels.where((m) => m['brandId']?['_id'] == activeBrand || m['brandId'] == activeBrand).toList();
-
-          return Card(
-            elevation: 0,
-            margin: const EdgeInsets.only(bottom: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-              side: BorderSide(color: isSelected ? AppTheme.primaryColor : const Color(0xFFE2E8F0)),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16.0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      SizedBox(
-                        height: 24,
-                        width: 24,
-                        child: Checkbox(
-                          value: isSelected,
+                      Expanded(
+                        child: Text(
+                          qText,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textPrimaryColor),
+                        ),
+                      ),
+                      if (isRequired)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text('Required', style: TextStyle(fontSize: 9, color: Colors.red, fontWeight: FontWeight.bold)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  if (qType == 'select') ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          isExpanded: true,
+                          value: _bookingAnswers[qText]?.toString().isEmpty == false ? _bookingAnswers[qText] : null,
+                          hint: const Text('Choose option...', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
+                          items: options.map((opt) {
+                            return DropdownMenuItem<String>(
+                              value: opt,
+                              child: Text(opt, style: const TextStyle(fontSize: 13)),
+                            );
+                          }).toList(),
                           onChanged: (val) {
                             setState(() {
-                              _cctvSelectedCameraTypes[type] = val ?? false;
-                              if (val == true && !_cctvCameraQuantities.containsKey(type)) {
-                                _cctvCameraQuantities[type] = 1;
+                              _bookingAnswers[qText] = val;
+                              if (qText == 'Select Property Type') {
+                                _cctvPropertyType = val ?? 'Home';
                               }
                             });
                             _calculateEstimatePrice();
                           },
-                          activeColor: AppTheme.primaryColor,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(type, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
-                      const Spacer(),
-                      if (isSelected)
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.remove_circle_outline, size: 20, color: AppTheme.primaryColor),
-                              onPressed: qty > 1 ? () {
-                                setState(() => _cctvCameraQuantities[type] = qty - 1);
-                                _calculateEstimatePrice();
-                              } : null,
-                            ),
-                            Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                            IconButton(
-                              icon: const Icon(Icons.add_circle_outline, size: 20, color: AppTheme.primaryColor),
-                              onPressed: () {
-                                setState(() => _cctvCameraQuantities[type] = qty + 1);
-                                _calculateEstimatePrice();
-                              },
-                            ),
-                          ],
-                        ),
-                    ],
-                  ),
-                  if (isSelected) ...[
-                    const Divider(height: 16),
+                    ),
+                  ] else if (qType == 'multiselect') ...[
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: options.map((opt) {
+                        final selectedList = List<String>.from(_bookingAnswers[qText] as List? ?? []);
+                        final isSelected = selectedList.contains(opt);
+                        return ChoiceChip(
+                          label: Text(opt),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              if (selected) {
+                                selectedList.add(opt);
+                              } else {
+                                selectedList.remove(opt);
+                              }
+                              _bookingAnswers[qText] = selectedList;
+                            });
+                            _calculateEstimatePrice();
+                          },
+                          selectedColor: AppTheme.primaryColor.withOpacity(0.08),
+                          labelStyle: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
+                          ),
+                          side: BorderSide(color: isSelected ? AppTheme.primaryColor : const Color(0xFFE2E8F0)),
+                        );
+                      }).toList(),
+                    ),
+                  ] else ...[
+                    TextField(
+                      style: const TextStyle(fontSize: 13),
+                      decoration: const InputDecoration(
+                        hintText: 'Enter details...',
+                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                      onChanged: (val) {
+                        setState(() {
+                          _bookingAnswers[qText] = val;
+                        });
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }).toList(),
+        ] else if (!isInstallation) ...[
+          const SizedBox(height: 20),
+          const Center(child: Text('No details questions required. Please tap Continue.', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13))),
+          const SizedBox(height: 20),
+        ],
+
+        // 2. Hardware selection (only for installation setups)
+        if (isInstallation) ...[
+          const Divider(height: 32, color: Color(0xFFE2E8F0)),
+          const Text('Choose Cameras to Install', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textPrimaryColor)),
+          const SizedBox(height: 4),
+          const Text('Select one or more camera types and configure their models & quantities.', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+          const SizedBox(height: 12),
+          ..._cameraTypesList.map((type) {
+            final isSelected = _cctvSelectedCameraTypes[type] ?? false;
+            final qty = _cctvCameraQuantities[type] ?? 1;
+            final activeBrand = _cctvCameraBrands[type] ?? '';
+            final activeModel = _cctvCameraModels[type] ?? '';
+
+            final typeModels = _cctvAllModels.where((m) => m['cameraType'] == type).toList();
+            final brandModels = typeModels.where((m) => m['brandId']?['_id'] == activeBrand || m['brandId'] == activeBrand).toList();
+
+            return Card(
+              elevation: 0,
+              margin: const EdgeInsets.only(bottom: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(color: isSelected ? AppTheme.primaryColor : const Color(0xFFE2E8F0)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                     Row(
                       children: [
-                        // Brand Selector
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                isExpanded: true,
-                                value: activeBrand.isNotEmpty ? activeBrand : null,
-                                hint: const Text('Brand', style: TextStyle(fontSize: 11)),
-                                items: _cctvBrands.map<DropdownMenuItem<String>>((b) {
-                                  return DropdownMenuItem<String>(
-                                    value: b['_id'],
-                                    child: Text(b['name'] ?? '', style: const TextStyle(fontSize: 12)),
-                                  );
-                                }).toList(),
-                                onChanged: (val) {
-                                  setState(() {
-                                    _cctvCameraBrands[type] = val!;
-                                    final brandM = _cctvAllModels.where((m) => m['cameraType'] == type && (m['brandId']?['_id'] == val || m['brandId'] == val)).toList();
-                                    if (brandM.isNotEmpty) {
-                                      _cctvCameraModels[type] = brandM[0]['_id'];
-                                    }
-                                  });
-                                  _calculateEstimatePrice();
-                                },
-                              ),
-                            ),
+                        SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: Checkbox(
+                            value: isSelected,
+                            onChanged: (val) {
+                              setState(() {
+                                _cctvSelectedCameraTypes[type] = val ?? false;
+                                if (val == true && !_cctvCameraQuantities.containsKey(type)) {
+                                  _cctvCameraQuantities[type] = 1;
+                                }
+                              });
+                              _calculateEstimatePrice();
+                            },
+                            activeColor: AppTheme.primaryColor,
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        // Model Selector
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                isExpanded: true,
-                                value: activeModel.isNotEmpty ? activeModel : null,
-                                hint: const Text('Resolution / Model', style: TextStyle(fontSize: 11)),
-                                items: (brandModels.isNotEmpty ? brandModels : typeModels).map<DropdownMenuItem<String>>((m) {
-                                  return DropdownMenuItem<String>(
-                                    value: m['_id'],
-                                    child: Text('${m['name']} (₹${m['price']})', style: const TextStyle(fontSize: 11)),
-                                  );
-                                }).toList(),
-                                onChanged: (val) {
-                                  setState(() => _cctvCameraModels[type] = val!);
+                        const SizedBox(width: 8),
+                        Text(type, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                        const Spacer(),
+                        if (isSelected)
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove_circle_outline, size: 20, color: AppTheme.primaryColor),
+                                onPressed: qty > 1 ? () {
+                                  setState(() => _cctvCameraQuantities[type] = qty - 1);
+                                  _calculateEstimatePrice();
+                                } : null,
+                              ),
+                              Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              IconButton(
+                                icon: const Icon(Icons.add_circle_outline, size: 20, color: AppTheme.primaryColor),
+                                onPressed: () {
+                                  setState(() => _cctvCameraQuantities[type] = qty + 1);
                                   _calculateEstimatePrice();
                                 },
                               ),
+                            ],
+                          ),
+                      ],
+                    ),
+                    if (isSelected) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Brand', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  ),
+                                  child: DropdownButtonHideUnderline(
+                                    child: DropdownButton<String>(
+                                      isExpanded: true,
+                                      value: activeBrand.isNotEmpty ? activeBrand : null,
+                                      hint: const Text('Brand', style: TextStyle(fontSize: 11)),
+                                      items: _cctvBrands.map((b) {
+                                        return DropdownMenuItem<String>(
+                                          value: b['_id'],
+                                          child: Text(b['name'] ?? '', style: const TextStyle(fontSize: 12)),
+                                        );
+                                      }).toList(),
+                                      onChanged: (val) {
+                                        setState(() {
+                                          _cctvCameraBrands[type] = val ?? '';
+                                          final matchingModel = _cctvAllModels.firstWhere(
+                                            (m) => m['cameraType'] == type && (m['brandId']?['_id'] == val || m['brandId'] == val),
+                                            orElse: () => _cctvAllModels.firstWhere((m) => m['cameraType'] == type, orElse: () => null),
+                                          );
+                                          if (matchingModel != null) {
+                                            _cctvCameraModels[type] = matchingModel['_id'];
+                                          }
+                                        });
+                                        _calculateEstimatePrice();
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Resolution / Model', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  ),
+                                  child: DropdownButtonHideUnderline(
+                                    child: DropdownButton<String>(
+                                      isExpanded: true,
+                                      value: activeModel.isNotEmpty ? activeModel : null,
+                                      hint: const Text('Model', style: TextStyle(fontSize: 11)),
+                                      items: (activeBrand.isNotEmpty ? brandModels : typeModels).map((m) {
+                                        final mPrice = (m['price'] as num).toDouble();
+                                        return DropdownMenuItem<String>(
+                                          value: m['_id'],
+                                          child: Text('${m['resolution'] ?? ''} ${m['name'] ?? ''} (₹${mPrice.round()})', style: const TextStyle(fontSize: 10)),
+                                        );
+                                      }).toList(),
+                                      onChanged: (val) {
+                                        setState(() {
+                                          _cctvCameraModels[type] = val ?? '';
+                                        });
+                                        _calculateEstimatePrice();
+                                      },
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+          const SizedBox(height: 8),
+
+          // Cable configurations
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Installation Cabling', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                      Switch(
+                        value: _cctvInstallationRequired,
+                        onChanged: (val) {
+                          setState(() => _cctvInstallationRequired = val);
+                          _calculateEstimatePrice();
+                        },
+                        activeColor: AppTheme.primaryColor,
+                      ),
+                    ],
+                  ),
+                  if (_cctvInstallationRequired) ...[
+                    const Divider(height: 12),
+                    Row(
+                      children: [
+                        const Text('Cable Type', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
+                        const Spacer(),
+                        DropdownButton<String>(
+                          value: _cctvCableType,
+                          items: _cableTypesList.map((t) {
+                            return DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 12)));
+                          }).toList(),
+                          onChanged: (val) {
+                            setState(() => _cctvCableType = val!);
+                            _calculateEstimatePrice();
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text('Estimated Length', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
+                        const Spacer(),
+                        Text('$_cctvCableLength m', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      ],
+                    ),
+                    Slider(
+                      value: _cctvCableLength.toDouble(),
+                      min: 0,
+                      max: 200,
+                      divisions: 40,
+                      label: '$_cctvCableLength meters',
+                      activeColor: AppTheme.primaryColor,
+                      onChanged: (val) {
+                        setState(() => _cctvCableLength = val.round());
+                      },
+                      onChangeEnd: (val) {
+                        _calculateEstimatePrice();
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Recorder and mounts
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Recorders & Mount Addons', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                  const SizedBox(height: 8),
+                  CheckboxListTile(
+                    title: const Text('CCTV DVR Installation Required', style: TextStyle(fontSize: 12)),
+                    value: _cctvDvrRequired,
+                    onChanged: (val) {
+                      setState(() => _cctvDvrRequired = val ?? false);
+                      _calculateEstimatePrice();
+                    },
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  ),
+                  CheckboxListTile(
+                    title: const Text('CCTV NVR Installation Required', style: TextStyle(fontSize: 12)),
+                    value: _cctvNvrRequired,
+                    onChanged: (val) {
+                      setState(() => _cctvNvrRequired = val ?? false);
+                      _calculateEstimatePrice();
+                    },
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Include Server Network Rack / Casing', style: TextStyle(fontSize: 12)),
+                    value: _cctvNetworkRack,
+                    onChanged: (val) {
+                      setState(() => _cctvNetworkRack = val ?? false);
+                      _calculateEstimatePrice();
+                    },
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Add Monitor Wall Mounting Bracket', style: TextStyle(fontSize: 12)),
+                    value: _cctvMonitorMounting,
+                    onChanged: (val) {
+                      setState(() => _cctvMonitorMounting = val ?? false);
+                      _calculateEstimatePrice();
+                    },
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Storage / SD card configuration
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Memory Cards (Storage)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                      Switch(
+                        value: _cctvSdCardEnabled,
+                        onChanged: (val) {
+                          setState(() => _cctvSdCardEnabled = val);
+                          _calculateEstimatePrice();
+                        },
+                        activeColor: AppTheme.primaryColor,
+                      ),
+                    ],
+                  ),
+                  if (_cctvSdCardEnabled) ...[
+                    const Divider(height: 12),
+                    Row(
+                      children: [
+                        const Text('SD Card Capacity', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
+                        const Spacer(),
+                        DropdownButton<String>(
+                          value: _cctvSdCardCapacity,
+                          items: _sdCardCapacities.map((c) {
+                            return DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 12)));
+                          }).toList(),
+                          onChanged: (val) {
+                            setState(() => _cctvSdCardCapacity = val!);
+                            _calculateEstimatePrice();
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text('Quantity', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.remove_circle_outline, size: 20, color: AppTheme.primaryColor),
+                          onPressed: _cctvSdCardQuantity > 1 ? () {
+                            setState(() => _cctvSdCardQuantity--);
+                            _calculateEstimatePrice();
+                          } : null,
+                        ),
+                        Text('$_cctvSdCardQuantity', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        IconButton(
+                          icon: const Icon(Icons.add_circle_outline, size: 20, color: AppTheme.primaryColor),
+                          onPressed: () {
+                            setState(() => _cctvSdCardQuantity++);
+                            _calculateEstimatePrice();
+                          },
                         ),
                       ],
                     ),
@@ -1070,218 +1578,8 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
                 ],
               ),
             ),
-          );
-        }).toList(),
-        const SizedBox(height: 8),
-
-        // Cable configurations
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: const BorderSide(color: Color(0xFFE2E8F0)),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(14.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Installation Cabling', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
-                    Switch(
-                      value: _cctvInstallationRequired,
-                      onChanged: (val) {
-                        setState(() => _cctvInstallationRequired = val);
-                        _calculateEstimatePrice();
-                      },
-                      activeColor: AppTheme.primaryColor,
-                    ),
-                  ],
-                ),
-                if (_cctvInstallationRequired) ...[
-                  const Divider(height: 12),
-                  Row(
-                    children: [
-                      const Text('Cable Type', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
-                      const Spacer(),
-                      DropdownButton<String>(
-                        value: _cctvCableType,
-                        items: _cableTypesList.map((t) {
-                          return DropdownMenuItem(value: t, child: Text(t, style: const TextStyle(fontSize: 12)));
-                        }).toList(),
-                        onChanged: (val) {
-                          setState(() => _cctvCableType = val!);
-                          _calculateEstimatePrice();
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Text('Estimated Length', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
-                      const Spacer(),
-                      Text('$_cctvCableLength m', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    ],
-                  ),
-                  Slider(
-                    value: _cctvCableLength.toDouble(),
-                    min: 0,
-                    max: 200,
-                    divisions: 40,
-                    label: '$_cctvCableLength meters',
-                    activeColor: AppTheme.primaryColor,
-                    onChanged: (val) {
-                      setState(() => _cctvCableLength = val.round());
-                    },
-                    onChangeEnd: (val) {
-                      _calculateEstimatePrice();
-                    },
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // Recorder and mounts
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: const BorderSide(color: Color(0xFFE2E8F0)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(14.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Recorders & Mount Addons', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
-                const SizedBox(height: 8),
-                CheckboxListTile(
-                  title: const Text('CCTV DVR Installation Required', style: TextStyle(fontSize: 12)),
-                  value: _cctvDvrRequired,
-                  onChanged: (val) {
-                    setState(() => _cctvDvrRequired = val ?? false);
-                    _calculateEstimatePrice();
-                  },
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-                CheckboxListTile(
-                  title: const Text('CCTV NVR Installation Required', style: TextStyle(fontSize: 12)),
-                  value: _cctvNvrRequired,
-                  onChanged: (val) {
-                    setState(() => _cctvNvrRequired = val ?? false);
-                    _calculateEstimatePrice();
-                  },
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-                CheckboxListTile(
-                  title: const Text('Include Server Network Rack / Casing', style: TextStyle(fontSize: 12)),
-                  value: _cctvNetworkRack,
-                  onChanged: (val) {
-                    setState(() => _cctvNetworkRack = val ?? false);
-                    _calculateEstimatePrice();
-                  },
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-                CheckboxListTile(
-                  title: const Text('Add Monitor Wall Mounting Bracket', style: TextStyle(fontSize: 12)),
-                  value: _cctvMonitorMounting,
-                  onChanged: (val) {
-                    setState(() => _cctvMonitorMounting = val ?? false);
-                    _calculateEstimatePrice();
-                  },
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // Storage / SD card configuration
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: const BorderSide(color: Color(0xFFE2E8F0)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(14.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Memory Cards (Storage)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
-                    Switch(
-                      value: _cctvSdCardEnabled,
-                      onChanged: (val) {
-                        setState(() => _cctvSdCardEnabled = val);
-                        _calculateEstimatePrice();
-                      },
-                      activeColor: AppTheme.primaryColor,
-                    ),
-                  ],
-                ),
-                if (_cctvSdCardEnabled) ...[
-                  const Divider(height: 12),
-                  Row(
-                    children: [
-                      const Text('SD Card Capacity', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
-                      const Spacer(),
-                      DropdownButton<String>(
-                        value: _cctvSdCardCapacity,
-                        items: _sdCardCapacities.map((c) {
-                          return DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 12)));
-                        }).toList(),
-                        onChanged: (val) {
-                          setState(() => _cctvSdCardCapacity = val!);
-                          _calculateEstimatePrice();
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Text('Quantity', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, size: 20, color: AppTheme.primaryColor),
-                        onPressed: _cctvSdCardQuantity > 1 ? () {
-                          setState(() => _cctvSdCardQuantity--);
-                          _calculateEstimatePrice();
-                        } : null,
-                      ),
-                      Text('$_cctvSdCardQuantity', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle_outline, size: 20, color: AppTheme.primaryColor),
-                        onPressed: () {
-                          setState(() => _cctvSdCardQuantity++);
-                          _calculateEstimatePrice();
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
+        ],
       ],
     );
   }
@@ -1862,6 +2160,379 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
           ),
         ],
       ),
+    );
+  }
+
+  void _toggleProductSelection(String prodName) {
+    setState(() {
+      final wasChecked = _selectedProductsCheckboxes[prodName] ?? false;
+      final isChecked = !wasChecked;
+      _selectedProductsCheckboxes[prodName] = isChecked;
+      if (isChecked) {
+        _selectedProductQuantities[prodName] = 1;
+        final dbProd = _availableProducts.firstWhere(
+          (p) => p['name'] == prodName,
+          orElse: () => null,
+        );
+        if (dbProd != null && dbProd['variants'] != null && (dbProd['variants'] as List).isNotEmpty) {
+          _selectedProductVariants[prodName] = dbProd['variants'][0]['name'];
+        }
+      }
+    });
+    _calculateEstimatePrice();
+  }
+
+  List<Map<String, dynamic>> get _selectedProductsList {
+    final List<Map<String, dynamic>> list = [];
+    
+    _selectedProductsCheckboxes.forEach((prodName, checked) {
+      if (!checked) return;
+      
+      final quantity = _selectedProductQuantities[prodName] ?? 1;
+      final variantName = _selectedProductVariants[prodName] ?? "";
+      
+      final dbProd = _availableProducts.firstWhere(
+        (p) => p['name'] == prodName,
+        orElse: () => null,
+      );
+      
+      double unitPrice = dbProd != null ? (dbProd['price'] as num).toDouble() : 800.0;
+      String finalVariant = "";
+      
+      if (dbProd != null && dbProd['variants'] != null && (dbProd['variants'] as List).isNotEmpty) {
+        final variantsList = dbProd['variants'] as List;
+        final variantObj = variantsList.firstWhere(
+          (v) => v['name'] == variantName,
+          orElse: () => variantsList[0],
+        );
+        if (variantObj != null) {
+          unitPrice = (variantObj['price'] as num).toDouble();
+          finalVariant = variantObj['name'] ?? "";
+        }
+      }
+      
+      list.add({
+        'product': prodName,
+        if (finalVariant.isNotEmpty) 'variant': finalVariant,
+        'quantity': quantity,
+        'unitPrice': unitPrice,
+        'total': unitPrice * quantity,
+      });
+    });
+    
+    return list;
+  }
+
+  Widget _buildStep1SelectProducts() {
+    final list = ["Camera", "DVR", "NVR", "Hard Disk", "Cable", "Connector", "Power Supply", "Accessories", "Complete CCTV Kit"];
+    return Column(
+      key: const ValueKey('step_1_products'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('Select CCTV Products', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 4),
+        const Text('Choose multiple products to add to your purchase order', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+        const SizedBox(height: 16),
+        ...list.map((prodName) {
+          final isSelected = _selectedProductsCheckboxes[prodName] ?? false;
+          return Card(
+            elevation: 0,
+            margin: const EdgeInsets.only(bottom: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(color: isSelected ? AppTheme.primaryColor : const Color(0xFFE2E8F0)),
+            ),
+            child: CheckboxListTile(
+              value: isSelected,
+              title: Text(prodName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+              onChanged: (val) {
+                _toggleProductSelection(prodName);
+              },
+              activeColor: AppTheme.primaryColor,
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  Widget _buildStep2QuantityVariants() {
+    final selectedList = _selectedProductsList;
+    if (selectedList.isEmpty) {
+      return const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(height: 40),
+          Icon(Icons.shopping_cart_outlined, size: 48, color: Colors.blueGrey),
+          SizedBox(height: 12),
+          Text('No products selected', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          SizedBox(height: 4),
+          Text('Please go back and select at least one product.', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+          SizedBox(height: 40),
+        ],
+      );
+    }
+
+    return Column(
+      key: const ValueKey('step_2_variants'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('Choose Quantity & Variants', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 4),
+        const Text('Specify order volume and technical options for your selected products', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+        const SizedBox(height: 16),
+        ...selectedList.map((item) {
+          final prodName = item['product'] as String;
+          final qty = item['quantity'] as int;
+          final selectedVariant = item['variant'] as String?;
+          
+          final dbProd = _availableProducts.firstWhere(
+            (p) => p['name'] == prodName,
+            orElse: () => null,
+          );
+          final hasVariants = dbProd != null && dbProd['variants'] != null && (dbProd['variants'] as List).isNotEmpty;
+          final variantsList = hasVariants ? dbProd['variants'] as List : [];
+
+          return Card(
+            elevation: 0,
+            margin: const EdgeInsets.only(bottom: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(prodName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor)),
+                      
+                      // Quantity selector
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle_outline, size: 22, color: AppTheme.primaryColor),
+                            onPressed: qty > 1 ? () {
+                              setState(() => _selectedProductQuantities[prodName] = qty - 1);
+                              _calculateEstimatePrice();
+                            } : null,
+                          ),
+                          Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_outline, size: 22, color: AppTheme.primaryColor),
+                            onPressed: () {
+                              setState(() => _selectedProductQuantities[prodName] = qty + 1);
+                              _calculateEstimatePrice();
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  if (hasVariants) ...[
+                    const SizedBox(height: 10),
+                    const Text('Type / Capacity', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: variantsList.map<Widget>((vObj) {
+                        final vName = vObj['name'] as String;
+                        final vPrice = (vObj['price'] as num).toDouble();
+                        final isSelected = selectedVariant == vName;
+                        return ChoiceChip(
+                          label: Text('$vName (₹${vPrice.round()})'),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() => _selectedProductVariants[prodName] = vName);
+                              _calculateEstimatePrice();
+                            }
+                          },
+                          selectedColor: AppTheme.primaryColor.withOpacity(0.08),
+                          labelStyle: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
+                          ),
+                          side: BorderSide(color: isSelected ? AppTheme.primaryColor : const Color(0xFFE2E8F0)),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  Widget _buildStep3DeliveryDate() {
+    final formattedDate = _selectedDate != null 
+        ? DateFormat('EEEE, d MMMM yyyy').format(_selectedDate!) 
+        : 'Select delivery date...';
+    return Column(
+      key: const ValueKey('step_3_delivery_date'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('Select Delivery Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 4),
+        const Text('Pick your preferred date for product shipment & delivery.', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+        const SizedBox(height: 16),
+        ListTile(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          leading: const Icon(Icons.local_shipping_outlined, color: AppTheme.primaryColor),
+          title: Text(
+            formattedDate,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: _selectedDate != null ? FontWeight.bold : FontWeight.normal,
+              color: _selectedDate != null ? AppTheme.textPrimaryColor : AppTheme.textSecondaryColor,
+            ),
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            final now = DateTime.now();
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: _selectedDate ?? now.add(const Duration(days: 2)),
+              firstDate: now.add(const Duration(days: 1)),
+              lastDate: now.add(const Duration(days: 30)),
+            );
+            if (picked != null) {
+              setState(() => _selectedDate = picked);
+            }
+          },
+        ),
+        const SizedBox(height: 24),
+        const Text('Delivery Instructions / Notes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _notesController,
+          maxLines: 3,
+          style: const TextStyle(fontSize: 13),
+          decoration: const InputDecoration(
+            hintText: 'Enter gate instructions, contact person, or preferred delivery timing notes here...',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep5CartReview() {
+    final selectedList = _selectedProductsList;
+    return Column(
+      key: const ValueKey('step_5_cart'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text('Review Cart & Pricing', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 4),
+        const Text('Review your products order items and delivery cost breakdown', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+        const SizedBox(height: 16),
+        
+        ...selectedList.map((item) {
+          final prodName = item['product'] as String;
+          final variant = item['variant'] as String?;
+          final qty = item['quantity'] as int;
+          final total = item['total'] as double;
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        prodName,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                      ),
+                      if (variant != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          variant,
+                          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                        ),
+                      ],
+                      const SizedBox(height: 2),
+                      Text(
+                        'Qty: $qty × ₹${(item['unitPrice'] as double).round()}',
+                        style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  '₹${total.round()}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+        
+        const Divider(height: 24, color: Color(0xFFE2E8F0)),
+
+        Card(
+          color: const Color(0xFFF8FAFC), // Slate 50
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Color(0xFFE2E8F0)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Products Total', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500)),
+                    Text('₹${_packageCost.round()}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Delivery Charge', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500)),
+                    Text('₹${_visitCharge.round()}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('GST (18%)', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500)),
+                    Text('₹${_gst.round()}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
+                  ],
+                ),
+                const Divider(height: 24, color: Color(0xFFCBD5E1)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Grand Total', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
+                    Text(
+                      '₹${_grandTotal.round().toLocaleString()}',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: AppTheme.primaryColor),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
