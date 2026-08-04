@@ -297,10 +297,34 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
               child: Column(
                 children: [
                   ListTile(
+                    leading: const Icon(Icons.bar_chart, color: AppTheme.primaryColor),
+                    title: const Text('My Service Analytics', style: TextStyle(fontSize: 13.5)),
+                    subtitle: const Text('Visualize spent, bookings and rewards metrics', style: TextStyle(fontSize: 11)),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
+                    onTap: () => context.push('/analytics'),
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  ListTile(
+                    leading: const Icon(Icons.card_giftcard, color: AppTheme.primaryColor),
+                    title: const Text('Referrals & Loyalty Rewards', style: TextStyle(fontSize: 13.5)),
+                    subtitle: const Text('Check points level, coupon codes, rewards credits', style: TextStyle(fontSize: 11)),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
+                    onTap: () => context.push('/referral'),
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  ListTile(
+                    leading: const Icon(Icons.history, color: AppTheme.primaryColor),
+                    title: const Text('Service History Timeline', style: TextStyle(fontSize: 13.5)),
+                    subtitle: const Text('Track logs of past installations and audits', style: TextStyle(fontSize: 11)),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
+                    onTap: () => context.push('/timeline'),
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  ListTile(
                     leading: const Icon(Icons.help_outline, color: AppTheme.primaryColor),
                     title: const Text('Help Center & FAQs', style: TextStyle(fontSize: 13.5)),
                     trailing: const Icon(Icons.chevron_right, size: 20),
-                    onTap: () {},
+                    onTap: () => context.push('/search'), // Go to universal search/FAQs
                   ),
                   const Divider(height: 1, indent: 56),
                   ListTile(

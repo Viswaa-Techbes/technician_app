@@ -16,6 +16,15 @@ import '../../features/tracking/screens/live_tracking_screen.dart';
 import '../../features/reports/screens/worksheet_viewer.dart';
 import '../../features/auth/providers/auth_provider.dart';
 
+// Import New Screens
+import '../../features/home/screens/universal_search_screen.dart';
+import '../../features/reports/screens/invoice_center_screen.dart';
+import '../../features/amc/screens/amc_dashboard_screen.dart';
+import '../../features/dashboard/screens/analytics_dashboard_screen.dart';
+import '../../features/home/screens/ai_assistant_screen.dart';
+import '../../features/profile/screens/referral_screen.dart';
+import '../../features/reports/screens/service_timeline_screen.dart';
+
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
 
@@ -100,6 +109,35 @@ final routerProvider = Provider<GoRouter>((ref) {
           final worksheetId = state.pathParameters['worksheetId'] ?? '';
           return WorksheetViewerScreen(worksheetId: worksheetId);
         },
+      ),
+      // New Phase 2 Routes
+      GoRoute(
+        path: '/search',
+        builder: (context, state) => const UniversalSearchScreen(),
+      ),
+      GoRoute(
+        path: '/invoice-center',
+        builder: (context, state) => const InvoiceCenterScreen(),
+      ),
+      GoRoute(
+        path: '/amc',
+        builder: (context, state) => const AmcDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/analytics',
+        builder: (context, state) => const AnalyticsDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/ai-assistant',
+        builder: (context, state) => const AiAssistantScreen(),
+      ),
+      GoRoute(
+        path: '/referral',
+        builder: (context, state) => const ReferralScreen(),
+      ),
+      GoRoute(
+        path: '/timeline',
+        builder: (context, state) => const ServiceTimelineScreen(),
       ),
     ],
   );

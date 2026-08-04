@@ -1396,6 +1396,16 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                 try {
                   final api = ref.read(apiServiceProvider);
                   final res = await api.requestStartOtp(widget.job.id);
+                  
+                  if (res['otpRequired'] == false) {
+                    setState(() => _currentStatus = JobStatus.started);
+                    _startTimer();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('🎉 Job started successfully!'), backgroundColor: Colors.green),
+                    );
+                    return;
+                  }
+
                   final devOtp = res['otp'] as String?;
                   final otpInput = await _showOtpDialog('start', devOtp);
                   if (otpInput != null && otpInput.isNotEmpty) {
