@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
 import 'jobs_screen.dart';
+import 'screens/amc_jobs_screen.dart';
 import 'expenses_screen.dart';
 import 'profile_screen.dart';
 
@@ -17,6 +18,7 @@ class _MainScreenState extends State<MainScreen> {
   final List<Widget> _screens = const [
     DashboardScreen(),
     JobsScreen(),
+    AmcJobsScreen(),
     ExpensesScreen(),
     ProfileScreen(),
   ];
@@ -65,6 +67,11 @@ class _MainScreenState extends State<MainScreen> {
               icon: Icon(Icons.assignment_rounded),
               activeIcon: Icon(Icons.assignment_rounded),
               label: 'JOBS',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.verified_user_rounded),
+              activeIcon: Icon(Icons.verified_user_rounded),
+              label: 'AMC JOBS',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.account_balance_wallet_rounded),

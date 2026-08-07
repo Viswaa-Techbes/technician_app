@@ -24,29 +24,43 @@ class _AmcDashboardScreenState extends ConsumerState<AmcDashboardScreen> {
   Future<void> _loadAmcDetails() async {
     try {
       final client = ref.read(dioClientProvider);
-      final response = await client.get('/api/v2/user/dashboard');
+      final response = await client.get('/api/v2/amc/customer/contracts');
       if (response.data != null && response.data['success'] == true) {
-        final bookings = response.data['data']['bookings'] as List<dynamic>? ?? [];
+        final contracts = response.data['data'] as List<dynamic>? ?? [];
         
-        // Filter bookings containing "amc" in category, slug, or title
         final List<dynamic> loaded = [];
-        for (var b in bookings) {
-          final title = (b['serviceName'] ?? b['title'] ?? '').toString().toLowerCase();
-          final isAmc = title.contains('amc') || title.contains('annual maintenance');
-          if (isAmc) {
-            loaded.add({
-              'id': b['_id'],
-              'title': b['serviceName'] ?? b['title'],
-              'bookingNumber': b['bookingNumber'] ?? 'TB-${b['_id'].toString().substring(0, 6).toUpperCase()}',
-              'expiryDate': DateTime.now().add(const Duration(days: 240)).toIso8601String(),
-              'visitsRemaining': 3,
-              'totalVisits': 4,
-              'upcomingVisit': DateTime.now().add(const Duration(days: 35)).toIso8601String(),
-              'history': [
-                {'date': DateTime.now().subtract(const Duration(days: 30)).toIso8601String(), 'status': 'completed', 'remarks': 'Initial system alignment and camera cleanup completed.'}
-              ]
-            });
+        for (var c in contracts) {
+          String? upcomingVisitDate;
+          final visits = c['visits'] as List<dynamic>? ?? [];
+          for (var v in visits) {
+            if (v['status'] == 'Scheduled') {
+              upcomingVisitDate = v['visitDate'];
+              break;
+            }
           }
+
+          final List<dynamic> history = [];
+          for (var v in visits) {
+            if (v['status'] == 'Completed') {
+              history.add({
+                'date': v['completionDetails']?['completedAt'] ?? v['visitDate'],
+                'status': 'completed',
+                'remarks': v['completionDetails']?['notes'] ?? v['remarks'] ?? 'Maintenance visit completed.'
+              });
+            }
+          }
+
+          loaded.add({
+            'id': c['_id'],
+            'title': '${c['amcPlan']} Annual Maintenance Shield',
+            'bookingNumber': c['contractId'],
+            'expiryDate': c['expiryDate'],
+            'visitsRemaining': c['remainingVisits'],
+            'totalVisits': c['totalVisits'],
+            'upcomingVisit': upcomingVisitDate ?? DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+            'history': history,
+            'assignedEngineer': c['assignedEngineer'],
+          });
         }
 
         setState(() {
@@ -60,21 +74,7 @@ class _AmcDashboardScreenState extends ConsumerState<AmcDashboardScreen> {
       debugPrint('Error fetching AMC: $e');
       setState(() {
         _isLoading = false;
-        // Mock default AMC for preview and demonstration
-        _amcPlans = [
-          {
-            'id': 'amc_mock_1',
-            'title': 'Premium CCTV Annual Maintenance Plan',
-            'bookingNumber': 'TB-AMC4829',
-            'expiryDate': DateTime.now().add(const Duration(days: 285)).toIso8601String(),
-            'visitsRemaining': 3,
-            'totalVisits': 4,
-            'upcomingVisit': DateTime.now().add(const Duration(days: 42)).toIso8601String(),
-            'history': [
-              {'date': DateTime.now().subtract(const Duration(days: 80)).toIso8601String(), 'status': 'completed', 'remarks': 'Sensor adjustments and wiring insulation replacement.'}
-            ]
-          }
-        ];
+        _amcPlans = [];
       });
     }
   }
@@ -84,22 +84,39 @@ class _AmcDashboardScreenState extends ConsumerState<AmcDashboardScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Book AMC Maintenance'),
-          content: Text('Would you like to schedule the next preventative visit for your plan: "${amc['title']}"? This will assign our nearest technician.'),
+          title: const Text('Request Early Checkup Visit'),
+          content: const Text('Would you like to schedule an early checkup visit for tomorrow? This will assign your dedicated technician.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondaryColor)),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('AMC maintenance ticket raised successfully!')),
-                );
+                try {
+                  final tomorrow = DateTime.now().add(const Duration(days: 1)).toIso8601String().substring(0, 10);
+                  final client = ref.read(dioClientProvider);
+                  final response = await client.post(
+                    '/api/v2/amc/contracts/${amc['id']}/schedule',
+                    data: {'visitDate': tomorrow, 'remarks': 'Requested early checkup visit via mobile app'},
+                  );
+                  if (response.data != null && response.data['success'] == true) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Early visit scheduled successfully!'), backgroundColor: Colors.green),
+                    );
+                    _loadAmcDetails();
+                  } else {
+                    throw Exception(response.data?['message'] ?? 'Failed to schedule');
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed: $e'), backgroundColor: Colors.red),
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-              child: const Text('Confirm Schedule'),
+              child: const Text('Confirm'),
             ),
           ],
         );
@@ -107,10 +124,23 @@ class _AmcDashboardScreenState extends ConsumerState<AmcDashboardScreen> {
     );
   }
 
-  void _renewAmc(dynamic amc) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Redirecting to checkout for renewing: ${amc['title']}')),
-    );
+  void _renewAmc(dynamic amc) async {
+    try {
+      final client = ref.read(dioClientProvider);
+      final response = await client.post('/api/v2/amc/contracts/${amc['id']}/renew', data: {});
+      if (response.data != null && response.data['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('AMC Contract renewed successfully!'), backgroundColor: Colors.green),
+        );
+        _loadAmcDetails();
+      } else {
+        throw Exception(response.data?['message'] ?? 'Failed to renew');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to renew: $e'), backgroundColor: Colors.red),
+      );
+    }
   }
 
   @override
@@ -260,6 +290,48 @@ class _AmcDashboardScreenState extends ConsumerState<AmcDashboardScreen> {
                                     ],
                                   ),
                                 ),
+                                if (amc['assignedEngineer'] != null) ...[
+                                  const SizedBox(height: 16),
+                                  const Text('DEDICATED ENGINEER', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondaryColor, letterSpacing: 0.5)),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryColor.withOpacity(0.04),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: AppTheme.borderColor),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 18,
+                                          backgroundColor: AppTheme.primaryColor,
+                                          child: Text(
+                                            (amc['assignedEngineer']['name'] ?? 'T')[0].toString().toUpperCase(),
+                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                amc['assignedEngineer']['name'] ?? 'Dedicated Engineer',
+                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                amc['assignedEngineer']['mobileNumber'] ?? 'N/A',
+                                                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                                 const Divider(height: 28),
 
                                 // Actions
