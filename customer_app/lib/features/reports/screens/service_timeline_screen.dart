@@ -51,7 +51,7 @@ class _ServiceTimelineScreenState extends ConsumerState<ServiceTimelineScreen> {
             'type': type,
             'status': status,
             'isCompleted': isCompleted,
-            'price': (b['amount'] ?? b['price'] ?? 0).toDouble(),
+            'price': ((b['amount'] ?? b['price'] ?? 0) as num).toDouble(),
           });
         }
 

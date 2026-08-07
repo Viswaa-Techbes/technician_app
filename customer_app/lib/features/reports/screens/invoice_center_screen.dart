@@ -48,7 +48,7 @@ class _InvoiceCenterScreenState extends ConsumerState<InvoiceCenterScreen> {
             'technician': r['technician'] ?? 'Unassigned Partner',
             'pdfUrl': r['pdfReport'] ?? '',
             'serviceName': booking?['serviceName'] ?? booking?['title'] ?? 'CCTV Premium Service',
-            'amount': (booking?['amount'] ?? booking?['price'] ?? 0).toDouble(),
+            'amount': ((booking?['amount'] ?? booking?['price'] ?? 0) as num).toDouble(),
             'paymentStatus': booking?['paymentStatus'] ?? 'paid',
             'razorpayId': payment?['razorpayPaymentId'] ?? 'N/A',
             // Premium mock breakdowns

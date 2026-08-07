@@ -57,8 +57,74 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
   bool _cctvInstallationRequired = true;
   String _cctvCableType = 'Cat6 Cable';
   int _cctvCableLength = 20;
-  bool _cctvDvrRequired = false;
-  bool _cctvNvrRequired = false;
+  String _cctvDvrChannels = 'None';
+  bool _cctvDvrManualOverride = false;
+  double _miscCharges = 0;
+
+  int get _cctvTotalCameras {
+    int total = 0;
+    _cctvSelectedCameraTypes.forEach((type, checked) {
+      if (checked) {
+        total += _cctvCameraQuantities[type] ?? 1;
+      }
+    });
+    return total;
+  }
+
+  bool get _hasAnalog {
+    bool hasAnalog = false;
+    _cctvSelectedCameraTypes.forEach((type, checked) {
+      if (checked && type == 'Analog Camera') {
+        hasAnalog = true;
+      }
+    });
+    return hasAnalog;
+  }
+
+  bool get _cctvDvrRequired {
+    final isRecorderSelected = _cctvDvrChannels != 'None';
+    return isRecorderSelected && _hasAnalog;
+  }
+
+  bool get _cctvNvrRequired {
+    final isRecorderSelected = _cctvDvrChannels != 'None';
+    return isRecorderSelected && !_hasAnalog;
+  }
+
+  bool get _showSdCardSection {
+    bool hasWifiOr4g = false;
+    _cctvSelectedCameraTypes.forEach((type, checked) {
+      if (checked && ['WiFi Indoor Camera', 'WiFi Outdoor Camera', '4G Camera'].contains(type)) {
+        hasWifiOr4g = true;
+      }
+    });
+    return hasWifiOr4g;
+  }
+
+  void _updateRecorderRecommendation() {
+    if (_cctvDvrManualOverride) return;
+    int total = _cctvTotalCameras;
+    String rec = 'None';
+    if (total > 0) {
+      if (total <= 4) rec = '4 Channel';
+      else if (total <= 8) rec = '8 Channel';
+      else if (total <= 16) rec = '16 Channel';
+      else rec = '32 Channel';
+    }
+    setState(() {
+      _cctvDvrChannels = rec;
+    });
+  }
+
+  void _onCamerasChanged() {
+    _updateRecorderRecommendation();
+    if (!_showSdCardSection) {
+      setState(() {
+        _cctvSdCardEnabled = false;
+      });
+    }
+  }
+
   bool _cctvNetworkRack = false;
   bool _cctvMonitorMounting = false;
   bool _cctvSdCardEnabled = false;
@@ -362,6 +428,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
       'cableLength': _cctvCableLength,
       'dvrRequired': _cctvDvrRequired,
       'nvrRequired': _cctvNvrRequired,
+      'selectedDvrChannels': _cctvDvrChannels,
       'networkRack': _cctvNetworkRack,
       'monitorMounting': _cctvMonitorMounting,
       'sdCardRequired': _cctvSdCardEnabled,
@@ -378,6 +445,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
         setState(() {
           _packageCost = (pb['installationTotal'] as num).toDouble();
           _visitCharge = (pb['baseCharge'] as num).toDouble();
+          _miscCharges = pb['miscCharges'] != null ? (pb['miscCharges'] as num).toDouble() : 0.0;
           
           double otherAddons = 0;
           otherAddons += (pb['cameraTotal'] as num).toDouble();
@@ -414,8 +482,9 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
       double rackTotal = _cctvNetworkRack ? 1200.0 : 0.0;
       double monitorTotal = _cctvMonitorMounting ? 800.0 : 0.0;
       double baseVisit = widget.defaultPrice;
+      _miscCharges = activeTypes.isEmpty ? 0.0 : (_cctvTotalCameras <= 4 ? 1000.0 : 1500.0);
 
-      double subTotal = baseVisit + camerasTotal + installationTotal + cableTotal + sdTotal + dvrTotal + nvrTotal + rackTotal + monitorTotal;
+      double subTotal = baseVisit + camerasTotal + installationTotal + cableTotal + sdTotal + dvrTotal + nvrTotal + rackTotal + monitorTotal + _miscCharges;
       double tax = subTotal * 0.18;
 
       if (mounted) {
@@ -544,6 +613,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
           'labourCost': _labourCost,
           'discount': _discount,
           'gst': _gst,
+          'miscCharges': _miscCharges,
           'grandTotal': _grandTotal,
         },
         'notes': _notesController.text.trim(),
@@ -556,6 +626,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
           'cableLength': _cctvCableLength,
           'dvrRequired': _cctvDvrRequired,
           'nvrRequired': _cctvNvrRequired,
+          'selectedDvrChannels': _cctvDvrChannels,
           'networkRack': _cctvNetworkRack,
           'monitorMounting': _cctvMonitorMounting,
           'sdCardRequired': _cctvSdCardEnabled,
@@ -786,6 +857,12 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
           if (!hasActive) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Please select at least one camera type to continue')),
+            );
+            return;
+          }
+          if (_cctvTotalCameras > 16) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Enterprise Booking: CCTV bookings with more than 16 cameras are blocked online. Please contact our office.')),
             );
             return;
           }
@@ -1245,6 +1322,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
                                 if (val == true && !_cctvCameraQuantities.containsKey(type)) {
                                   _cctvCameraQuantities[type] = 1;
                                 }
+                                _onCamerasChanged();
                               });
                               _calculateEstimatePrice();
                             },
@@ -1260,7 +1338,10 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
                               IconButton(
                                 icon: const Icon(Icons.remove_circle_outline, size: 20, color: AppTheme.primaryColor),
                                 onPressed: qty > 1 ? () {
-                                  setState(() => _cctvCameraQuantities[type] = qty - 1);
+                                  setState(() {
+                                    _cctvCameraQuantities[type] = qty - 1;
+                                    _onCamerasChanged();
+                                  });
                                   _calculateEstimatePrice();
                                 } : null,
                               ),
@@ -1268,7 +1349,10 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
                               IconButton(
                                 icon: const Icon(Icons.add_circle_outline, size: 20, color: AppTheme.primaryColor),
                                 onPressed: () {
-                                  setState(() => _cctvCameraQuantities[type] = qty + 1);
+                                  setState(() {
+                                    _cctvCameraQuantities[type] = qty + 1;
+                                    _onCamerasChanged();
+                                  });
                                   _calculateEstimatePrice();
                                 },
                               ),
@@ -1458,28 +1542,37 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
                 children: [
                   const Text('Recorders & Mount Addons', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
                   const SizedBox(height: 8),
-                  CheckboxListTile(
-                    title: const Text('CCTV DVR Installation Required', style: TextStyle(fontSize: 12)),
-                    value: _cctvDvrRequired,
-                    onChanged: (val) {
-                      setState(() => _cctvDvrRequired = val ?? false);
-                      _calculateEstimatePrice();
-                    },
-                    controlAffinity: ListTileControlAffinity.leading,
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('DVR / NVR Recorder Channel', style: TextStyle(fontSize: 12, color: AppTheme.textPrimaryColor)),
+                      DropdownButton<String>(
+                        value: _cctvDvrChannels,
+                        items: const [
+                          DropdownMenuItem(value: 'None', child: Text('None / Not Required', style: TextStyle(fontSize: 12))),
+                          DropdownMenuItem(value: '4 Channel', child: Text('4 Channel', style: TextStyle(fontSize: 12))),
+                          DropdownMenuItem(value: '8 Channel', child: Text('8 Channel', style: TextStyle(fontSize: 12))),
+                          DropdownMenuItem(value: '16 Channel', child: Text('16 Channel', style: TextStyle(fontSize: 12))),
+                          DropdownMenuItem(value: '32 Channel', child: Text('32 Channel', style: TextStyle(fontSize: 12))),
+                        ],
+                        onChanged: (val) {
+                          setState(() {
+                            _cctvDvrChannels = val!;
+                            _cctvDvrManualOverride = true;
+                          });
+                          _calculateEstimatePrice();
+                        },
+                      ),
+                    ],
                   ),
-                  CheckboxListTile(
-                    title: const Text('CCTV NVR Installation Required', style: TextStyle(fontSize: 12)),
-                    value: _cctvNvrRequired,
-                    onChanged: (val) {
-                      setState(() => _cctvNvrRequired = val ?? false);
-                      _calculateEstimatePrice();
-                    },
-                    controlAffinity: ListTileControlAffinity.leading,
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                  ),
+                  if (_cctvTotalCameras > 0) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Recommended: ${_cctvTotalCameras <= 4 ? "4 Channel" : _cctvTotalCameras <= 8 ? "8 Channel" : _cctvTotalCameras <= 16 ? "16 Channel" : "32 Channel"} DVR/NVR based on your selected cameras.',
+                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.blue),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   CheckboxListTile(
                     title: const Text('Include Server Network Rack / Casing', style: TextStyle(fontSize: 12)),
                     value: _cctvNetworkRack,
@@ -1509,76 +1602,139 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
           const SizedBox(height: 12),
 
           // Storage / SD card configuration
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-              side: const BorderSide(color: Color(0xFFE2E8F0)),
+          if (_showSdCardSection) ...[
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(14.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Memory Cards (Storage)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                        Switch(
+                          value: _cctvSdCardEnabled,
+                          onChanged: (val) {
+                            setState(() => _cctvSdCardEnabled = val);
+                            _calculateEstimatePrice();
+                          },
+                          activeColor: AppTheme.primaryColor,
+                        ),
+                      ],
+                    ),
+                    if (_cctvSdCardEnabled) ...[
+                      const Divider(height: 12),
+                      Row(
+                        children: [
+                          const Text('SD Card Capacity', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
+                          const Spacer(),
+                          DropdownButton<String>(
+                            value: _cctvSdCardCapacity,
+                            items: _sdCardCapacities.map((c) {
+                              return DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 12)));
+                            }).toList(),
+                            onChanged: (val) {
+                              setState(() => _cctvSdCardCapacity = val!);
+                              _calculateEstimatePrice();
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Text('Quantity', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle_outline, size: 20, color: AppTheme.primaryColor),
+                            onPressed: _cctvSdCardQuantity > 1 ? () {
+                              setState(() => _cctvSdCardQuantity--);
+                              _calculateEstimatePrice();
+                            } : null,
+                          ),
+                          Text('$_cctvSdCardQuantity', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_outline, size: 20, color: AppTheme.primaryColor),
+                            onPressed: () {
+                              setState(() => _cctvSdCardQuantity++);
+                              _calculateEstimatePrice();
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(14.0),
+          ],
+          if (_cctvTotalCameras > 16) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue.shade900, Colors.indigo.shade900],
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  const Row(
                     children: [
-                      const Text('Memory Cards (Storage)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
-                      Switch(
-                        value: _cctvSdCardEnabled,
-                        onChanged: (val) {
-                          setState(() => _cctvSdCardEnabled = val);
-                          _calculateEstimatePrice();
-                        },
-                        activeColor: AppTheme.primaryColor,
+                      Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 24),
+                      SizedBox(width: 8),
+                      Text(
+                        'LARGE ENTERPRISE INSTALLATION',
+                        style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 13, letterSpacing: 1.1),
                       ),
                     ],
                   ),
-                  if (_cctvSdCardEnabled) ...[
-                    const Divider(height: 12),
-                    Row(
-                      children: [
-                        const Text('SD Card Capacity', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
-                        const Spacer(),
-                        DropdownButton<String>(
-                          value: _cctvSdCardCapacity,
-                          items: _sdCardCapacities.map((c) {
-                            return DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 12)));
-                          }).toList(),
-                          onChanged: (val) {
-                            setState(() => _cctvSdCardCapacity = val!);
-                            _calculateEstimatePrice();
-                          },
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Installations with more than 16 cameras require a customized site assessment and quotation. Please contact our office.',
+                    style: TextStyle(color: Colors.white70, fontSize: 11.5, height: 1.4),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () {}, // Simply call/dial tel:+919900012345
+                        icon: const Icon(Icons.phone, size: 14),
+                        label: const Text('Call Office', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade700,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Text('Quantity', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
-                        const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.remove_circle_outline, size: 20, color: AppTheme.primaryColor),
-                          onPressed: _cctvSdCardQuantity > 1 ? () {
-                            setState(() => _cctvSdCardQuantity--);
-                            _calculateEstimatePrice();
-                          } : null,
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () {}, // Open WhatsApp
+                        icon: const Icon(Icons.chat_bubble_outline_rounded, size: 14),
+                        label: const Text('WhatsApp Us', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.emerald.shade600,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         ),
-                        Text('$_cctvSdCardQuantity', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        IconButton(
-                          icon: const Icon(Icons.add_circle_outline, size: 20, color: AppTheme.primaryColor),
-                          onPressed: () {
-                            setState(() => _cctvSdCardQuantity++);
-                            _calculateEstimatePrice();
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
-          ),
+          ],
         ],
       ],
     );
@@ -1952,6 +2108,16 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
                     ],
                   ),
                 ],
+                if (_miscCharges > 0) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Miscellaneous Charges', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500)),
+                      Text('Rs. ${_miscCharges.round()}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2145,7 +2311,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
           else
             const SizedBox(),
           ElevatedButton(
-            onPressed: _isSubmitting ? null : _goNext,
+            onPressed: (_isSubmitting || (_step == 1 && widget.serviceSlug == 'install-new-cctv' && _cctvTotalCameras > 16)) ? null : _goNext,
             style: ElevatedButton.styleFrom(
               backgroundColor: isLastStep ? const Color(0xFF10B981) : AppTheme.primaryColor,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

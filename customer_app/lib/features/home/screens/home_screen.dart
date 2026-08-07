@@ -126,7 +126,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         if (walletRes.data != null && walletRes.data['success'] == true) {
           final walletData = walletRes.data['data']['wallet'];
           setState(() {
-            _walletBalance = (walletData['balance'] ?? 0).toDouble();
+            _walletBalance = ((walletData['balance'] ?? 0) as num).toDouble();
             _loyaltyPoints = (walletData['loyaltyPoints'] ?? 0).toInt();
           });
         }

@@ -52,7 +52,7 @@ class _AnalyticsDashboardScreenState extends ConsumerState<AnalyticsDashboardScr
           
           if (s == 'completed') {
             completed++;
-            spentSum += (b['amount'] ?? b['price'] ?? 0).toDouble();
+            spentSum += ((b['amount'] ?? b['price'] ?? 0) as num).toDouble();
           } else if (['pending', 'assigned', 'travelling', 'arrived', 'working'].contains(s)) {
             upcoming++;
           }
@@ -68,11 +68,11 @@ class _AnalyticsDashboardScreenState extends ConsumerState<AnalyticsDashboardScr
         try {
           final walletRes = await client.get('/api/v2/customer/wallet');
           if (walletRes.data != null && walletRes.data['success'] == true) {
-            walletBal = (walletRes.data['data']['wallet']['balance'] ?? 0).toDouble();
+            walletBal = ((walletRes.data['data']['wallet']['balance'] ?? 0) as num).toDouble();
             loyalty = (walletRes.data['data']['wallet']['loyaltyPoints'] ?? 0).toInt();
           }
         } catch (e) {
-          walletBal = (metrics['totalPaid'] ?? 0).toDouble() * 0.05; // estimate
+          walletBal = ((metrics['totalPaid'] ?? 0) as num).toDouble() * 0.05; // estimate
           loyalty = (walletBal / 10).round();
         }
 
@@ -81,7 +81,7 @@ class _AnalyticsDashboardScreenState extends ConsumerState<AnalyticsDashboardScr
           _completedJobs = completed;
           _activeWarranty = completed > 0 ? 1 : 0;
           _activeAmc = amcCount;
-          _totalSpent = spentSum > 0 ? spentSum : (metrics['totalPaid'] ?? 0).toDouble();
+          _totalSpent = spentSum > 0 ? spentSum : ((metrics['totalPaid'] ?? 0) as num).toDouble();
           _walletBalance = walletBal;
           _loyaltyPoints = loyalty;
           _savedOffers = _totalSpent * 0.10; // estimate

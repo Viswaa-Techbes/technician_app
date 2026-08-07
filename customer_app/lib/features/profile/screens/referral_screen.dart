@@ -42,7 +42,7 @@ class _ReferralScreenState extends ConsumerState<ReferralScreen> {
         final suffix = cusId.isNotEmpty ? cusId.toString().split('-').last : '9182';
         
         // Calculate loyalty tier based on payments volume
-        final totalPaid = (metrics['totalPaid'] ?? 0).toDouble();
+        final totalPaid = ((metrics['totalPaid'] ?? 0) as num).toDouble();
         String tier = 'Silver';
         int remaining = 150;
         if (totalPaid >= 30000) {
