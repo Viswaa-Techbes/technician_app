@@ -50,13 +50,101 @@ class _InvoiceCenterScreenState extends ConsumerState<InvoiceCenterScreen> {
             'serviceName': booking?['serviceName'] ?? booking?['title'] ?? 'CCTV Premium Service',
             'amount': ((booking?['amount'] ?? booking?['price'] ?? 0) as num).toDouble(),
             'paymentStatus': booking?['paymentStatus'] ?? 'paid',
-            'razorpayId': payment?['razorpayPaymentId'] ?? 'N/A',
-            // Premium mock breakdowns
-            'products': [
-              {'name': 'Premium CCTV Camera Dome 4MP', 'qty': 2, 'price': 2499.0},
-              {'name': 'NVR 4-Channel HD Recorder', 'qty': 1, 'price': 5999.0},
-              {'name': 'Coaxial Cat6 Cable (Coil)', 'qty': 1, 'price': 1499.0},
-            ],
+            // Dynamic breakdowns derived from CCTV details
+            'products': (() {
+              final List<Map<String, dynamic>> dynamicProducts = [];
+              if (booking != null && booking['cctvDetails'] != null) {
+                final details = booking['cctvDetails'];
+                final pb = details['priceBreakdown'] ?? {};
+
+                // Cameras
+                final cameras = details['cameraTypes'] as List<dynamic>? ?? [];
+                for (var c in cameras) {
+                  final type = c['type'] ?? 'Camera';
+                  final qty = (c['quantity'] ?? 1) as int;
+                  double price = 0.0;
+                  if (pb['cameraTotal'] != null && qty > 0) {
+                    price = (pb['cameraTotal'] as num).toDouble() / qty;
+                  }
+                  if (price == 0.0) price = 1400.0;
+                  dynamicProducts.add({
+                    'name': '$type (Fitting)',
+                    'qty': qty,
+                    'price': price,
+                  });
+                }
+
+                // Recorder (DVR/NVR)
+                final dvrReq = details['dvrRequired'] == true;
+                final nvrReq = details['nvrRequired'] == true;
+                final dvrChan = details['selectedDvrChannels'] ?? details['dvrChannels'] ?? '';
+                if (dvrReq && pb['dvrTotal'] != null && (pb['dvrTotal'] as num) > 0) {
+                  dynamicProducts.add({
+                    'name': 'DVR $dvrChan Channel Recorder',
+                    'qty': 1,
+                    'price': (pb['dvrTotal'] as num).toDouble(),
+                  });
+                } else if (nvrReq && pb['nvrTotal'] != null && (pb['nvrTotal'] as num) > 0) {
+                  dynamicProducts.add({
+                    'name': 'NVR $dvrChan Channel Recorder',
+                    'qty': 1,
+                    'price': (pb['nvrTotal'] as num).toDouble(),
+                  });
+                }
+
+                // Cables
+                final cableLen = (details['cableLength'] ?? 0) as int;
+                final cableType = details['cableType'] ?? '';
+                if (cableLen > 0 && pb['cableTotal'] != null && (pb['cableTotal'] as num) > 0) {
+                  dynamicProducts.add({
+                    'name': '$cableType Cable',
+                    'qty': cableLen,
+                    'price': (pb['cableTotal'] as num).toDouble() / cableLen,
+                  });
+                }
+
+                // SD Cards
+                final sdCardReq = details['sdCardRequired'] == true;
+                final sdCap = details['sdCardCapacity'] ?? '';
+                final sdQty = (details['sdCardQuantity'] ?? 1) as int;
+                if (sdCardReq && pb['sdCardTotal'] != null && (pb['sdCardTotal'] as num) > 0) {
+                  dynamicProducts.add({
+                    'name': 'SD Card ($sdCap)',
+                    'qty': sdQty,
+                    'price': (pb['sdCardTotal'] as num).toDouble() / sdQty,
+                  });
+                }
+
+                // HDD
+                final hddCap = details['hddCapacity'] ?? '';
+                if (hddCap != '' && hddCap != 'None' && pb['hddTotal'] != null && (pb['hddTotal'] as num) > 0) {
+                  dynamicProducts.add({
+                    'name': 'HDD Storage ($hddCap)',
+                    'qty': 1,
+                    'price': (pb['hddTotal'] as num).toDouble(),
+                  });
+                }
+
+                // Rack
+                final rackType = details['rackType'] ?? '';
+                if (rackType != '' && rackType != 'None' && pb['rackSelectedTotal'] != null && (pb['rackSelectedTotal'] as num) > 0) {
+                  dynamicProducts.add({
+                    'name': 'Server Rack enclosure ($rackType)',
+                    'qty': 1,
+                    'price': (pb['rackSelectedTotal'] as num).toDouble(),
+                  });
+                }
+              }
+
+              if (dynamicProducts.isEmpty) {
+                dynamicProducts.addAll([
+                  {'name': 'Premium CCTV Camera Dome 4MP', 'qty': 2, 'price': 2499.0},
+                  {'name': 'NVR 4-Channel HD Recorder', 'qty': 1, 'price': 5999.0},
+                  {'name': 'Coaxial Cat6 Cable (Coil)', 'qty': 1, 'price': 1499.0},
+                ]);
+              }
+              return dynamicProducts;
+            })(),
             'taxRate': 0.18, // 18% GST standard
             'warranty': '1 Year Brand Warranty on parts, 30 days installation warranty.',
           });

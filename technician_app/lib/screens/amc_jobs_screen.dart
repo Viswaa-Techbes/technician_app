@@ -15,40 +15,7 @@ final amcVisitsProvider = FutureProvider.autoDispose<List<dynamic>>((ref) async 
   throw Exception(res['message'] ?? 'Failed to load AMC visits');
 });
 
-// Add getAmcVisits to ApiService extension or helper
-extension ApiServiceAmc on ApiService {
-  Future<Map<String, dynamic>> getAmcVisits() async {
-    final res = await http.get(
-      Uri.parse("$baseUrl/api/v2/amc/technician/visits"),
-      headers: _headers,
-    );
-    return jsonDecode(res.body);
-  }
 
-  Future<Map<String, dynamic>> completeAmcVisit({
-    required String contractId,
-    required String visitId,
-    required String notes,
-    required List<String> partsUsed,
-    required String recommendations,
-    required String customerSignature,
-    required String technicianSignature,
-  }) async {
-    final res = await http.post(
-      Uri.parse("$baseUrl/api/v2/amc/contracts/$contractId/complete-visit"),
-      headers: _headers,
-      body: jsonEncode({
-        'visitId': visitId,
-        'notes': notes,
-        'partsUsed': partsUsed,
-        'recommendations': recommendations,
-        'customerSignature': customerSignature,
-        'technicianSignature': technicianSignature,
-      }),
-    );
-    return jsonDecode(res.body);
-  }
-}
 
 class AmcJobsScreen extends ConsumerStatefulWidget {
   const AmcJobsScreen({super.key});
@@ -386,7 +353,7 @@ class _AmcVisitFormScreenState extends ConsumerState<AmcVisitFormScreen> {
                 ),
                 Text(
                   'Address: ${widget.visit['address']}',
-                  style: TextStyle(color: Colors.grey.shade650, fontSize: 13, height: 1.3),
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13, height: 1.3),
                 ),
                 const Divider(height: 32),
 

@@ -496,6 +496,39 @@ class ApiService {
     }
     return json['data'] ?? <String, dynamic>{};
   }
+
+  // --- AMC Endpoints ---
+  Future<Map<String, dynamic>> getAmcVisits() async {
+    final res = await http.get(
+      Uri.parse("$baseUrl/api/v2/amc/technician/visits"),
+      headers: _headers,
+    );
+    return jsonDecode(res.body);
+  }
+
+  Future<Map<String, dynamic>> completeAmcVisit({
+    required String contractId,
+    required String visitId,
+    required String notes,
+    required List<String> partsUsed,
+    required String recommendations,
+    required String customerSignature,
+    required String technicianSignature,
+  }) async {
+    final res = await http.post(
+      Uri.parse("$baseUrl/api/v2/amc/contracts/$contractId/complete-visit"),
+      headers: _headers,
+      body: jsonEncode({
+        'visitId': visitId,
+        'notes': notes,
+        'partsUsed': partsUsed,
+        'recommendations': recommendations,
+        'customerSignature': customerSignature,
+        'technicianSignature': technicianSignature,
+      }),
+    );
+    return jsonDecode(res.body);
+  }
 }
 
 final apiServiceProvider = Provider<ApiService>((ref) {

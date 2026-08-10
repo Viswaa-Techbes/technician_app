@@ -131,6 +131,12 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
   String _cctvSdCardCapacity = '64GB';
   int _cctvSdCardQuantity = 1;
 
+  // HDD & Rack state variables
+  List<dynamic> _cctvHdds = [];
+  List<dynamic> _cctvRacks = [];
+  String _cctvHddCapacity = 'None';
+  String _cctvRackType = 'None';
+
   // Metadata arrays from backend
   List<dynamic> _cctvBrands = [];
   List<dynamic> _cctvAllModels = [];
@@ -231,6 +237,8 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
         client.get('/api/v2/cctv/cable-pricings'),
         client.get('/api/v2/cctv/installation-charges'),
         client.get('/api/v2/cctv/accessories'),
+        client.get('/api/v2/cctv/hdds'),
+        client.get('/api/v2/cctv/racks'),
       ];
       if (widget.serviceSlug == 'buy-cctv-products') {
         requests.add(client.get('/api/v2/cctv/products'));
@@ -247,14 +255,16 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
           _cctvCables = results[3].data['data'] ?? [];
           _cctvInstallationCharges = results[4].data['data'] ?? [];
           _cctvAccessories = results[5].data['data'] ?? [];
+          _cctvHdds = results[6].data['data'] ?? [];
+          _cctvRacks = results[7].data['data'] ?? [];
           
           if (widget.serviceSlug == 'buy-cctv-products') {
-            if (results.length > 6) {
-              _availableProducts = results[6].data['data'] ?? [];
+            if (results.length > 8) {
+              _availableProducts = results[8].data['data'] ?? [];
             }
           } else {
-            if (results.length > 6) {
-              _bookingQuestions = results[6].data['data'] ?? [];
+            if (results.length > 8) {
+              _bookingQuestions = results[8].data['data'] ?? [];
               // Initialize answers with defaults
               _bookingAnswers.clear();
               for (var q in _bookingQuestions) {
@@ -434,6 +444,8 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
       'sdCardRequired': _cctvSdCardEnabled,
       'sdCardCapacity': _cctvSdCardCapacity,
       'sdCardQuantity': _cctvSdCardQuantity,
+      'hddCapacity': _cctvHddCapacity,
+      'rackType': _cctvRackType,
     };
 
     try {
@@ -455,6 +467,12 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
           otherAddons += (pb['nvrTotal'] as num).toDouble();
           otherAddons += (pb['rackTotal'] as num).toDouble();
           otherAddons += (pb['monitorTotal'] as num).toDouble();
+          if (pb['hddTotal'] != null) {
+            otherAddons += (pb['hddTotal'] as num).toDouble();
+          }
+          if (pb['rackSelectedTotal'] != null) {
+            otherAddons += (pb['rackSelectedTotal'] as num).toDouble();
+          }
 
           _labourCost = otherAddons;
           _discount = 0;
@@ -481,17 +499,30 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
       double nvrTotal = _cctvNvrRequired ? 3500.0 : 0.0;
       double rackTotal = _cctvNetworkRack ? 1200.0 : 0.0;
       double monitorTotal = _cctvMonitorMounting ? 800.0 : 0.0;
+      
+      double hddTotal = 0.0;
+      if (_cctvHddCapacity != 'None') {
+        final hddItem = _cctvHdds.firstWhere((h) => h['capacity'] == _cctvHddCapacity, orElse: () => null);
+        hddTotal = hddItem != null ? (hddItem['price'] as num).toDouble() : 0.0;
+      }
+
+      double rackSelectedTotal = 0.0;
+      if (_cctvRackType != 'None') {
+        final rackItem = _cctvRacks.firstWhere((r) => r['type'] == _cctvRackType, orElse: () => null);
+        rackSelectedTotal = rackItem != null ? (rackItem['price'] as num).toDouble() : 0.0;
+      }
+
       double baseVisit = widget.defaultPrice;
       _miscCharges = activeTypes.isEmpty ? 0.0 : (_cctvTotalCameras <= 4 ? 1000.0 : 1500.0);
 
-      double subTotal = baseVisit + camerasTotal + installationTotal + cableTotal + sdTotal + dvrTotal + nvrTotal + rackTotal + monitorTotal + _miscCharges;
+      double subTotal = baseVisit + camerasTotal + installationTotal + cableTotal + sdTotal + dvrTotal + nvrTotal + rackTotal + monitorTotal + hddTotal + rackSelectedTotal + _miscCharges;
       double tax = subTotal * 0.18;
 
       if (mounted) {
         setState(() {
           _packageCost = installationTotal;
           _visitCharge = baseVisit;
-          _labourCost = camerasTotal + cableTotal + sdTotal + dvrTotal + nvrTotal + rackTotal + monitorTotal;
+          _labourCost = camerasTotal + cableTotal + sdTotal + dvrTotal + nvrTotal + rackTotal + monitorTotal + hddTotal + rackSelectedTotal;
           _gst = tax;
           _grandTotal = subTotal + tax;
           _isCalculatingPrice = false;
@@ -631,7 +662,9 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
           'monitorMounting': _cctvMonitorMounting,
           'sdCardRequired': _cctvSdCardEnabled,
           'sdCardCapacity': _cctvSdCardCapacity,
-          'sdCardQuantity': _cctvSdCardQuantity
+          'sdCardQuantity': _cctvSdCardQuantity,
+          'hddCapacity': _cctvHddCapacity,
+          'rackType': _cctvRackType,
         }
       }
     };
@@ -1674,6 +1707,96 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
               ),
             ),
           ],
+          if (widget.serviceSlug != 'buy-cctv-products') ...[
+            const SizedBox(height: 12),
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(14.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Storage & Rack Options',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        const Text(
+                          'HDD Storage',
+                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                        ),
+                        const Spacer(),
+                        DropdownButton<String>(
+                          value: _cctvHddCapacity,
+                          underline: const SizedBox(),
+                          items: [
+                            const DropdownMenuItem(
+                              value: 'None',
+                              child: Text('None / Not Required', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            ),
+                            ..._cctvHdds.map((h) {
+                              final cap = h['capacity'] as String;
+                              final price = h['price'] as num;
+                              return DropdownMenuItem(
+                                value: cap,
+                                child: Text('$cap — ₹$price + GST', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              );
+                            }),
+                          ],
+                          onChanged: (val) {
+                            setState(() => _cctvHddCapacity = val ?? 'None');
+                            _calculateEstimatePrice();
+                          },
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 16),
+                    Row(
+                      children: [
+                        const Text(
+                          'Rack Option',
+                          style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                        ),
+                        const Spacer(),
+                        DropdownButton<String>(
+                          value: _cctvRackType,
+                          underline: const SizedBox(),
+                          items: [
+                            const DropdownMenuItem(
+                              value: 'None',
+                              child: Text('None / Not Required', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            ),
+                            ..._cctvRacks.map((r) {
+                              final type = r['type'] as String;
+                              final price = r['price'] as num;
+                              return DropdownMenuItem(
+                                value: type,
+                                child: Text('$type — ₹$price + GST', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              );
+                            }),
+                          ],
+                          onChanged: (val) {
+                            setState(() => _cctvRackType = val ?? 'None');
+                            _calculateEstimatePrice();
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           if (_cctvTotalCameras > 16) ...[
             const SizedBox(height: 12),
             Container(
@@ -1723,7 +1846,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
                         icon: const Icon(Icons.chat_bubble_outline_rounded, size: 14),
                         label: const Text('WhatsApp Us', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.emerald.shade600,
+                          backgroundColor: const Color(0xFF059669),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
