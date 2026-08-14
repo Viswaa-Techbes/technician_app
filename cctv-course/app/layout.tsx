@@ -1,5 +1,6 @@
 import './globals.css'
 import { ReactNode } from 'react'
+import Script from 'next/script'
 
 export const metadata = {
   title: 'CCTV Masterclass | TECHBES',
@@ -14,6 +15,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <main className="min-h-screen">
           {children}
         </main>
+        <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
       </body>
     </html>
   )
