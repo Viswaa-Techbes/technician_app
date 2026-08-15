@@ -227,3 +227,31 @@ body {
     background-size: 28px 28px;
   }
 }
+
+/* ── Global Keyframes & Animations ── */
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+@keyframes floatBadge {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+@media (max-width: 860px) {
+  .hero-main-container {
+    flex-direction: column !important;
+    padding-top: 28px !important;
+    padding-bottom: 28px !important;
+  }
+  .hero-left-col {
+    flex: unset !important;
+    max-width: 100% !important;
+  }
+  .hero-right-col {
+    flex: unset !important;
+    min-height: 300px !important;
+    width: 100% !important;
+  }
+}
