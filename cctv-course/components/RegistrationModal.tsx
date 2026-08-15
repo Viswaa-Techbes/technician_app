@@ -51,11 +51,12 @@ export default function RegistrationModal({ onClose }: Props) {
   const [modalState, setModalState] = useState<ModalState>('form')
   const [successData, setSuccessData] = useState<SuccessData | null>(null)
   const [serverError, setServerError] = useState('')
+  const [initializingPayment, setInitializingPayment] = useState(false)
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
     getValues,
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -63,14 +64,19 @@ export default function RegistrationModal({ onClose }: Props) {
   })
 
   const openRazorpay = useCallback(
-    async (registrationId: string, order: { id: string; amount: number; currency: string }) => {
+    async (registrationId: string, order: { id: string; amount: number; currency: string; key_id?: string }) => {
       return new Promise<void>((resolve, reject) => {
+        if (!window.Razorpay) {
+          reject(new Error('Payment gateway could not be loaded.'))
+          return
+        }
+
         const options = {
-          key: RAZORPAY_KEY,
+          key: order.key_id || RAZORPAY_KEY,
           amount: order.amount,
           currency: order.currency,
           name: 'TECHBES',
-          description: 'CCTV Masterclass Registration — ₹499',
+          description: 'CCTV Masterclass Registration',
           order_id: order.id,
           prefill: {
             name: getValues('name'),
@@ -99,8 +105,17 @@ export default function RegistrationModal({ onClose }: Props) {
                   razorpay_order_id: response.razorpay_order_id,
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_signature: response.razorpay_signature,
+                  registrationId,
                 }),
+              }).catch(() => {
+                throw new Error('Unable to connect to payment service.')
               })
+
+              if (!verifyRes.ok) {
+                const errData = await verifyRes.json().catch(() => ({}))
+                throw new Error(errData.message || 'Payment verification failed')
+              }
+
               const verifyData = await verifyRes.json()
               if (!verifyData.success) {
                 throw new Error(verifyData.message || 'Payment verification failed')
@@ -125,6 +140,8 @@ export default function RegistrationModal({ onClose }: Props) {
               setModalState('success')
               resolve()
             } catch (err: any) {
+              setServerError(err.message || 'Payment verification failed')
+              setModalState('form')
               reject(err)
             }
           },
@@ -132,7 +149,7 @@ export default function RegistrationModal({ onClose }: Props) {
 
         const rzp = new window.Razorpay(options)
         rzp.on('payment.failed', (resp: any) => {
-          reject(new Error(resp?.error?.description || 'Payment failed'))
+          reject(new Error(resp?.error?.description || 'Payment was not completed. You can try again.'))
         })
         rzp.open()
       })
@@ -140,9 +157,15 @@ export default function RegistrationModal({ onClose }: Props) {
     [getValues]
   )
 
-  const onSubmit = async (data: FormValues) => {
+  const handlePayment = async (data: FormValues) => {
     setServerError('')
+    setInitializingPayment(true)
     try {
+      // Step 0: Make sure window.Razorpay exists before trying to open it
+      if (!window.Razorpay) {
+        throw new Error('Payment gateway is currently unavailable. Please try again.')
+      }
+
       // Step 1: Create registration (PENDING)
       const regRes = await fetch(`${API}/api/v2/cctv-course/registrations`, {
         method: 'POST',
@@ -155,33 +178,61 @@ export default function RegistrationModal({ onClose }: Props) {
           qualification: data.qualification,
           whatsapp: data.whatsapp || undefined,
         }),
+      }).catch(() => {
+        throw new Error('Unable to connect to payment service.')
       })
+
+      if (!regRes.ok) {
+        const errData = await regRes.json().catch(() => ({}))
+        throw new Error(errData.message || 'Registration failed. Please try again.')
+      }
+
       const regData = await regRes.json()
       if (!regData.success) {
         throw new Error(regData.message || 'Registration failed. Please try again.')
       }
       const registrationId = regData.registrationId
 
-      // Step 2: Create Razorpay order
+      // Step 2: Create Razorpay order (paise ₹49900)
       const orderRes = await fetch(`${API}/api/v2/cctv-course/razorpay/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ registrationId }),
+      }).catch(() => {
+        throw new Error('Unable to connect to payment service.')
       })
+
+      if (!orderRes.ok) {
+        const errData = await orderRes.json().catch(() => ({}))
+        throw new Error(errData.message || 'Unable to initialize payment. Please try again.')
+      }
+
       const orderData = await orderRes.json()
       if (!orderData.success) {
-        throw new Error(orderData.message || 'Could not create payment order')
+        throw new Error(orderData.message || 'Unable to initialize payment. Please try again.')
+      }
+
+      const orderId = orderData.order_id || orderData.order?.id
+      const keyId = orderData.key_id || orderData.order?.key_id
+
+      if (!orderId) {
+        throw new Error('Unable to initialize payment. Please try again.')
       }
 
       // Step 3: Open Razorpay checkout
-      await openRazorpay(registrationId, orderData.order)
+      await openRazorpay(registrationId, {
+        id: orderId,
+        amount: orderData.amount || orderData.order?.amount || 49900,
+        currency: orderData.currency || orderData.order?.currency || 'INR',
+        key_id: keyId || RAZORPAY_KEY,
+      })
+
     } catch (err: any) {
       if (err.message !== 'Payment cancelled') {
-        setServerError(err.message || 'Something went wrong. Please try again.')
-        setModalState('form')
-      } else {
-        setModalState('form')
+        setServerError(err.message || 'Payment was not completed. You can try again.')
       }
+    } finally {
+      setInitializingPayment(false)
     }
   }
 
@@ -285,7 +336,7 @@ export default function RegistrationModal({ onClose }: Props) {
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit(onSubmit)} noValidate style={{ padding: '24px 28px 28px' }}>
+            <form onSubmit={handleSubmit(handlePayment)} noValidate style={{ padding: '24px 28px 28px' }}>
               {serverError && (
                 <div style={{
                   background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.2)',
@@ -426,7 +477,7 @@ export default function RegistrationModal({ onClose }: Props) {
               <button
                 id="modal-submit-btn"
                 type="submit"
-                disabled={isSubmitting || modalState === 'processing'}
+                disabled={initializingPayment || modalState === 'processing'}
                 className="btn-red"
                 style={{
                   width: '100%',
@@ -435,11 +486,11 @@ export default function RegistrationModal({ onClose }: Props) {
                   borderRadius: 12,
                   fontWeight: 900,
                   letterSpacing: '0.04em',
-                  opacity: isSubmitting ? 0.7 : 1,
-                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  opacity: (initializingPayment || modalState === 'processing') ? 0.7 : 1,
+                  cursor: (initializingPayment || modalState === 'processing') ? 'not-allowed' : 'pointer',
                 }}
               >
-                {isSubmitting ? (
+                {initializingPayment ? (
                   <>
                     <span style={{
                       display: 'inline-block', width: 16, height: 16,
@@ -447,8 +498,9 @@ export default function RegistrationModal({ onClose }: Props) {
                       borderTop: '2px solid white',
                       borderRadius: '50%',
                       animation: 'spin 0.8s linear infinite',
+                      marginRight: 8,
                     }} />
-                    Processing…
+                    INITIALIZING PAYMENT...
                   </>
                 ) : (
                   <>
