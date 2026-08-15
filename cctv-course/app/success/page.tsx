@@ -1,83 +1,257 @@
-"use client"
+'use client'
+import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { CheckCircle2, Calendar, Clock, BookOpen, ExternalLink, ArrowLeft } from 'lucide-react'
 
-export default function SuccessPage() {
+function SuccessContent() {
   const searchParams = useSearchParams()
-  const id = searchParams.get('id')
-  const certId = searchParams.get('cert')
+  const id   = searchParams.get('id')
+  const cert = searchParams.get('cert')
+  const name = searchParams.get('name') || ''
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center p-4">
-      <div className="max-w-xl w-full bg-slate-900/60 border border-slate-800/80 rounded-2xl p-8 backdrop-blur-md shadow-2xl text-center space-y-6">
-        <div className="flex justify-center">
-          <div className="p-3 bg-green-500/10 rounded-full border border-green-500/20">
-            <CheckCircle2 className="w-16 h-16 text-green-500 animate-pulse" />
-          </div>
-        </div>
-        
-        <div className="space-y-2">
-          <h1 className="text-3xl font-extrabold tracking-tight text-white bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
-            Enrollment Confirmed!
-          </h1>
-          <p className="text-slate-400 text-sm">
-            Thank you for registering. Your payment has been verified, and your seat is secured.
-          </p>
-        </div>
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #FAFAFA 0%, #F8F6F0 50%, #F1F5F9 100%)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '24px',
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
+      {/* Background decoration */}
+      <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+        <div style={{
+          position: 'absolute', top: '-80px', right: '-80px',
+          width: 400, height: 400, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(34,197,94,0.08) 0%, transparent 70%)',
+        }} />
+        <div style={{
+          position: 'absolute', bottom: '-80px', left: '-80px',
+          width: 350, height: 350, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(245,194,24,0.08) 0%, transparent 70%)',
+        }} />
+      </div>
 
-        {id && (
-          <div className="bg-slate-950/60 py-3 px-5 rounded-lg inline-block border border-slate-800">
-            <span className="text-xs text-slate-500 block uppercase tracking-wider font-bold mb-1">
-              Registration ID
-            </span>
-            <code className="text-red-400 font-mono text-sm font-semibold">{id}</code>
-          </div>
-        )}
-
-        <div className="border-t border-b border-slate-800/80 py-6 my-6 text-left space-y-4">
-          <h3 className="font-semibold text-lg text-slate-200">What's Next?</h3>
-          <div className="grid gap-3.5 text-sm text-slate-300">
-            <div className="flex items-start gap-3">
-              <Calendar className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-              <span>
-                <strong>Confirmation Email:</strong> A verification and confirmation email has been dispatched to your email address containing schedule details.
-              </span>
-            </div>
-            <div className="flex items-start gap-3">
-              <Clock className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-              <span>
-                <strong>Timing:</strong> Live sessions will be held from 10:00 AM to 4:00 PM. Please log in 10 minutes early.
-              </span>
-            </div>
-            <div className="flex items-start gap-3">
-              <BookOpen className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-              <span>
-                <strong>Course Materials:</strong> Relevant links, software downloads, and guidebooks will be shared via email prior to the session.
-              </span>
-            </div>
+      <div style={{
+        position: 'relative', maxWidth: 520, width: '100%',
+        animation: 'fadeInUp 0.5s ease',
+      }}>
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 9,
+            padding: '7px 16px',
+            background: '#fff', border: '1px solid #E2E8F0',
+            borderRadius: 100,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+          }}>
+            <div style={{
+              width: 24, height: 24, borderRadius: 6,
+              background: 'linear-gradient(135deg,#F5C218,#D4A81A)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 9, fontWeight: 900, color: '#0A0F1E',
+            }}>TB</div>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#0A0F1E' }}>TECHBES</span>
           </div>
         </div>
 
-        {certId && (
-          <div className="bg-red-950/10 border border-red-900/30 p-5 rounded-xl text-left space-y-3">
-            <p className="text-sm text-slate-300">
-              A certificate verification profile has been pre-allocated to you. You can preview and verify your certificate details below:
+        {/* Success card */}
+        <div style={{
+          background: '#FFFFFF',
+          borderRadius: 24,
+          boxShadow: '0 20px 60px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04)',
+          border: '1px solid #E2E8F0',
+          overflow: 'hidden',
+        }}>
+          {/* Green header */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(34,197,94,0.08) 0%, rgba(34,197,94,0.03) 100%)',
+            borderBottom: '1px solid rgba(34,197,94,0.12)',
+            padding: '32px 28px 28px',
+            textAlign: 'center',
+          }}>
+            {/* Check icon */}
+            <div style={{
+              width: 68, height: 68,
+              borderRadius: '50%',
+              background: 'rgba(34,197,94,0.1)',
+              border: '2px solid rgba(34,197,94,0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 16px',
+            }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h1 style={{
+              fontSize: 'clamp(1.4rem, 3vw, 1.8rem)',
+              fontWeight: 900, color: '#0A0F1E', margin: '0 0 8px',
+              letterSpacing: '-0.025em',
+            }}>
+              REGISTRATION SUCCESSFUL
+            </h1>
+            <p style={{ fontSize: 14, color: '#64748B', margin: 0 }}>
+              You're in! Your seat for the TECHBES CCTV Masterclass is reserved.
             </p>
-            <Link href={`/certificate/${certId}`} className="inline-flex items-center gap-2 text-red-400 font-bold hover:text-red-300 transition-colors text-sm">
-              <span>Verify Pre-allocated Certificate</span>
-              <ExternalLink className="w-4 h-4" />
+          </div>
+
+          {/* Details */}
+          <div style={{ padding: '24px 28px' }}>
+            {/* Enrollment ID + paid badge */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: '#F8FAFC',
+              border: '1px solid #E2E8F0',
+              borderRadius: 12,
+              padding: '14px 18px',
+              marginBottom: 20,
+              flexWrap: 'wrap', gap: 10,
+            }}>
+              <div>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
+                  Enrollment ID
+                </div>
+                <code style={{ fontSize: 15, fontWeight: 800, color: '#F5C218', fontFamily: 'monospace', letterSpacing: '0.02em' }}>
+                  {id || 'TB-CCTV-XXXXXX'}
+                </code>
+              </div>
+              <div style={{
+                background: 'rgba(34,197,94,0.1)',
+                border: '1px solid rgba(34,197,94,0.2)',
+                borderRadius: 100,
+                padding: '5px 14px',
+                fontSize: 12, fontWeight: 800, color: '#16A34A',
+                letterSpacing: '0.04em',
+              }}>
+                ₹499 PAID ✓
+              </div>
+            </div>
+
+            {/* Details list */}
+            {[
+              { icon: '👤', label: 'Registered As', value: name || 'Participant' },
+              { icon: '📋', label: 'Course', value: 'CCTV Masterclass' },
+              { icon: '💳', label: 'Amount Paid', value: '₹499' },
+              { icon: '✅', label: 'Payment Status', value: 'PAID', green: true },
+            ].map(({ icon, label, value, green }) => (
+              <div key={label} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '11px 0',
+                borderBottom: '1px solid #F1F5F9',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                  <span style={{ fontSize: 15 }}>{icon}</span>
+                  <span style={{ fontSize: 13, color: '#64748B', fontWeight: 600 }}>{label}</span>
+                </div>
+                <span style={{
+                  fontSize: 13.5, fontWeight: 800,
+                  color: green ? '#16A34A' : '#0A0F1E',
+                }}>{value}</span>
+              </div>
+            ))}
+
+            {/* What's next */}
+            <div style={{
+              background: 'rgba(245,194,24,0.05)',
+              border: '1px solid rgba(245,194,24,0.18)',
+              borderRadius: 12,
+              padding: '16px',
+              marginTop: 20, marginBottom: 24,
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: '#D4A81A', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>
+                What Happens Next
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[
+                  '📧 Check your email for session details and confirmation',
+                  '📱 You will be added to the TECHBES CCTV Masterclass WhatsApp group',
+                  '🎓 Your e-certificate will be issued after the session',
+                  '🔔 Log in 10 minutes early on the session day',
+                ].map(item => (
+                  <div key={item} style={{ fontSize: 12.5, color: '#475569', lineHeight: 1.5 }}>{item}</div>
+                ))}
+              </div>
+            </div>
+
+            {/* Certificate link */}
+            {cert && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: 'rgba(14,165,233,0.05)',
+                border: '1px solid rgba(14,165,233,0.18)',
+                borderRadius: 12, padding: '14px 16px',
+                marginBottom: 20, flexWrap: 'wrap', gap: 8,
+              }}>
+                <div>
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: '#0EA5E9' }}>Certificate Pre-Allocated</div>
+                  <div style={{ fontSize: 11.5, color: '#64748B', marginTop: 2 }}>Verify your certificate after the session</div>
+                </div>
+                <Link
+                  href={`/certificate/${cert}`}
+                  style={{
+                    fontSize: 12.5, fontWeight: 800, color: '#0EA5E9',
+                    textDecoration: 'underline', textUnderlineOffset: 3,
+                  }}
+                >
+                  View Certificate →
+                </Link>
+              </div>
+            )}
+
+            {/* Done button */}
+            <Link href="/">
+              <button
+                id="success-done-btn"
+                style={{
+                  width: '100%', padding: '16px',
+                  borderRadius: 12, border: 'none',
+                  background: 'linear-gradient(135deg,#F5C218,#D4A81A)',
+                  color: '#0A0F1E', fontWeight: 900,
+                  fontSize: '1rem', letterSpacing: '0.04em',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+              >
+                DONE — Back to Home
+              </button>
             </Link>
           </div>
-        )}
-
-        <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
-          <Link href="/" className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 px-6 py-3 rounded-lg font-semibold transition-colors text-sm cursor-pointer border border-slate-700/50">
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back to Home</span>
-          </Link>
         </div>
+
+        <p style={{ textAlign: 'center', fontSize: 12, color: '#94A3B8', marginTop: 20 }}>
+          Questions? Email us at <a href="mailto:viswaatechbes@gmail.com" style={{ color: '#F5C218' }}>viswaatechbes@gmail.com</a>
+        </p>
       </div>
+
+      <style>{`
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(24px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
+  )
+}
+
+export default function SuccessPage() {
+  return (
+    <Suspense fallback={
+      <div style={{
+        minHeight: '100vh', background: '#FAFAFA',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <div style={{
+          width: 36, height: 36,
+          border: '3px solid rgba(245,194,24,0.2)',
+          borderTop: '3px solid #F5C218',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite',
+        }} />
+      </div>
+    }>
+      <SuccessContent />
+    </Suspense>
   )
 }

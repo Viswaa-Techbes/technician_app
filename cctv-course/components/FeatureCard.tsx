@@ -1,9 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { IconType } from '@heroicons/react/24/solid';
 
 interface FeatureCardProps {
-  icon: IconType;
+  icon: React.ComponentType<{ className?: string }>;
   title: string;
   description?: string;
 }
