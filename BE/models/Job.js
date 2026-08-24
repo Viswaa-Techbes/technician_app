@@ -24,7 +24,7 @@ const JOB_STATUSES = [
   'cancellation_requested',
   'cancelled'
 ];
-const PAYMENT_STATUSES = ['pending', 'advance_paid', 'requested', 'pending_payment', 'verification_pending', 'paid', 'rejected'];
+const PAYMENT_STATUSES = ['pending', 'advance_paid', 'requested', 'pending_payment', 'verification_pending', 'paid', 'rejected', 'FREE', 'NOT_REQUIRED'];
 
 const jobSchema = new mongoose.Schema(
   {
@@ -98,6 +98,10 @@ const jobSchema = new mongoose.Schema(
       type: String,
       enum: PAYMENT_STATUSES,
       default: 'pending',
+    },
+    quoteRequestId: {
+      type: String,
+      default: null,
     },
     paymentDescription: {
       type: String,
