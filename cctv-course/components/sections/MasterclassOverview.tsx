@@ -1,10 +1,10 @@
 "use client"
 import { motion } from 'framer-motion'
-import { CheckCircle2, Video, MessageSquare, BookOpen, Layers } from 'lucide-react'
+import { CheckCircle2, Video, MessageSquare, BookOpen, Layers, Wifi } from 'lucide-react'
 import ScrollReveal from '../ui/ScrollReveal'
 
 const cardFeatures = [
-  { icon: Video,         text: 'Live Session'            },
+  { icon: Wifi,          text: 'Online Live Practical Session' },
   { icon: Layers,        text: 'Practical Demonstration' },
   { icon: MessageSquare, text: 'Live Doubt Clearance'    },
   { icon: BookOpen,      text: 'Real CCTV Concepts'      },
@@ -43,6 +43,24 @@ export default function MasterclassOverview() {
                 No prior experience is required. If you can follow instructions and use a
                 smartphone or laptop, you can take this masterclass.
               </p>
+
+              {/* Online Live Class callout */}
+              <div className="mt-6 flex items-start gap-4 bg-[#0EA5E9]/[0.06] border border-[#0EA5E9]/20 rounded-2xl px-5 py-4">
+                <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-[#0EA5E9]/15 border border-[#0EA5E9]/20 flex items-center justify-center mt-0.5">
+                  <Wifi size={17} className="text-[#0EA5E9]" />
+                </div>
+                <div>
+                  <div className="text-[#0EA5E9] font-extrabold text-sm tracking-[0.12em] uppercase mb-1">
+                    Online Live Class
+                  </div>
+                  <p className="text-slate-300 text-sm leading-snug mb-1.5">
+                    Attend the complete practical masterclass online from anywhere in India.
+                  </p>
+                  <p className="text-slate-400 text-xs leading-snug">
+                    Zoom meeting link will be shared with registered members before the session. Only registered members will receive the link.
+                  </p>
+                </div>
+              </div>
 
               <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
@@ -84,10 +102,14 @@ export default function MasterclassOverview() {
                     2 HOURS
                   </div>
                   <div className="text-white font-bold text-lg tracking-widest mt-1 uppercase">
-                    Live Masterclass
+                    Online Live Masterclass
                   </div>
                   <div className="text-slate-500 text-sm mt-1">
                     Interactive · Practical · Doubt Clearance
+                  </div>
+                  <div className="mt-2 inline-flex items-center gap-1.5 bg-[#0EA5E9]/10 border border-[#0EA5E9]/20 text-[#0EA5E9] text-[11px] font-semibold px-3 py-1 rounded-full tracking-wide">
+                    <Wifi size={11} />
+                    Zoom Link for Registered Members
                   </div>
                 </div>
 

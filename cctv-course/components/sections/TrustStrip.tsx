@@ -2,7 +2,7 @@
 import { Wifi, Wrench, GraduationCap, ShieldCheck, Users } from 'lucide-react'
 
 const items = [
-  { icon: Wifi,          label: 'Live Interactive' },
+  { icon: Wifi,          label: 'Online Live Class' },
   { icon: Wrench,        label: 'Practical Demo'   },
   { icon: Users,         label: 'Industry Experts'  },
   { icon: GraduationCap, label: 'E-Certificate'     },

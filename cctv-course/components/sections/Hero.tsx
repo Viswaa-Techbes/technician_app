@@ -1,7 +1,7 @@
 "use client"
 import Image from 'next/image'
 import { motion } from 'framer-motion'
-import { ArrowRight, CheckCircle2, Clock, Zap, Award } from 'lucide-react'
+import { ArrowRight, CheckCircle2, Clock, Zap, Award, Video } from 'lucide-react'
 
 const floatingCards = [
   { icon: Clock,    label: '2 HOURS',     sublabel: 'LIVE SESSION',  color: '#F5C842', delay: 0,   top: '10%',  left: '-5%'  },
@@ -10,7 +10,7 @@ const floatingCards = [
 ]
 
 const features = [
-  'Live Interactive Session',
+  'Online Live Class',
   'Practical Demonstration',
   'E-Certificate Included',
 ]
@@ -125,7 +125,26 @@ export default function Hero() {
               practical masterclass.
             </motion.p>
 
-            {/* Pricing */}
+            {/* Online Live Class info */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.42 }}
+              className="mt-4 flex items-start gap-3 bg-[#0EA5E9]/[0.07] border border-[#0EA5E9]/20 rounded-xl px-4 py-3 max-w-md"
+            >
+              <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-[#0EA5E9]/15 flex items-center justify-center mt-0.5">
+                <Video size={14} className="text-[#0EA5E9]" />
+              </div>
+              <div>
+                <div className="text-[#0EA5E9] font-bold text-xs tracking-[0.12em] uppercase mb-0.5">
+                  Online Live Class
+                </div>
+                <div className="text-slate-400 text-xs leading-snug">
+                  Attend from anywhere in India. Zoom link will be shared with registered members before the session.
+                </div>
+              </div>
+            </motion.div>
+
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
