@@ -27,7 +27,7 @@ type FormValues = z.infer<typeof schema>
 
 const QUALIFICATIONS = ['10th', '12th', 'ITI', 'Diploma', 'BE', 'B.Tech', 'BCA', 'MCA', 'B.Sc', 'M.Sc', 'Other']
 
-type ModalState = 'form' | 'initializing' | 'processing' | 'success' | 'failed'
+type ModalState = 'form' | 'creating_order' | 'opening_checkout' | 'processing' | 'success' | 'failed'
 
 interface SuccessData {
   registrationId: string
@@ -178,14 +178,14 @@ export default function RegistrationModal({ onClose }: Props) {
 
   const handlePayment = async (data: FormValues) => {
     setServerError('')
-    setModalState('initializing')
+    setModalState('creating_order')
     const apiBase = getApiBaseUrl()
 
     try {
       // Step 0: Ensure Razorpay SDK is loaded
       const scriptReady = await loadRazorpayScript()
       if (!scriptReady || !window.Razorpay) {
-        throw new Error('Unable to load payment gateway. Please check your internet connection and try again.')
+        throw new Error('Unable to load secure payment service. Please try again.')
       }
 
       // Step 1: Create registration (PENDING)
@@ -236,6 +236,7 @@ export default function RegistrationModal({ onClose }: Props) {
       }
 
       // Step 3: Open Razorpay checkout
+      setModalState('opening_checkout')
       await openRazorpay(registrationId, {
         id: orderId,
         amount: orderData.amount || orderData.order?.amount || 49900,
@@ -257,27 +258,42 @@ export default function RegistrationModal({ onClose }: Props) {
 
   // ── Prevent backdrop close while processing ──
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget && modalState !== 'processing' && modalState !== 'initializing') {
+    const isBusy = modalState === 'creating_order' || modalState === 'opening_checkout' || modalState === 'processing'
+    if (e.target === e.currentTarget && !isBusy) {
       onClose()
     }
   }
 
   return (
-    <div className="modal-backdrop" onClick={handleBackdropClick} role="dialog" aria-modal="true">
+    <div
+      id="registration-modal"
+      onClick={handleBackdropClick}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(10, 15, 30, 0.85)',
+        backdropFilter: 'blur(8px)',
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+      }}
+    >
       <div
         style={{
-          background: '#FFFFFF',
+          background: '#ffffff',
           borderRadius: 20,
           width: '100%',
-          maxWidth: 540,
-          maxHeight: '90vh',
+          maxWidth: 520,
+          maxHeight: '92vh',
           overflowY: 'auto',
           boxShadow: '0 32px 80px rgba(0,0,0,0.18), 0 4px 24px rgba(0,0,0,0.06)',
           position: 'relative',
         }}
       >
         {/* ── Processing overlay ── */}
-        {(modalState === 'processing' || modalState === 'initializing') && (
+        {(modalState === 'creating_order' || modalState === 'opening_checkout' || modalState === 'processing') && (
           <div style={{
             position: 'absolute', inset: 0, borderRadius: 20,
             background: 'rgba(255,255,255,0.94)',
@@ -294,7 +310,11 @@ export default function RegistrationModal({ onClose }: Props) {
               animation: 'spin 0.8s linear infinite',
             }} />
             <p style={{ fontSize: 15, fontWeight: 700, color: '#0A0F1E', margin: 0 }}>
-              {modalState === 'processing' ? 'Processing payment...' : 'Initializing payment...'}
+              {modalState === 'creating_order'
+                ? 'Creating secure payment...'
+                : modalState === 'opening_checkout'
+                ? 'Opening secure payment...'
+                : 'Processing payment...'}
             </p>
             <p style={{ fontSize: 12.5, color: '#64748B', margin: 0 }}>Please do not refresh or close this window.</p>
           </div>
@@ -559,7 +579,7 @@ export default function RegistrationModal({ onClose }: Props) {
               <button
                 id="modal-submit-btn"
                 type="submit"
-                disabled={modalState === 'initializing' || modalState === 'processing'}
+                disabled={modalState === 'creating_order' || modalState === 'opening_checkout' || modalState === 'processing'}
                 className="btn-red"
                 style={{
                   width: '100%',
@@ -568,11 +588,17 @@ export default function RegistrationModal({ onClose }: Props) {
                   borderRadius: 12,
                   fontWeight: 900,
                   letterSpacing: '0.04em',
-                  opacity: (modalState === 'initializing' || modalState === 'processing') ? 0.7 : 1,
-                  cursor: (modalState === 'initializing' || modalState === 'processing') ? 'not-allowed' : 'pointer',
+                  opacity: (modalState === 'creating_order' || modalState === 'opening_checkout' || modalState === 'processing') ? 0.7 : 1,
+                  cursor: (modalState === 'creating_order' || modalState === 'opening_checkout' || modalState === 'processing') ? 'not-allowed' : 'pointer',
                 }}
               >
-                PROCEED TO PAYMENT — ₹499
+                {modalState === 'creating_order'
+                  ? 'CREATING PAYMENT...'
+                  : modalState === 'opening_checkout'
+                  ? 'OPENING CHECKOUT...'
+                  : modalState === 'processing'
+                  ? 'PROCESSING PAYMENT...'
+                  : 'PROCEED TO PAYMENT — ₹499'}
               </button>
 
               <p style={{ fontSize: 11, color: '#94A3B8', textAlign: 'center', marginTop: 12 }}>

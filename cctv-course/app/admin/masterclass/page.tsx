@@ -1,4 +1,5 @@
 import { Users, DollarSign, CheckCircle, Clock, Award, TrendingUp } from 'lucide-react'
+import { getApiBaseUrl } from '../../../lib/api'
 
 interface Stats {
   total: number
@@ -11,7 +12,7 @@ interface Stats {
 }
 
 async function getStats(): Promise<Stats> {
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+  const apiBase = getApiBaseUrl()
   try {
     const res = await fetch(`${apiBase}/api/v2/cctv-course/admin/masterclass/stats`, { cache: 'no-store' })
     if (res.ok) {
@@ -33,7 +34,7 @@ const statCards = (s: Stats) => [
 
 export default async function AdminPage() {
   const stats = await getStats()
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+  const apiBase = getApiBaseUrl()
   const cards = statCards(stats)
 
   return (

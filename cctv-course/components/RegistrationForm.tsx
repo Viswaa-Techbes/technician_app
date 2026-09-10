@@ -20,14 +20,18 @@ type FormData = z.infer<typeof schema>
 
 export default function RegistrationForm({ masterclassId }: { masterclassId?: string }) {
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) })
-  const [loading, setLoading] = useState(false)
+  const [paymentState, setPaymentState] = useState<'idle' | 'creating_order' | 'opening_checkout' | 'processing'>('idle')
+  const loading = paymentState !== 'idle'
 
   async function onSubmit(data: FormData) {
-    setLoading(true)
+    setPaymentState('creating_order')
     const apiBase = getApiBaseUrl()
 
     try {
-      await loadRazorpayScript()
+      const scriptReady = await loadRazorpayScript()
+      if (!scriptReady || typeof (window as any).Razorpay === 'undefined') {
+        throw new Error('Unable to load secure payment service. Please try again.')
+      }
 
       // 1. Save Registration on Common Backend
       const regRes = await fetch(`${apiBase}/api/v2/cctv-course/registrations`, {
@@ -52,9 +56,7 @@ export default function RegistrationForm({ masterclassId }: { masterclassId?: st
       const order = orderJson.order || orderJson
 
       // 3. Open Razorpay Checkout Dialog on Frontend
-      if (typeof (window as any).Razorpay === 'undefined') {
-        throw new Error('Razorpay payment gateway is not loaded. Please try again.')
-      }
+      setPaymentState('opening_checkout')
 
       const options = {
         key: orderJson.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '',
@@ -64,7 +66,7 @@ export default function RegistrationForm({ masterclassId }: { masterclassId?: st
         description: 'CCTV Course Enrollment Fee',
         order_id: order.id,
         handler: async function (response: any) {
-          setLoading(true)
+          setPaymentState('processing')
           try {
             // 4. Verify payment on Common Backend
             const verifyRes = await fetch(`${apiBase}/api/v2/cctv-course/razorpay/verify`, {
@@ -73,7 +75,8 @@ export default function RegistrationForm({ masterclassId }: { masterclassId?: st
               body: JSON.stringify({
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature
+                razorpay_signature: response.razorpay_signature,
+                registrationId,
               })
             })
             const verifyJson = await verifyRes.json()
@@ -86,7 +89,12 @@ export default function RegistrationForm({ masterclassId }: { masterclassId?: st
           } catch (verifyErr: any) {
             console.error(verifyErr)
             alert(verifyErr.message || 'Verification Error')
-            setLoading(false)
+            setPaymentState('idle')
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setPaymentState('idle')
           }
         },
         prefill: {
@@ -103,12 +111,15 @@ export default function RegistrationForm({ masterclassId }: { masterclassId?: st
       }
 
       const rzp = new (window as any).Razorpay(options)
+      rzp.on('payment.failed', function (resp: any) {
+        setPaymentState('idle')
+        alert(resp?.error?.description || 'Payment failed. Please try again.')
+      })
       rzp.open()
     } catch (err: any) {
       console.error(err)
       alert(err.message || 'Registration and payment initialization error')
-    } finally {
-      setLoading(false)
+      setPaymentState('idle')
     }
   }
 
@@ -159,7 +170,13 @@ export default function RegistrationForm({ masterclassId }: { masterclassId?: st
       </div>
 
       <button type="submit" disabled={loading} className="w-full bg-red-600 hover:bg-red-700 disabled:bg-slate-700 py-3.5 rounded-lg text-white font-bold tracking-wide transition-all shadow-lg hover:shadow-red-600/10 cursor-pointer">
-        {loading ? 'Processing...' : 'Proceed to Payment (₹499)'}
+        {paymentState === 'creating_order'
+          ? 'Creating secure payment...'
+          : paymentState === 'opening_checkout'
+          ? 'Opening secure payment...'
+          : paymentState === 'processing'
+          ? 'Processing payment...'
+          : 'Proceed to Payment (₹499)'}
       </button>
     </form>
   )

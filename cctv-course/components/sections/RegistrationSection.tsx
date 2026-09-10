@@ -64,15 +64,19 @@ export default function RegistrationSection({ masterclassId }: { masterclassId?:
     formState: { errors },
   } = useForm<FormData>({ resolver: zodResolver(schema) })
 
-  const [loading, setLoading] = useState(false)
+  const [paymentState, setPaymentState] = useState<'idle' | 'creating_order' | 'opening_checkout' | 'processing'>('idle')
+  const loading = paymentState !== 'idle'
 
   async function onSubmit(data: FormData) {
     if (loading) return
-    setLoading(true)
+    setPaymentState('creating_order')
     const apiBase = getApiBaseUrl()
 
     try {
-      await loadRazorpayScript()
+      const scriptReady = await loadRazorpayScript()
+      if (!scriptReady || typeof (window as any).Razorpay === 'undefined') {
+        throw new Error('Unable to load secure payment service. Please try again.')
+      }
 
       // 1. Create registration
       const regRes = await fetch(`${apiBase}/api/v2/cctv-course/registrations`, {
@@ -95,9 +99,7 @@ export default function RegistrationSection({ masterclassId }: { masterclassId?:
       const order = orderJson.order || orderJson
 
       // 3. Open Razorpay
-      if (typeof (window as any).Razorpay === 'undefined') {
-        throw new Error('Payment gateway not loaded. Please refresh and try again.')
-      }
+      setPaymentState('opening_checkout')
 
       const options = {
         key:         orderJson.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '',
@@ -107,7 +109,7 @@ export default function RegistrationSection({ masterclassId }: { masterclassId?:
         description: 'CCTV Masterclass Registration',
         order_id:    order.id,
         handler: async (response: any) => {
-          setLoading(true)
+          setPaymentState('processing')
           try {
             // 4. Verify payment
             const verifyRes = await fetch(`${apiBase}/api/v2/cctv-course/razorpay/verify`, {
@@ -117,6 +119,7 @@ export default function RegistrationSection({ masterclassId }: { masterclassId?:
                 razorpay_order_id:   response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature:  response.razorpay_signature,
+                registrationId,
               }),
             })
             const verifyJson = await verifyRes.json()
@@ -127,7 +130,12 @@ export default function RegistrationSection({ masterclassId }: { masterclassId?:
           } catch (err: any) {
             console.error(err)
             alert(err.message || 'Verification Error')
-            setLoading(false)
+            setPaymentState('idle')
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setPaymentState('idle')
           }
         },
         prefill: { name: data.name, email: data.email, contact: data.mobile },
@@ -136,12 +144,15 @@ export default function RegistrationSection({ masterclassId }: { masterclassId?:
       }
 
       const rzp = new (window as any).Razorpay(options)
+      rzp.on('payment.failed', (resp: any) => {
+        setPaymentState('idle')
+        alert(resp?.error?.description || 'Payment failed. Please try again.')
+      })
       rzp.open()
     } catch (err: any) {
       console.error(err)
       alert(err.message || 'Something went wrong. Please try again.')
-    } finally {
-      setLoading(false)
+      setPaymentState('idle')
     }
   }
 
@@ -334,10 +345,20 @@ export default function RegistrationSection({ masterclassId }: { masterclassId?:
                     whileTap={loading ? {} : { scale: 0.97 }}
                     className="w-full btn-red py-4 rounded-xl text-base font-extrabold tracking-wide mt-2 disabled:opacity-60 disabled:cursor-not-allowed shadow-[0_0_30px_rgba(229,57,53,0.25)]"
                   >
-                    {loading ? (
+                    {paymentState === 'creating_order' ? (
                       <>
                         <Loader2 size={18} className="animate-spin" />
-                        PROCESSING...
+                        CREATING SECURE PAYMENT...
+                      </>
+                    ) : paymentState === 'opening_checkout' ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        OPENING SECURE PAYMENT...
+                      </>
+                    ) : paymentState === 'processing' ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        PROCESSING PAYMENT...
                       </>
                     ) : (
                       <>

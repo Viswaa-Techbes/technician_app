@@ -1,5 +1,6 @@
 import { CheckCircle2, XCircle, Download } from 'lucide-react'
 import Link from 'next/link'
+import { getApiBaseUrl } from '../../../lib/api'
 
 interface Certificate {
   certificateId: string
@@ -10,7 +11,7 @@ interface Certificate {
 }
 
 async function getCertificate(id: string): Promise<Certificate | null> {
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+  const apiBase = getApiBaseUrl()
   try {
     const res = await fetch(`${apiBase}/api/v2/cctv-course/certificates/${id}`, { cache: 'no-store' })
     if (res.ok) {
@@ -23,7 +24,7 @@ async function getCertificate(id: string): Promise<Certificate | null> {
 
 export default async function CertificatePage({ params }: { params: { certificateId: string } }) {
   const cert = await getCertificate(params.certificateId)
-  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+  const apiBase = getApiBaseUrl()
 
   if (!cert) {
     return (
