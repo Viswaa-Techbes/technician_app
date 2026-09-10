@@ -4,9 +4,7 @@ import { useState, useCallback } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-
-const API = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
-const RAZORPAY_KEY = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || ''
+import { getApiBaseUrl, loadRazorpayScript } from '../lib/razorpay'
 
 // ─── Zod Schema ───────────────────────────────────────────────────────────────
 const schema = z.object({
@@ -29,11 +27,15 @@ type FormValues = z.infer<typeof schema>
 
 const QUALIFICATIONS = ['10th', '12th', 'ITI', 'Diploma', 'BE', 'B.Tech', 'BCA', 'MCA', 'B.Sc', 'M.Sc', 'Other']
 
-type ModalState = 'form' | 'processing' | 'success'
+type ModalState = 'form' | 'initializing' | 'processing' | 'success' | 'failed'
 
 interface SuccessData {
-  name: string
+  registrationId: string
   enrollmentId: string
+  name: string
+  courseName: string
+  amountPaid: number | string
+  paymentStatus: string
   certificateId?: string
 }
 
@@ -51,7 +53,7 @@ export default function RegistrationModal({ onClose }: Props) {
   const [modalState, setModalState] = useState<ModalState>('form')
   const [successData, setSuccessData] = useState<SuccessData | null>(null)
   const [serverError, setServerError] = useState('')
-  const [initializingPayment, setInitializingPayment] = useState(false)
+  const [lastRegId, setLastRegId] = useState<string | null>(null)
 
   const {
     register,
@@ -64,19 +66,24 @@ export default function RegistrationModal({ onClose }: Props) {
   })
 
   const openRazorpay = useCallback(
-    async (registrationId: string, order: { id: string; amount: number; currency: string; key_id?: string }) => {
+    async (
+      registrationId: string,
+      order: { id: string; amount: number; currency: string; key_id: string; courseName?: string }
+    ) => {
       return new Promise<void>((resolve, reject) => {
         if (!window.Razorpay) {
           reject(new Error('Payment gateway could not be loaded.'))
           return
         }
 
+        const apiBase = getApiBaseUrl()
+
         const options = {
-          key: order.key_id || RAZORPAY_KEY,
+          key: order.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '',
           amount: order.amount,
-          currency: order.currency,
+          currency: order.currency || 'INR',
           name: 'TECHBES',
-          description: 'CCTV Masterclass Registration',
+          description: order.courseName || 'CCTV Masterclass Registration',
           order_id: order.id,
           prefill: {
             name: getValues('name'),
@@ -87,8 +94,15 @@ export default function RegistrationModal({ onClose }: Props) {
             color: '#F5C218',
           },
           modal: {
-            ondismiss: () => {
-              reject(new Error('Payment cancelled'))
+            ondismiss: async () => {
+              try {
+                await fetch(`${apiBase}/api/v2/cctv-course/cancel-payment`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ registrationId, status: 'CANCELLED' }),
+                }).catch(() => {})
+              } catch (_) {}
+              reject(new Error('Payment cancelled by user.'))
             },
           },
           handler: async (response: {
@@ -98,7 +112,7 @@ export default function RegistrationModal({ onClose }: Props) {
           }) => {
             try {
               setModalState('processing')
-              const verifyRes = await fetch(`${API}/api/v2/cctv-course/razorpay/verify`, {
+              const verifyRes = await fetch(`${apiBase}/api/v2/cctv-course/razorpay/verify`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -108,48 +122,53 @@ export default function RegistrationModal({ onClose }: Props) {
                   registrationId,
                 }),
               }).catch(() => {
-                throw new Error('Unable to connect to payment service.')
+                throw new Error('Unable to connect to payment verification service.')
               })
 
-              if (!verifyRes.ok) {
-                const errData = await verifyRes.json().catch(() => ({}))
-                throw new Error(errData.message || 'Payment verification failed')
-              }
+              const verifyData = await verifyRes.json().catch(() => ({}))
 
-              const verifyData = await verifyRes.json()
-              if (!verifyData.success) {
-                throw new Error(verifyData.message || 'Payment verification failed')
-              }
-
-              // Get enrollment ID from registration
-              const regRes = await fetch(`${API}/api/v2/cctv-course/registrations/${registrationId}`, {
-                method: 'GET',
-              }).catch(() => null)
-
-              let enrollmentId = ''
-              if (regRes && regRes.ok) {
-                const regData = await regRes.json()
-                enrollmentId = regData.data?.enrollmentId || regData.enrollmentId || ''
+              if (!verifyRes.ok || !verifyData.success) {
+                throw new Error(verifyData.message || 'Payment verification failed. Your registration has not been confirmed.')
               }
 
               setSuccessData({
-                name: getValues('name'),
-                enrollmentId,
+                registrationId: verifyData.registrationId || registrationId,
+                enrollmentId: verifyData.enrollmentId || verifyData.registrationId || 'CONFIRMED',
+                name: verifyData.name || getValues('name'),
+                courseName: verifyData.courseName || 'TechBes CCTV Masterclass',
+                amountPaid: verifyData.amount || 499,
+                paymentStatus: 'PAID',
                 certificateId: verifyData.certificateId || undefined,
               })
               setModalState('success')
               resolve()
             } catch (err: any) {
-              setServerError(err.message || 'Payment verification failed')
-              setModalState('form')
+              setServerError(err.message || 'Payment verification failed. Your registration has not been confirmed.')
+              setModalState('failed')
               reject(err)
             }
           },
         }
 
         const rzp = new window.Razorpay(options)
-        rzp.on('payment.failed', (resp: any) => {
-          reject(new Error(resp?.error?.description || 'Payment was not completed. You can try again.'))
+        rzp.on('payment.failed', async (resp: any) => {
+          const errMsg = resp?.error?.description || 'Payment failed. Your registration has not been confirmed.'
+          setServerError(errMsg)
+          setModalState('failed')
+
+          try {
+            await fetch(`${apiBase}/api/v2/cctv-course/cancel-payment`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                registrationId,
+                status: 'FAILED',
+                reason: errMsg,
+              }),
+            }).catch(() => {})
+          } catch (_) {}
+
+          reject(new Error(errMsg))
         })
         rzp.open()
       })
@@ -159,15 +178,18 @@ export default function RegistrationModal({ onClose }: Props) {
 
   const handlePayment = async (data: FormValues) => {
     setServerError('')
-    setInitializingPayment(true)
+    setModalState('initializing')
+    const apiBase = getApiBaseUrl()
+
     try {
-      // Step 0: Make sure window.Razorpay exists before trying to open it
-      if (!window.Razorpay) {
-        throw new Error('Payment gateway is currently unavailable. Please try again.')
+      // Step 0: Ensure Razorpay SDK is loaded
+      const scriptReady = await loadRazorpayScript()
+      if (!scriptReady || !window.Razorpay) {
+        throw new Error('Unable to load payment gateway. Please check your internet connection and try again.')
       }
 
       // Step 1: Create registration (PENDING)
-      const regRes = await fetch(`${API}/api/v2/cctv-course/registrations`, {
+      const regRes = await fetch(`${apiBase}/api/v2/cctv-course/registrations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -179,44 +201,38 @@ export default function RegistrationModal({ onClose }: Props) {
           whatsapp: data.whatsapp || undefined,
         }),
       }).catch(() => {
-        throw new Error('Unable to connect to payment service.')
+        throw new Error('Unable to connect to course registration service.')
       })
 
-      if (!regRes.ok) {
-        const errData = await regRes.json().catch(() => ({}))
-        throw new Error(errData.message || 'Registration failed. Please try again.')
-      }
+      const regData = await regRes.json().catch(() => ({}))
 
-      const regData = await regRes.json()
-      if (!regData.success) {
+      if (!regRes.ok || !regData.success) {
         throw new Error(regData.message || 'Registration failed. Please try again.')
       }
+
       const registrationId = regData.registrationId
+      setLastRegId(registrationId)
 
       // Step 2: Create Razorpay order (paise ₹49900)
-      const orderRes = await fetch(`${API}/api/v2/cctv-course/razorpay/create-order`, {
+      const orderRes = await fetch(`${apiBase}/api/v2/cctv-course/razorpay/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ registrationId }),
       }).catch(() => {
-        throw new Error('Unable to connect to payment service.')
+        throw new Error('Unable to connect to order creation service.')
       })
 
-      if (!orderRes.ok) {
-        const errData = await orderRes.json().catch(() => ({}))
-        throw new Error(errData.message || 'Unable to initialize payment. Please try again.')
-      }
+      const orderData = await orderRes.json().catch(() => ({}))
 
-      const orderData = await orderRes.json()
-      if (!orderData.success) {
-        throw new Error(orderData.message || 'Unable to initialize payment. Please try again.')
+      if (!orderRes.ok || !orderData.success) {
+        throw new Error(orderData.message || 'Unable to initialize payment order. Please try again.')
       }
 
       const orderId = orderData.order_id || orderData.order?.id
-      const keyId = orderData.key_id || orderData.order?.key_id
+      const keyId = orderData.key_id || orderData.order?.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || ''
 
       if (!orderId) {
-        throw new Error('Unable to initialize payment. Please try again.')
+        throw new Error('Unable to initialize payment order. Please try again.')
       }
 
       // Step 3: Open Razorpay checkout
@@ -224,21 +240,24 @@ export default function RegistrationModal({ onClose }: Props) {
         id: orderId,
         amount: orderData.amount || orderData.order?.amount || 49900,
         currency: orderData.currency || orderData.order?.currency || 'INR',
-        key_id: keyId || RAZORPAY_KEY,
+        key_id: keyId,
+        courseName: orderData.courseName,
       })
 
     } catch (err: any) {
-      if (err.message !== 'Payment cancelled') {
-        setServerError(err.message || 'Payment was not completed. You can try again.')
+      if (err.message && err.message.includes('cancelled')) {
+        setServerError('Payment was cancelled. You can retry when you are ready.')
+        setModalState('form')
+      } else {
+        setServerError(err.message || 'Payment failed. Your registration has not been confirmed.')
+        setModalState('failed')
       }
-    } finally {
-      setInitializingPayment(false)
     }
   }
 
   // ── Prevent backdrop close while processing ──
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget && modalState !== 'processing') {
+    if (e.target === e.currentTarget && modalState !== 'processing' && modalState !== 'initializing') {
       onClose()
     }
   }
@@ -258,29 +277,94 @@ export default function RegistrationModal({ onClose }: Props) {
         }}
       >
         {/* ── Processing overlay ── */}
-        {modalState === 'processing' && (
+        {(modalState === 'processing' || modalState === 'initializing') && (
           <div style={{
             position: 'absolute', inset: 0, borderRadius: 20,
-            background: 'rgba(255,255,255,0.92)',
+            background: 'rgba(255,255,255,0.94)',
             backdropFilter: 'blur(6px)',
             display: 'flex', flexDirection: 'column',
             alignItems: 'center', justifyContent: 'center',
             zIndex: 10, gap: 14,
           }}>
             <div style={{
-              width: 44, height: 44,
-              border: '3px solid rgba(245,194,24,0.2)',
-              borderTop: '3px solid #F5C218',
+              width: 46, height: 46,
+              border: '3.5px solid rgba(245,194,24,0.2)',
+              borderTop: '3.5px solid #F5C218',
               borderRadius: '50%',
               animation: 'spin 0.8s linear infinite',
             }} />
-            <p style={{ fontSize: 15, fontWeight: 600, color: '#475569' }}>Verifying payment…</p>
+            <p style={{ fontSize: 15, fontWeight: 700, color: '#0A0F1E', margin: 0 }}>
+              {modalState === 'processing' ? 'Processing payment...' : 'Initializing payment...'}
+            </p>
+            <p style={{ fontSize: 12.5, color: '#64748B', margin: 0 }}>Please do not refresh or close this window.</p>
           </div>
         )}
 
         {/* ── Success state ── */}
         {modalState === 'success' && successData ? (
           <SuccessView data={successData} onDone={onClose} />
+        ) : modalState === 'failed' ? (
+          /* ── Failure state ── */
+          <div style={{ padding: '36px 28px 32px', textAlign: 'center' }}>
+            <div style={{
+              width: 68, height: 68,
+              borderRadius: '50%',
+              background: 'rgba(220,38,38,0.1)',
+              border: '2px solid rgba(220,38,38,0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 18px',
+              fontSize: 30,
+              color: '#DC2626',
+            }}>
+              ✕
+            </div>
+
+            <h2 style={{ fontSize: '1.35rem', fontWeight: 900, color: '#0A0F1E', margin: '0 0 8px', letterSpacing: '-0.02em' }}>
+              PAYMENT NOT COMPLETED
+            </h2>
+            <p style={{ fontSize: 13.5, color: '#DC2626', fontWeight: 600, marginBottom: 20 }}>
+              Payment failed. Your registration has not been confirmed.
+            </p>
+            {serverError && (
+              <div style={{
+                background: '#FEF2F2',
+                border: '1px solid #FCA5A5',
+                borderRadius: 10,
+                padding: '12px 16px',
+                fontSize: 12.5,
+                color: '#991B1B',
+                marginBottom: 24,
+                textAlign: 'left',
+              }}>
+                {serverError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setServerError('')
+                  setModalState('form')
+                }}
+                className="btn-gold"
+                style={{ flex: 1, padding: '14px', fontSize: '0.95rem', borderRadius: 10, fontWeight: 800, cursor: 'pointer' }}
+              >
+                ↻ RETRY PAYMENT
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  flex: 1, padding: '14px', fontSize: '0.95rem', borderRadius: 10,
+                  fontWeight: 700, border: '1.5px solid #E2E8F0', background: '#F8FAFC',
+                  color: '#475569', cursor: 'pointer',
+                }}
+              >
+                CANCEL
+              </button>
+            </div>
+          </div>
         ) : (
           <>
             {/* Modal header */}
@@ -328,8 +412,6 @@ export default function RegistrationModal({ onClose }: Props) {
                   transition: 'all 0.15s',
                   flexShrink: 0,
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.borderColor = '#CBD5E1' }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#E2E8F0' }}
               >
                 ×
               </button>
@@ -383,11 +465,11 @@ export default function RegistrationModal({ onClose }: Props) {
                 </Field>
 
                 {/* Location */}
-                <Field label="Location / Area" required error={errors.location?.message}>
+                <Field label="City / Location" required error={errors.location?.message}>
                   <input
                     id="field-location"
                     className={`input-light ${errors.location ? 'input-error' : ''}`}
-                    placeholder="e.g. Bangalore, BTM Layout"
+                    placeholder="e.g. Bangalore"
                     {...register('location')}
                   />
                 </Field>
@@ -396,7 +478,7 @@ export default function RegistrationModal({ onClose }: Props) {
                 <Field label="Qualification" required error={errors.qualification?.message}>
                   <select
                     id="field-qualification"
-                    className={`input-light select-light ${errors.qualification ? 'input-error' : ''}`}
+                    className={`input-light ${errors.qualification ? 'input-error' : ''}`}
                     {...register('qualification')}
                   >
                     <option value="">Select qualification</option>
@@ -477,7 +559,7 @@ export default function RegistrationModal({ onClose }: Props) {
               <button
                 id="modal-submit-btn"
                 type="submit"
-                disabled={initializingPayment || modalState === 'processing'}
+                disabled={modalState === 'initializing' || modalState === 'processing'}
                 className="btn-red"
                 style={{
                   width: '100%',
@@ -486,34 +568,15 @@ export default function RegistrationModal({ onClose }: Props) {
                   borderRadius: 12,
                   fontWeight: 900,
                   letterSpacing: '0.04em',
-                  opacity: (initializingPayment || modalState === 'processing') ? 0.7 : 1,
-                  cursor: (initializingPayment || modalState === 'processing') ? 'not-allowed' : 'pointer',
+                  opacity: (modalState === 'initializing' || modalState === 'processing') ? 0.7 : 1,
+                  cursor: (modalState === 'initializing' || modalState === 'processing') ? 'not-allowed' : 'pointer',
                 }}
               >
-                {initializingPayment ? (
-                  <>
-                    <span style={{
-                      display: 'inline-block', width: 16, height: 16,
-                      border: '2px solid rgba(255,255,255,0.3)',
-                      borderTop: '2px solid white',
-                      borderRadius: '50%',
-                      animation: 'spin 0.8s linear infinite',
-                      marginRight: 8,
-                    }} />
-                    INITIALIZING PAYMENT...
-                  </>
-                ) : (
-                  <>
-                    PROCEED TO PAYMENT — ₹499
-                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5-5 5M6 12h12" />
-                    </svg>
-                  </>
-                )}
+                PROCEED TO PAYMENT — ₹499
               </button>
 
               <p style={{ fontSize: 11, color: '#94A3B8', textAlign: 'center', marginTop: 12 }}>
-                🔒 100% secure payment powered by Razorpay
+                🔒 100% secure payment verified via Razorpay
               </p>
             </form>
           </>
@@ -562,6 +625,8 @@ function Field({
 
 // ── Success View ───────────────────────────────────────────────────────────────
 function SuccessView({ data, onDone }: { data: SuccessData; onDone: () => void }) {
+  const [viewingDetails, setViewingDetails] = useState(false)
+
   return (
     <div style={{ padding: '36px 28px 32px', textAlign: 'center' }}>
       {/* Icon */}
@@ -581,8 +646,8 @@ function SuccessView({ data, onDone }: { data: SuccessData; onDone: () => void }
       <h2 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#0A0F1E', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
         REGISTRATION SUCCESSFUL
       </h2>
-      <p style={{ fontSize: 13.5, color: '#64748B', marginBottom: 28 }}>
-        You're successfully registered for the TECHBES CCTV Masterclass.
+      <p style={{ fontSize: 13.5, color: '#64748B', marginBottom: 24 }}>
+        You're successfully registered for {data.courseName}.
       </p>
 
       {/* Details card */}
@@ -592,30 +657,32 @@ function SuccessView({ data, onDone }: { data: SuccessData; onDone: () => void }
         borderRadius: 14,
         padding: '20px 22px',
         textAlign: 'left',
-        marginBottom: 24,
+        marginBottom: 20,
       }}>
         {[
-          { label: 'Name', value: data.name },
-          { label: 'Enrollment ID', value: data.enrollmentId || 'Generating…' },
-          { label: 'Amount Paid', value: '₹499' },
+          { label: 'Student Name', value: data.name },
+          { label: 'Course Name', value: data.courseName },
+          { label: 'Registration ID', value: data.registrationId || data.enrollmentId, mono: true },
+          { label: 'Enrollment ID', value: data.enrollmentId, mono: true },
+          { label: 'Amount Paid', value: `₹${data.amountPaid}` },
           { label: 'Payment Status', value: 'PAID ✓', highlight: true },
-        ].map(({ label, value, highlight }) => (
+        ].map(({ label, value, highlight, mono }) => (
           <div key={label} style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '10px 0',
+            padding: '9px 0',
             borderBottom: label !== 'Payment Status' ? '1px solid #F1F5F9' : 'none',
           }}>
             <span style={{ fontSize: 12.5, color: '#64748B', fontWeight: 600 }}>{label}</span>
             <span style={{
               fontSize: 13, fontWeight: 800,
               color: highlight ? '#16A34A' : '#0A0F1E',
-              fontFamily: label === 'Enrollment ID' ? 'monospace' : 'inherit',
+              fontFamily: mono ? 'monospace' : 'inherit',
             }}>{value}</span>
           </div>
         ))}
       </div>
 
-      {/* Gold info box */}
+      {/* Info notice */}
       <div style={{
         background: 'rgba(245,194,24,0.06)',
         border: '1px solid rgba(245,194,24,0.2)',
@@ -623,18 +690,44 @@ function SuccessView({ data, onDone }: { data: SuccessData; onDone: () => void }
         fontSize: 12.5, color: '#64748B', textAlign: 'left',
         marginBottom: 24, lineHeight: 1.6,
       }}>
-        📧 A confirmation email with session details has been sent to your inbox.<br />
-        📱 You'll be added to the TECHBES CCTV Masterclass WhatsApp group.
+        📧 A confirmation email with masterclass details has been sent to your inbox.<br />
+        🎥 The online Zoom class link will be shared prior to the session.
       </div>
 
-      <button
-        id="success-done-btn"
-        onClick={onDone}
-        className="btn-gold"
-        style={{ width: '100%', padding: '15px', fontSize: '1rem', borderRadius: 12, fontWeight: 900 }}
-      >
-        DONE
-      </button>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <button
+          id="success-done-btn"
+          onClick={onDone}
+          className="btn-gold"
+          style={{ flex: 1, padding: '14px', fontSize: '0.95rem', borderRadius: 10, fontWeight: 900, cursor: 'pointer' }}
+        >
+          Back to Course
+        </button>
+        {data.certificateId ? (
+          <a
+            href={`/certificate/${data.certificateId}`}
+            style={{
+              flex: 1, padding: '14px', fontSize: '0.95rem', borderRadius: 10,
+              fontWeight: 700, border: '1.5px solid #E2E8F0', background: '#F8FAFC',
+              color: '#0A0F1E', textDecoration: 'none', display: 'flex', alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            View Certificate
+          </a>
+        ) : (
+          <button
+            onClick={() => alert(`Registration confirmed. ID: ${data.enrollmentId}`)}
+            style={{
+              flex: 1, padding: '14px', fontSize: '0.95rem', borderRadius: 10,
+              fontWeight: 700, border: '1.5px solid #E2E8F0', background: '#F8FAFC',
+              color: '#0A0F1E', cursor: 'pointer',
+            }}
+          >
+            View Registration
+          </button>
+        )}
+      </div>
     </div>
   )
 }

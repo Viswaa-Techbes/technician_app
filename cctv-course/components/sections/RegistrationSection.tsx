@@ -6,6 +6,7 @@ import * as z from 'zod'
 import { motion } from 'framer-motion'
 import { CheckCircle2, ArrowRight, Loader2, User, Phone, Mail, MapPin, GraduationCap, MessageCircle } from 'lucide-react'
 import ScrollReveal from '../ui/ScrollReveal'
+import { getApiBaseUrl, loadRazorpayScript } from '../../lib/razorpay'
 
 const schema = z.object({
   name:          z.string().min(2, 'Name must be at least 2 characters'),
@@ -68,9 +69,11 @@ export default function RegistrationSection({ masterclassId }: { masterclassId?:
   async function onSubmit(data: FormData) {
     if (loading) return
     setLoading(true)
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || ''
+    const apiBase = getApiBaseUrl()
 
     try {
+      await loadRazorpayScript()
+
       // 1. Create registration
       const regRes = await fetch(`${apiBase}/api/v2/cctv-course/registrations`, {
         method:  'POST',
@@ -89,7 +92,7 @@ export default function RegistrationSection({ masterclassId }: { masterclassId?:
       })
       const orderJson = await orderRes.json()
       if (!orderRes.ok) throw new Error(orderJson.message || 'Order creation failed')
-      const order = orderJson.order
+      const order = orderJson.order || orderJson
 
       // 3. Open Razorpay
       if (typeof (window as any).Razorpay === 'undefined') {
@@ -97,7 +100,7 @@ export default function RegistrationSection({ masterclassId }: { masterclassId?:
       }
 
       const options = {
-        key:         process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '',
+        key:         orderJson.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '',
         amount:      order.amount,
         currency:    order.currency,
         name:        'TECHBES',

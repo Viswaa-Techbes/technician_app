@@ -4,6 +4,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 
+import { getApiBaseUrl, loadRazorpayScript } from '../lib/razorpay'
+
 const schema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
@@ -22,9 +24,11 @@ export default function RegistrationForm({ masterclassId }: { masterclassId?: st
 
   async function onSubmit(data: FormData) {
     setLoading(true)
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || ''
+    const apiBase = getApiBaseUrl()
 
     try {
+      await loadRazorpayScript()
+
       // 1. Save Registration on Common Backend
       const regRes = await fetch(`${apiBase}/api/v2/cctv-course/registrations`, {
         method: 'POST',
@@ -45,7 +49,7 @@ export default function RegistrationForm({ masterclassId }: { masterclassId?: st
       const orderJson = await orderRes.json()
       if (!orderRes.ok) throw new Error(orderJson.message || 'Order creation failed')
 
-      const order = orderJson.order
+      const order = orderJson.order || orderJson
 
       // 3. Open Razorpay Checkout Dialog on Frontend
       if (typeof (window as any).Razorpay === 'undefined') {
@@ -53,7 +57,7 @@ export default function RegistrationForm({ masterclassId }: { masterclassId?: st
       }
 
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '',
+        key: orderJson.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '',
         amount: order.amount,
         currency: order.currency,
         name: 'TECHBES',
