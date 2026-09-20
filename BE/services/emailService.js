@@ -1,9 +1,70 @@
 const nodemailer = require('nodemailer');
 const dns = require('dns');
+const net = require('net');
 
 // Force IPv4 DNS resolution across all email transporter operations
 if (typeof dns.setDefaultResultOrder === 'function') {
   dns.setDefaultResultOrder('ipv4first');
+}
+
+// Suppress IPv6 inside Nodemailer's internal shared resolver
+// (Prevents ENETUNREACH on Linux VPS servers without external IPv6 routes)
+try {
+  const nodemailerShared = require('nodemailer/lib/shared');
+  if (nodemailerShared) {
+    // 1. Strip IPv6 interfaces so isFamilySupported(6) returns false
+    if (nodemailerShared.networkInterfaces) {
+      const v4Only = {};
+      for (const [key, addrs] of Object.entries(nodemailerShared.networkInterfaces)) {
+        v4Only[key] = (addrs || []).filter(a => a.family === 'IPv4' || a.family === 4);
+      }
+      nodemailerShared.networkInterfaces = v4Only;
+    }
+
+    // 2. Intercept resolveHostname to strictly filter out any IPv6 addresses returned
+    const origResolveHostname = nodemailerShared.resolveHostname;
+    if (typeof origResolveHostname === 'function') {
+      nodemailerShared.resolveHostname = function (options, callback) {
+        origResolveHostname(options, (err, resolved) => {
+          if (err || !resolved) return callback(err, resolved);
+          if (Array.isArray(resolved._addresses)) {
+            resolved._addresses = resolved._addresses.filter(a => typeof a === 'string' && !a.includes(':'));
+          }
+          if (resolved.host && typeof resolved.host === 'string' && resolved.host.includes(':')) {
+            resolved.host = resolved._addresses && resolved._addresses.length > 0
+              ? resolved._addresses[0]
+              : options.host;
+          }
+          callback(null, resolved);
+        });
+      };
+    }
+  }
+} catch (e) {
+  console.warn('[SMTP] Could not patch nodemailer/lib/shared for IPv4 enforcement:', e.message);
+}
+
+// In-memory IPv4 DNS cache to bypass Nodemailer's internal DNS picker
+let cachedIpv4Host = null;
+let lastIpv4Resolve = 0;
+
+async function resolveIpv4Host(hostname) {
+  if (!hostname || net.isIP(hostname)) return hostname;
+  const now = Date.now();
+  if (cachedIpv4Host && (now - lastIpv4Resolve < 300000)) {
+    return cachedIpv4Host;
+  }
+  try {
+    const { address } = await dns.promises.lookup(hostname, { family: 4 });
+    if (address && !address.includes(':')) {
+      cachedIpv4Host = address;
+      lastIpv4Resolve = now;
+      return address;
+    }
+  } catch (err) {
+    console.warn(`[SMTP DNS] Pre-resolving IPv4 for ${hostname} failed: ${err.message}`);
+  }
+  return hostname;
 }
 
 function formatFromAddress(from) {
@@ -20,15 +81,15 @@ function formatFromAddress(from) {
   return from;
 }
 
-function getTransporter(customPort, customSecure) {
-  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-  const isGmail = host.includes('gmail');
-  const defaultPort = isGmail ? 465 : 587;
+function getTransporter(customPort, customSecure, customHost) {
+  const baseHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const host = customHost || baseHost;
+  const defaultPort = 587;
   const port = Number(customPort !== undefined ? customPort : (process.env.SMTP_PORT || defaultPort));
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
 
-  if (!host || !user || !pass) {
+  if (!baseHost || !user || !pass) {
     throw new Error('SMTP is not configured');
   }
 
@@ -42,9 +103,13 @@ function getTransporter(customPort, customSecure) {
     secure,
     auth: { user, pass },
     family: 4,               // Force IPv4 only to prevent Linux VPS ENETUNREACH on unreachable IPv6 routes
-    connectionTimeout: 8000, // 8 seconds timeout for TCP connection
-    greetingTimeout: 8000,   // 8 seconds timeout for SMTP greeting
-    socketTimeout: 10000,    // 10 seconds timeout for socket inactivity
+    requireTLS: !secure,     // require STARTTLS on port 587
+    connectionTimeout: 20000, // 20 seconds timeout for TCP connection
+    greetingTimeout: 20000,   // 20 seconds timeout for SMTP greeting
+    socketTimeout: 30000,    // 30 seconds timeout for socket inactivity
+    tls: {
+      servername: baseHost,  // Always verify against canonical hostname e.g. smtp.gmail.com for TLS
+    },
   });
 }
 
@@ -99,25 +164,32 @@ async function sendMailWithTimeout(transporter, mailOptions, timeoutMs = 8000) {
  * Sends an email with automatic dual-port fallback between port 465 (SSL) and port 587 (STARTTLS).
  * Ensures resilient delivery on cloud VPS instances where port 587 can experience socket negotiation latency.
  */
-async function sendMailWithResilience(mailOptions, timeoutMs = 8000) {
-  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-  const isGmail = host.includes('gmail');
+async function sendMailWithResilience(mailOptions, timeoutMs = 20000) {
+  const baseHost = process.env.SMTP_HOST || 'smtp.gmail.com';
   
-  // Prefer port 465 (SSL direct) for Gmail on cloud servers unless specifically configured otherwise
+  // Primary port 587 (STARTTLS) or explicit SMTP_PORT, with fallback to 465 (SSL)
   const envPort = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined;
-  const primaryPort = envPort !== undefined ? envPort : (isGmail ? 465 : 587);
+  const primaryPort = envPort !== undefined ? envPort : 587;
   const primarySecure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true' || primaryPort === 465;
 
   const fallbackPort = primaryPort === 465 ? 587 : 465;
   const fallbackSecure = fallbackPort === 465;
 
+  console.log(`[SMTP] Resolving host ${baseHost}...`);
+  const resolvedHost = await resolveIpv4Host(baseHost);
+  console.log(`[SMTP] Resolved IPv4: ${resolvedHost}`);
+
   try {
-    const primaryTransporter = getTransporter(primaryPort, primarySecure);
-    return await sendMailWithTimeout(primaryTransporter, mailOptions, timeoutMs);
+    console.log(`[SMTP] Connecting to port ${primaryPort} (secure: ${primarySecure})...`);
+    const primaryTransporter = getTransporter(primaryPort, primarySecure, resolvedHost);
+    const result = await sendMailWithTimeout(primaryTransporter, mailOptions, timeoutMs);
+    console.log(`[SMTP] Primary SMTP delivery on port ${primaryPort} succeeded.`);
+    return result;
   } catch (primaryErr) {
-    console.warn(`[SMTP] Primary attempt on port ${primaryPort} failed (${primaryErr.message}). Attempting fallback on port ${fallbackPort}...`);
+    console.warn(`[SMTP] Primary attempt on port ${primaryPort} failed (${primaryErr.message}). Trying fallback port ${fallbackPort}...`);
     try {
-      const fallbackTransporter = getTransporter(fallbackPort, fallbackSecure);
+      console.log(`[SMTP] Connecting to fallback port ${fallbackPort} (secure: ${fallbackSecure})...`);
+      const fallbackTransporter = getTransporter(fallbackPort, fallbackSecure, resolvedHost);
       const result = await sendMailWithTimeout(fallbackTransporter, mailOptions, timeoutMs);
       console.log(`[SMTP] Fallback delivery on port ${fallbackPort} succeeded.`);
       return result;
@@ -140,39 +212,39 @@ async function sendOtpEmail(email, otp) {
     html: otpTemplate(otp),
   };
 
-  return await sendMailWithResilience(mailOptions, 6000);
+  return await sendMailWithResilience(mailOptions, 10000);
 }
 
 async function verifySmtpConfig() {
-  const host = process.env.SMTP_HOST;
-  const isGmail = (host || '').includes('gmail');
-  const port = Number(process.env.SMTP_PORT || (isGmail ? 465 : 587));
+  const baseHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const port = Number(process.env.SMTP_PORT || 587);
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
 
   const isPlaceholder = !user || !pass || 
-    user.includes('your-email@gmail.com') || 
-    user.includes('your_email@gmail.com') || 
-    pass.includes('your-app-password') || 
-    pass.includes('your_app_password');
+    user.includes('your-email') || 
+    user.includes('your_email') || 
+    pass.includes('your-app-password');
 
-  if (!host || !user || !pass || isPlaceholder) {
+  if (!baseHost || !user || !pass || isPlaceholder) {
     console.warn('⚠️ WARNING: SMTP email environment variables are missing, incomplete, or contain placeholder values. Email service will be unavailable.');
     return false;
   }
 
+  const resolvedHost = await resolveIpv4Host(baseHost);
+
   try {
-    const transporter = getTransporter(port);
+    const transporter = getTransporter(port, undefined, resolvedHost);
     await transporter.verify();
-    console.log(`✅ SMTP email transporter configured and verified successfully on port ${port}.`);
+    console.log(`✅ SMTP email transporter configured and verified successfully on port ${port} (IPv4: ${resolvedHost}).`);
     return true;
   } catch (error) {
     console.warn(`⚠️ WARNING: SMTP verification failed on port ${port}: ${error.message}. Testing alternate port...`);
     const altPort = port === 465 ? 587 : 465;
     try {
-      const altTransporter = getTransporter(altPort);
+      const altTransporter = getTransporter(altPort, undefined, resolvedHost);
       await altTransporter.verify();
-      console.log(`✅ Alternate SMTP port ${altPort} verified successfully.`);
+      console.log(`✅ Alternate SMTP port ${altPort} verified successfully (IPv4: ${resolvedHost}).`);
       return true;
     } catch (altErr) {
       console.warn(`⚠️ WARNING: Alternate SMTP port ${altPort} also failed: ${altErr.message}. The server will remain active but email delivery might fail.`);
@@ -331,7 +403,7 @@ https://techbes.co.in
     subject,
     text: plainText,
     html,
-  }, 10000);
+  }, 20000);
 }
 
 module.exports = {
