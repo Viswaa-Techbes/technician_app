@@ -45,41 +45,49 @@ export default function AdmissionPage() {
       const DISCOUNT_PERCENT = Number(process.env.NEXT_PUBLIC_ONLINE_DISCOUNT) || 10
       const discountedAmount = Math.round(selectedPlanDetails.price * (1 - DISCOUNT_PERCENT / 100))
 
-      // 1. Create Order with discounted amount
+      // 1. Create verified Order server-side by sending plan identifier
       const res = await fetch('/api/razorpay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: discountedAmount })
+        body: JSON.stringify({ plan: formData.plan }),
       })
       const orderData = await res.json()
 
-      if (!orderData.success) throw new Error('Order creation failed')
+      if (!orderData.success || !orderData.orderId) {
+        throw new Error(orderData.message || 'Order creation failed')
+      }
 
-      // 2. Initialize Razorpay
+      const razorpayKey = orderData.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
+      if (!razorpayKey) {
+        throw new Error('Payment gateway configuration is missing. Please contact support.')
+      }
+
+      // 2. Initialize Razorpay strictly with server-verified order_id
       const options: any = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_live_SSi3PthRn4IDft', // Using key found in backend env
+        key: razorpayKey,
         amount: orderData.order.amount,
         currency: orderData.order.currency,
         name: 'TECHBES',
         description: `Enrollment for ${selectedPlanDetails.name}`,
         image: '/logo.png',
+        order_id: orderData.orderId,
         handler: async function (response: any) {
           // Payment Successful
           setIsProcessing(true)
           
-            try {
+          try {
             // Save enrollment to API
             const enrollRes = await fetch('/api/enroll', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 ...formData,
-                amountPaid: discountedAmount,
+                amountPaid: Math.round(orderData.order.amount / 100),
                 razorpayPaymentId: response.razorpay_payment_id,
                 razorpayOrderId: response.razorpay_order_id,
                 razorpaySignature: response.razorpay_signature,
                 paymentMethod: 'online',
-              })
+              }),
             })
             const enrollData = await enrollRes.json()
             
@@ -103,12 +111,8 @@ export default function AdmissionPage() {
         modal: {
           ondismiss: function() {
             setIsProcessing(false)
-          }
-        }
-      }
-
-      if (orderData.order && orderData.order.id) {
-        options.order_id = orderData.order.id
+          },
+        },
       }
 
       const rzp = new (window as any).Razorpay(options)

@@ -1,5 +1,5 @@
-const key_id = 'rzp_live_SSi3PthRn4IDft';
-const key_secret = 'SYeuAE0Liu6jNSvwaOVxTISm';
+const key_id = process.env.RAZORPAY_KEY_ID || '';
+const key_secret = process.env.RAZORPAY_KEY_SECRET || '';
 
 const auth = Buffer.from(`${key_id}:${key_secret}`).toString('base64');
 
