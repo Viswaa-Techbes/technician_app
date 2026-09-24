@@ -76,6 +76,11 @@ export default function RegistrationModal({ onClose }: Props) {
           return
         }
 
+        if (!order.id) {
+          reject(new Error('Payment order ID is missing. Cannot initialize secure checkout.'))
+          return
+        }
+
         const apiBase = getApiBaseUrl()
 
         const options = {

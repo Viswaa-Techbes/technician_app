@@ -54,17 +54,23 @@ export default function RegistrationForm({ masterclassId }: { masterclassId?: st
       if (!orderRes.ok) throw new Error(orderJson.message || 'Order creation failed')
 
       const order = orderJson.order || orderJson
+      const orderId = orderJson.order_id || order?.id
+      const keyId = orderJson.key_id || order?.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || ''
+
+      if (!orderId) {
+        throw new Error('Payment initialization failed: Valid Razorpay order ID is missing.')
+      }
 
       // 3. Open Razorpay Checkout Dialog on Frontend
       setPaymentState('opening_checkout')
 
       const options = {
-        key: orderJson.key_id || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '',
-        amount: order.amount,
-        currency: order.currency,
+        key: keyId,
+        amount: orderJson.amount || order?.amount || 49900,
+        currency: orderJson.currency || order?.currency || 'INR',
         name: 'TECHBES',
         description: 'CCTV Course Enrollment Fee',
-        order_id: order.id,
+        order_id: orderId,
         handler: async function (response: any) {
           setPaymentState('processing')
           try {
@@ -93,8 +99,15 @@ export default function RegistrationForm({ masterclassId }: { masterclassId?: st
           }
         },
         modal: {
-          ondismiss: function () {
+          ondismiss: async function () {
             setPaymentState('idle')
+            try {
+              await fetch(`${apiBase}/api/v2/cctv-course/cancel-payment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ registrationId, status: 'CANCELLED' }),
+              }).catch(() => {})
+            } catch (_) {}
           }
         },
         prefill: {
@@ -111,8 +124,15 @@ export default function RegistrationForm({ masterclassId }: { masterclassId?: st
       }
 
       const rzp = new (window as any).Razorpay(options)
-      rzp.on('payment.failed', function (resp: any) {
+      rzp.on('payment.failed', async function (resp: any) {
         setPaymentState('idle')
+        try {
+          await fetch(`${apiBase}/api/v2/cctv-course/cancel-payment`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ registrationId, status: 'FAILED' }),
+          }).catch(() => {})
+        } catch (_) {}
         alert(resp?.error?.description || 'Payment failed. Please try again.')
       })
       rzp.open()
