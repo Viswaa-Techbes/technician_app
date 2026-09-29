@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { getApiBaseUrl, loadRazorpayScript } from '../lib/razorpay'
-import { trackInitiateCheckout, trackPurchase } from '../lib/fpixel'
+import { trackInitiateCheckout, trackPurchase, trackLead } from '../lib/fpixel'
 
 // ─── Zod Schema ───────────────────────────────────────────────────────────────
 const schema = z.object({
@@ -139,6 +139,11 @@ export default function RegistrationModal({ onClose }: Props) {
 
               const resolvedRegId = verifyData.registrationId || registrationId
               const txId = response.razorpay_payment_id || response.razorpay_order_id || resolvedRegId
+              trackLead(resolvedRegId, {
+                value: 499,
+                currency: 'INR',
+                content_name: verifyData.courseName || 'CCTV Masterclass — Live Practical Training',
+              })
               trackPurchase(txId, {
                 value: 499,
                 currency: 'INR',

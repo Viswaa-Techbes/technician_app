@@ -7,7 +7,7 @@ import { motion } from 'framer-motion'
 import { CheckCircle2, ArrowRight, Loader2, User, Phone, Mail, MapPin, GraduationCap, MessageCircle } from 'lucide-react'
 import ScrollReveal from '../ui/ScrollReveal'
 import { getApiBaseUrl, loadRazorpayScript } from '../../lib/razorpay'
-import { trackInitiateCheckout, trackPurchase } from '../../lib/fpixel'
+import { trackInitiateCheckout, trackPurchase, trackLead } from '../../lib/fpixel'
 
 const schema = z.object({
   name:          z.string().min(2, 'Name must be at least 2 characters'),
@@ -135,6 +135,11 @@ export default function RegistrationSection({ masterclassId }: { masterclassId?:
               throw new Error(verifyJson.message || 'Payment verification failed')
             }
             const txId = response.razorpay_payment_id || response.razorpay_order_id || registrationId
+            trackLead(registrationId, {
+              value: 499,
+              currency: 'INR',
+              content_name: 'CCTV Masterclass — Live Practical Training',
+            })
             trackPurchase(txId, {
               value: 499,
               currency: 'INR',

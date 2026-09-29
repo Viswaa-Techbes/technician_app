@@ -2,7 +2,7 @@
 import { Suspense, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { trackPurchase } from '../../lib/fpixel'
+import { trackPurchase, trackLead } from '../../lib/fpixel'
 
 function SuccessContent() {
   const searchParams = useSearchParams()
@@ -12,6 +12,11 @@ function SuccessContent() {
 
   useEffect(() => {
     if (id) {
+      trackLead(id, {
+        value: 499,
+        currency: 'INR',
+        content_name: 'CCTV Masterclass — Live Practical Training',
+      })
       trackPurchase(id, {
         value: 499,
         currency: 'INR',

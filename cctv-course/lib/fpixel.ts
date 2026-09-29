@@ -41,7 +41,11 @@ export const event = (name: string, options: Record<string, any> = {}) => {
 
   try {
     if (typeof window.fbq === 'function') {
-      window.fbq('track', name, options)
+      if (options && Object.keys(options).length > 0) {
+        window.fbq('track', name, options)
+      } else {
+        window.fbq('track', name)
+      }
     } else {
       window._fbqQueue = window._fbqQueue || []
       window._fbqQueue.push(['track', name, options])
@@ -141,3 +145,62 @@ export const trackPurchase = (
 
   return true
 }
+
+const LEAD_STORAGE_KEY = 'tb_meta_pixel_leads'
+const trackedLeadIds = new Set<string>()
+
+/**
+ * Track Meta Pixel standard Lead event exactly once per registration/lead identifier.
+ * Deduplicates using localStorage and an in-memory set so page refreshes, back navigation,
+ * or repeated component renders will NEVER fire duplicate Lead events.
+ */
+export const trackLead = (
+  leadId: string,
+  options: {
+    content_name?: string
+    content_category?: string
+    value?: number
+    currency?: string
+    [key: string]: any
+  } = {}
+): boolean => {
+  if (!leadId) {
+    console.warn('[Meta Pixel] trackLead skipped: Missing registration/lead identifier.')
+    return false
+  }
+
+  // Session / in-memory deduplication (guards against React StrictMode & immediate re-renders)
+  if (trackedLeadIds.has(leadId)) {
+    console.debug(`[Meta Pixel] Lead for identifier "${leadId}" already tracked in current session. Skipping duplicate.`)
+    return false
+  }
+
+  if (isBrowser()) {
+    try {
+      const stored = localStorage.getItem(LEAD_STORAGE_KEY)
+      const recorded: string[] = stored ? JSON.parse(stored) : []
+      if (recorded.includes(leadId)) {
+        console.debug(`[Meta Pixel] Lead for identifier "${leadId}" already tracked. Skipping duplicate.`)
+        trackedLeadIds.add(leadId)
+        return false
+      }
+      recorded.push(leadId)
+      localStorage.setItem(LEAD_STORAGE_KEY, JSON.stringify(recorded))
+    } catch (e) {
+      console.debug('[Meta Pixel] Lead deduplication storage check error:', e)
+    }
+  }
+
+  trackedLeadIds.add(leadId)
+
+  event('Lead', {
+    content_name: options.content_name || 'CCTV Masterclass — Live Practical Training',
+    content_category: options.content_category || 'Course',
+    value: options.value ?? 499,
+    currency: options.currency || 'INR',
+    ...options,
+  })
+
+  return true
+}
+

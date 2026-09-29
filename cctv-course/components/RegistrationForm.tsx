@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 
 import { getApiBaseUrl, loadRazorpayScript } from '../lib/razorpay'
-import { trackInitiateCheckout, trackPurchase } from '../lib/fpixel'
+import { trackInitiateCheckout, trackPurchase, trackLead } from '../lib/fpixel'
 
 const schema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -93,6 +93,11 @@ export default function RegistrationForm({ masterclassId }: { masterclassId?: st
             }
 
             const txId = response.razorpay_payment_id || response.razorpay_order_id || registrationId
+            trackLead(registrationId, {
+              value: 499,
+              currency: 'INR',
+              content_name: 'CCTV Masterclass — Live Practical Training',
+            })
             trackPurchase(txId, {
               value: 499,
               currency: 'INR',
