@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 
 import { getApiBaseUrl, loadRazorpayScript } from '../lib/razorpay'
+import { trackInitiateCheckout, trackPurchase } from '../lib/fpixel'
 
 const schema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -63,6 +64,7 @@ export default function RegistrationForm({ masterclassId }: { masterclassId?: st
 
       // 3. Open Razorpay Checkout Dialog on Frontend
       setPaymentState('opening_checkout')
+      trackInitiateCheckout()
 
       const options = {
         key: keyId,
@@ -89,6 +91,15 @@ export default function RegistrationForm({ masterclassId }: { masterclassId?: st
             if (!verifyRes.ok || !verifyJson.success) {
               throw new Error(verifyJson.message || 'Payment signature verification failed')
             }
+
+            const txId = response.razorpay_payment_id || response.razorpay_order_id || registrationId
+            trackPurchase(txId, {
+              value: 499,
+              currency: 'INR',
+              content_name: 'CCTV Masterclass — Live Practical Training',
+              order_id: response.razorpay_order_id,
+              payment_id: response.razorpay_payment_id,
+            })
 
             // Redirect to Success Page
             window.location.href = `/success?id=${registrationId}&cert=${verifyJson.certificateId || ''}`

@@ -1,6 +1,7 @@
 import './globals.css'
-import { ReactNode } from 'react'
+import { ReactNode, Suspense } from 'react'
 import Script from 'next/script'
+import MetaPixel from '../components/MetaPixel'
 
 export const metadata = {
   title: 'CCTV Masterclass — Live Practical Training | TECHBES',
@@ -19,6 +20,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body>
+        <Suspense fallback={null}>
+          <MetaPixel />
+        </Suspense>
         {children}
         <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
       </body>

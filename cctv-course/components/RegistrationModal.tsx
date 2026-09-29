@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { getApiBaseUrl, loadRazorpayScript } from '../lib/razorpay'
+import { trackInitiateCheckout, trackPurchase } from '../lib/fpixel'
 
 // ─── Zod Schema ───────────────────────────────────────────────────────────────
 const schema = z.object({
@@ -136,8 +137,18 @@ export default function RegistrationModal({ onClose }: Props) {
                 throw new Error(verifyData.message || 'Payment verification failed. Your registration has not been confirmed.')
               }
 
+              const resolvedRegId = verifyData.registrationId || registrationId
+              const txId = response.razorpay_payment_id || response.razorpay_order_id || resolvedRegId
+              trackPurchase(txId, {
+                value: 499,
+                currency: 'INR',
+                content_name: verifyData.courseName || 'CCTV Masterclass — Live Practical Training',
+                order_id: response.razorpay_order_id,
+                payment_id: response.razorpay_payment_id,
+              })
+
               setSuccessData({
-                registrationId: verifyData.registrationId || registrationId,
+                registrationId: resolvedRegId,
                 enrollmentId: verifyData.enrollmentId || verifyData.registrationId || 'CONFIRMED',
                 name: verifyData.name || getValues('name'),
                 courseName: verifyData.courseName || 'TechBes CCTV Masterclass',
@@ -242,6 +253,7 @@ export default function RegistrationModal({ onClose }: Props) {
 
       // Step 3: Open Razorpay checkout
       setModalState('opening_checkout')
+      trackInitiateCheckout()
       await openRazorpay(registrationId, {
         id: orderId,
         amount: orderData.amount || orderData.order?.amount || 49900,

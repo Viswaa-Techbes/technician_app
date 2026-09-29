@@ -1,13 +1,24 @@
 'use client'
-import { Suspense } from 'react'
+import { Suspense, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { trackPurchase } from '../../lib/fpixel'
 
 function SuccessContent() {
   const searchParams = useSearchParams()
   const id   = searchParams.get('id')
   const cert = searchParams.get('cert')
   const name = searchParams.get('name') || ''
+
+  useEffect(() => {
+    if (id) {
+      trackPurchase(id, {
+        value: 499,
+        currency: 'INR',
+        content_name: 'CCTV Masterclass — Live Practical Training',
+      })
+    }
+  }, [id])
 
   return (
     <div style={{

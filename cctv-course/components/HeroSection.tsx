@@ -1,11 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import RegistrationModal from './RegistrationModal'
+import { trackViewContent, trackInitiateCheckout } from '../lib/fpixel'
 
 export default function HeroSection() {
   const [modalOpen, setModalOpen] = useState(false)
+
+  useEffect(() => {
+    trackViewContent()
+  }, [])
 
   return (
     <>
@@ -64,7 +69,10 @@ export default function HeroSection() {
 
           <button
             id="hero-register-top"
-            onClick={() => setModalOpen(true)}
+            onClick={() => {
+              trackInitiateCheckout()
+              setModalOpen(true)
+            }}
             className="btn-red"
             style={{
               padding: '10px 22px',
@@ -217,7 +225,10 @@ export default function HeroSection() {
             {/* CTA Button */}
             <button
               id="hero-register-main"
-              onClick={() => setModalOpen(true)}
+              onClick={() => {
+                trackInitiateCheckout()
+                setModalOpen(true)
+              }}
               className="btn-red"
               style={{
                 display: 'flex',
