@@ -3,6 +3,7 @@ import { ReactNode, Suspense } from 'react'
 import Script from 'next/script'
 import MetaPixel from '../components/MetaPixel'
 import { FB_PIXEL_ID } from '../lib/fpixel'
+import { GA_ADS_ID } from '../lib/gtag'
 
 export const metadata = {
   title: 'CCTV Masterclass — Live Practical Training | TECHBES',
@@ -21,6 +22,24 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body>
+        {/* Google Ads / Global Google tag (gtag.js) */}
+        <Script
+          strategy="afterInteractive"
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_ADS_ID}`}
+        />
+        <Script
+          id="google-ads-tag"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', '${GA_ADS_ID}');
+            `,
+          }}
+        />
+
         {/* Meta Pixel Base Script */}
         <Script
           id="meta-pixel-base"
