@@ -20,13 +20,6 @@ class ServiceDetailScreen extends ConsumerStatefulWidget {
 
 class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
   late MarketplaceService? _service;
-  bool _quoteSubmitting = false;
-
-  final _quoteNameController = TextEditingController();
-  final _quotePhoneController = TextEditingController();
-  final _quoteEmailController = TextEditingController();
-  final _quoteLocationController = TextEditingController();
-  final _quoteMessageController = TextEditingController();
 
   @override
   void initState() {
@@ -36,11 +29,6 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
 
   @override
   void dispose() {
-    _quoteNameController.dispose();
-    _quotePhoneController.dispose();
-    _quoteEmailController.dispose();
-    _quoteLocationController.dispose();
-    _quoteMessageController.dispose();
     super.dispose();
   }
 
@@ -57,17 +45,17 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
 
     if (_service == null) return;
 
-    if (_service!.categoryId != 'cctv') {
-      context.push('/quotation', extra: {
-        'categorySlug': _service!.categoryId,
-        'categoryName': _service!.category,
-        'serviceSlug': _service!.slug,
-        'serviceName': _service!.title,
-      });
-      return;
-    }
+    context.push('/quotation', extra: {
+      'categorySlug': _service!.categoryId,
+      'categoryName': _service!.category,
+      'serviceSlug': _service!.slug,
+      'serviceName': _service!.title,
+    });
+  }
 
-    // Show step config modal
+  void _openHardwareConfigModal() {
+    if (_service == null) return;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -84,7 +72,7 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
           defaultPrice: _service!.priceValue,
           onQuoteRequested: () {
             Navigator.pop(context);
-            _openQuoteModal();
+            _openBookingFlow();
           },
         );
       },
@@ -92,152 +80,9 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
   }
 
   void _openQuoteModal() {
-    if (_service == null) return;
-    if (_service!.categoryId != 'cctv') {
-      context.push('/quotation', extra: {
-        'categorySlug': _service!.categoryId,
-        'categoryName': _service!.category,
-        'serviceSlug': _service!.slug,
-        'serviceName': _service!.title,
-      });
-      return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: Text('Request Quote', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.textPrimaryColor)),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Share details for ${_service?.title ?? 'service'}. We will contact you with a tailored estimate.',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: _quoteNameController,
-                      decoration: const InputDecoration(labelText: 'Name', hintText: 'Enter name'),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _quotePhoneController,
-                      decoration: const InputDecoration(labelText: 'Phone', hintText: 'Enter mobile number'),
-                      keyboardType: TextInputType.phone,
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _quoteEmailController,
-                      decoration: const InputDecoration(labelText: 'Email', hintText: 'Enter email address'),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _quoteLocationController,
-                      decoration: const InputDecoration(labelText: 'Location / Pincode', hintText: 'Enter area or pin'),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _quoteMessageController,
-                      decoration: const InputDecoration(labelText: 'Message (Optional)', hintText: 'Briefly describe your requirements'),
-                      maxLines: 2,
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondaryColor)),
-                ),
-                ElevatedButton(
-                  onPressed: _quoteSubmitting 
-                      ? null 
-                      : () async {
-                          setDialogState(() => _quoteSubmitting = true);
-                          final success = await _submitQuoteRequest();
-                          setDialogState(() => _quoteSubmitting = false);
-                          if (success && mounted) {
-                            Navigator.pop(context);
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  ),
-                  child: _quoteSubmitting 
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('Submit Request', style: TextStyle(fontSize: 13)),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
+    _openBookingFlow();
   }
 
-  Future<bool> _submitQuoteRequest() async {
-    final name = _quoteNameController.text.trim();
-    final phone = _quotePhoneController.text.trim();
-    final email = _quoteEmailController.text.trim();
-    final pincode = _quoteLocationController.text.trim();
-    final message = _quoteMessageController.text.trim();
-
-    if (name.isEmpty || phone.isEmpty || email.isEmpty || pincode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all required fields')),
-      );
-      return false;
-    }
-
-    try {
-      final client = ref.read(dioClientProvider);
-      final response = await client.post(ApiConfig.submitQuote, data: {
-        'fullName': name,
-        'mobile': phone,
-        'email': email,
-        'location': pincode,
-        'address': pincode,
-        'category': _service?.categoryId ?? 'cctv',
-        'serviceCategory': _service?.categoryId ?? 'cctv',
-        'subcategory': _service?.slug ?? 'cctv-quote',
-        'service': _service?.slug ?? 'cctv-quote',
-        'serviceName': _service?.title ?? 'Service Detail Inquiry',
-        'message': message.isNotEmpty ? message : 'Quote request',
-        'additionalRequirements': message.isNotEmpty ? message : 'Quote request',
-        'source': 'mobile_app',
-      });
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Quote request submitted successfully! We will contact you soon.')),
-          );
-        }
-        _quoteNameController.clear();
-        _quotePhoneController.clear();
-        _quoteEmailController.clear();
-        _quoteLocationController.clear();
-        _quoteMessageController.clear();
-        return true;
-      }
-    } catch (e) {
-      debugPrint('Lead submission failed: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Submission failed: ${e.toString()}')),
-        );
-      }
-    }
-    return false;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -372,27 +217,32 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                       Row(
                         children: [
                           Expanded(
-                            child: ElevatedButton(
+                            child: ElevatedButton.icon(
                               onPressed: _openBookingFlow,
+                              icon: const Icon(Icons.request_quote_outlined, color: Colors.white, size: 18),
+                              label: const Text(
+                                'Request Free Quotation',
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppTheme.primaryColor,
                                 padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
-                              child: Text(isConfigurable
-                                  ? 'Configure & Book'
-                                  : (_service!.categoryId == 'cctv'
-                                      ? 'Book Now'
-                                      : 'Request Quotation')),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          OutlinedButton(
-                            onPressed: _openQuoteModal,
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                          if (isConfigurable) ...[
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              onPressed: _openHardwareConfigModal,
+                              icon: const Icon(Icons.tune, size: 16),
+                              label: const Text('Custom Specs', style: TextStyle(fontSize: 12.5)),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
                             ),
-                            child: const Text('Request Quote', style: TextStyle(fontSize: 13)),
-                          ),
+                          ],
                         ],
                       ),
                     ],
