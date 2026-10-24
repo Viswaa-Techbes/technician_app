@@ -268,99 +268,6 @@ class _ServicesListScreenState extends ConsumerState<ServicesListScreen> {
           },
         ];
 
-      case 'laptop':
-        return [
-          {
-            '_id': '5001',
-            'name': 'Laptop Hardware Repair',
-            'slug': 'laptop-repair',
-            'description': 'Motherboard chip-level fix, keyboard, trackpad, and power port repair.',
-            'startingPrice': '₹499',
-          },
-          {
-            '_id': '5002',
-            'name': 'Screen & Display Replacement',
-            'slug': 'laptop-screen',
-            'description': 'OEM display replacement with warranty for cracked or glitchy screens.',
-            'startingPrice': '₹1,899',
-          },
-          {
-            '_id': '5003',
-            'name': 'SSD & RAM Performance Upgrade',
-            'slug': 'laptop-upgrade',
-            'description': 'High-speed NVMe SSD installation and RAM expansion for 5x speed boost.',
-            'startingPrice': '₹999',
-          },
-          {
-            '_id': '5004',
-            'name': 'Free Diagnostic Check',
-            'slug': 'laptop-diagnosis',
-            'description': 'Free expert inspection and transparent quotation before starting repair.',
-            'startingPrice': 'Free',
-          },
-        ];
-
-      case 'desktop':
-        return [
-          {
-            '_id': '6001',
-            'name': 'Desktop Repair & Diagnostics',
-            'slug': 'desktop-repair',
-            'description': 'Fix no-display, boot loops, SMPS failure, and motherboard issues.',
-            'startingPrice': '₹499',
-          },
-          {
-            '_id': '6002',
-            'name': 'Custom PC Build & Assembly',
-            'slug': 'custom-pc',
-            'description': 'Design, part sourcing, cable management, and build of office or gaming PCs.',
-            'startingPrice': '₹1,499',
-          },
-          {
-            '_id': '6003',
-            'name': 'Deep Cleaning & Thermal Paste',
-            'slug': 'desktop-service',
-            'description': 'Blower dust cleanup, fan replacement, and premium Arctic thermal paste.',
-            'startingPrice': '₹599',
-          },
-        ];
-
-      case 'server':
-        return [
-          {
-            '_id': '7001',
-            'name': 'Server Hardware Setup & Rack Mount',
-            'slug': 'server-installation',
-            'description': 'Rack mounting, dual power supply, redundant network cabling, and OS install.',
-            'startingPrice': '₹6,999',
-          },
-          {
-            '_id': '7002',
-            'name': 'Server Maintenance & AMC',
-            'slug': 'server-maintenance',
-            'description': 'Quarterly preventative health audits, RAID monitoring, and emergency support.',
-            'startingPrice': '₹14,999/yr',
-          },
-        ];
-
-      case 'cyber-security':
-        return [
-          {
-            '_id': '8001',
-            'name': 'Managed Firewall Deployment',
-            'slug': 'managed-firewall-setup',
-            'description': 'Fortinet/Sophos/pfsense firewall setup, VPN policies, and IPS rules.',
-            'startingPrice': '₹12,999',
-          },
-          {
-            '_id': '8002',
-            'name': 'Security & Vulnerability Audit',
-            'slug': 'security-audit',
-            'description': 'Identify security gaps, rogue devices, and open ports on your network.',
-            'startingPrice': '₹4,999',
-          },
-        ];
-
       default:
         return [];
     }
@@ -389,20 +296,16 @@ class _ServicesListScreenState extends ConsumerState<ServicesListScreen> {
   }
 
   void _openSubcategoryAction(dynamic subcategory, String activeSlug) {
-    if (activeSlug == 'cctv') {
-      _openBookingWizard(subcategory);
-    } else {
-      final cat = ServiceRepository.categories.firstWhere(
-        (c) => c.id == activeSlug,
-        orElse: () => ServiceRepository.categories[0],
-      );
-      context.push('/quotation', extra: {
-        'categorySlug': activeSlug,
-        'categoryName': cat.title,
-        'serviceSlug': subcategory['slug'] ?? '',
-        'serviceName': subcategory['name'] ?? '',
-      });
-    }
+    final cat = ServiceRepository.categories.firstWhere(
+      (c) => c.id == activeSlug,
+      orElse: () => ServiceRepository.categories[0],
+    );
+    context.push('/quotation', extra: {
+      'categorySlug': activeSlug,
+      'categoryName': cat.title,
+      'serviceSlug': subcategory['slug'] ?? '',
+      'serviceName': subcategory['name'] ?? '',
+    });
   }
 
   IconData _getCategoryIcon(String slug) {
