@@ -41,7 +41,7 @@ class _QuotationScreenState extends ConsumerState<QuotationScreen> {
   final _descriptionController = TextEditingController();
 
   String? _selectedService;
-  String _urgency = 'flexible';
+  final String _urgency = 'flexible';
   bool _isSubmitting = false;
   bool _submitted = false;
   String? _submittedRequestId;
@@ -56,12 +56,6 @@ class _QuotationScreenState extends ConsumerState<QuotationScreen> {
   // Networking Specific Fields
   String _networkPremises = 'Corporate Office';
   String _networkUsersCount = '10-25 Users';
-
-  // Web Specific Fields
-  String _webProjectType = 'Corporate Business Website';
-
-  // Digital Marketing Specific Fields
-  String _marketingFocus = 'Podcasting Studio Recording';
 
   // Canonical Service lists matching Main App QUOTATION_CATEGORIES
   static const Map<String, List<Map<String, String>>> _servicesByCategory = {

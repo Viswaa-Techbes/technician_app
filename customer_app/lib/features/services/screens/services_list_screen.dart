@@ -5,7 +5,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../repositories/service_repository.dart';
 import '../../dashboard/screens/main_navigation_screen.dart';
-import '../components/service_config_modal.dart';
 
 class ServicesListScreen extends ConsumerStatefulWidget {
   const ServicesListScreen({super.key});
@@ -273,27 +272,6 @@ class _ServicesListScreenState extends ConsumerState<ServicesListScreen> {
     }
   }
 
-  void _openBookingWizard(dynamic subcategory) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return ServiceConfigModal(
-          serviceSlug: subcategory['slug'] ?? '',
-          serviceName: subcategory['name'] ?? '',
-          categoryId: 'cctv',
-          subcategoryId: subcategory['_id']?.toString() ?? subcategory['id']?.toString() ?? '1000',
-          defaultPrice: (subcategory['packages'] != null && subcategory['packages'].isNotEmpty)
-              ? (subcategory['packages'][0]['price'] as num).toDouble()
-              : 499.0,
-        );
-      },
-    );
-  }
 
   void _openSubcategoryAction(dynamic subcategory, String activeSlug) {
     final cat = ServiceRepository.categories.firstWhere(

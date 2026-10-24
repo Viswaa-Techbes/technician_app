@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/network/dio_client.dart';
-import '../../../core/network/api_config.dart';
 import '../../../models/service_model.dart';
 import '../../../repositories/service_repository.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -77,10 +75,6 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
         );
       },
     );
-  }
-
-  void _openQuoteModal() {
-    _openBookingFlow();
   }
 
 
