@@ -311,9 +311,9 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
     try {
       final client = ref.read(dioClientProvider);
       final results = await Future.wait([
-        client.get('/api/user/addresses'),
+        client.get('/api/v2/user/addresses'),
         client.get('/api/auth/me'),
-        client.get('/api/v2/wallet'),
+        client.get('/api/v2/customer/wallet'),
       ]);
 
       if (mounted) {

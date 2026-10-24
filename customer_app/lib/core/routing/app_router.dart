@@ -24,6 +24,7 @@ import '../../features/dashboard/screens/analytics_dashboard_screen.dart';
 import '../../features/home/screens/ai_assistant_screen.dart';
 import '../../features/profile/screens/referral_screen.dart';
 import '../../features/reports/screens/service_timeline_screen.dart';
+import '../../features/quotation/screens/quotation_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -138,6 +139,23 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/timeline',
         builder: (context, state) => const ServiceTimelineScreen(),
+      ),
+      GoRoute(
+        path: '/quotation',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          final queryParams = state.uri.queryParameters;
+          final categorySlug = extra['categorySlug'] as String? ?? queryParams['categorySlug'] ?? 'networking';
+          final categoryName = extra['categoryName'] as String? ?? queryParams['categoryName'] ?? 'Networking';
+          final serviceSlug = extra['serviceSlug'] as String? ?? queryParams['serviceSlug'];
+          final serviceName = extra['serviceName'] as String? ?? queryParams['serviceName'];
+          return QuotationScreen(
+            categorySlug: categorySlug,
+            categoryName: categoryName,
+            serviceSlug: serviceSlug,
+            serviceName: serviceName,
+          );
+        },
       ),
     ],
   );

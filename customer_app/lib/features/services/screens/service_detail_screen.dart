@@ -59,12 +59,12 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
     if (_service == null) return;
 
     if (_service!.categoryId != 'cctv') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This service category is coming soon. Booking is currently disabled.'),
-          backgroundColor: AppTheme.secondaryColor,
-        ),
-      );
+      context.push('/quotation', extra: {
+        'categorySlug': _service!.categoryId,
+        'categoryName': _service!.category,
+        'serviceSlug': _service!.slug,
+        'serviceName': _service!.title,
+      });
       return;
     }
 
@@ -95,12 +95,12 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
   void _openQuoteModal() {
     if (_service == null) return;
     if (_service!.categoryId != 'cctv') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This service category is coming soon. Custom quotes are currently disabled.'),
-          backgroundColor: AppTheme.secondaryColor,
-        ),
-      );
+      context.push('/quotation', extra: {
+        'categorySlug': _service!.categoryId,
+        'categoryName': _service!.category,
+        'serviceSlug': _service!.slug,
+        'serviceName': _service!.title,
+      });
       return;
     }
 
@@ -200,21 +200,28 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
 
     try {
       final client = ref.read(dioClientProvider);
-      // Replicates cctvApi.createLead endpoint '/leads' V2
-      final response = await client.post('/leads', data: {
-        'name': name,
-        'phone': phone,
+      final response = await client.post(ApiConfig.submitQuote, data: {
+        'fullName': name,
+        'mobile': phone,
         'email': email,
-        'pincode': pincode,
-        'service': _service?.title ?? 'Service Detail Inquiry',
-        'plan': message.isNotEmpty ? message : 'Quote request',
-        'status': 'Quote Requested',
+        'location': pincode,
+        'address': pincode,
+        'category': _service?.categoryId ?? 'cctv',
+        'serviceCategory': _service?.categoryId ?? 'cctv',
+        'subcategory': _service?.slug ?? 'cctv-quote',
+        'service': _service?.slug ?? 'cctv-quote',
+        'serviceName': _service?.title ?? 'Service Detail Inquiry',
+        'message': message.isNotEmpty ? message : 'Quote request',
+        'additionalRequirements': message.isNotEmpty ? message : 'Quote request',
+        'source': 'mobile_app',
       });
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Quote request submitted successfully! We will contact you soon.')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Quote request submitted successfully! We will contact you soon.')),
+          );
+        }
         _quoteNameController.clear();
         _quotePhoneController.clear();
         _quoteEmailController.clear();
@@ -224,9 +231,11 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
       }
     } catch (e) {
       debugPrint('Lead submission failed: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Submission failed: ${e.toString()}')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Submission failed: ${e.toString()}')),
+        );
+      }
     }
     return false;
   }
@@ -237,15 +246,6 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
       return Scaffold(
         appBar: AppBar(title: const Text('Service Not Found')),
         body: const Center(child: Text('The requested service could not be loaded.')),
-      );
-    }
-
-    if (_service!.categoryId != 'cctv') {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(_service!.title),
-        ),
-        body: ComingSoonPanel(categoryTitle: _service!.category),
       );
     }
 
@@ -379,7 +379,11 @@ class _ServiceDetailScreenState extends ConsumerState<ServiceDetailScreen> {
                                 backgroundColor: AppTheme.primaryColor,
                                 padding: const EdgeInsets.symmetric(vertical: 14),
                               ),
-                              child: Text(isConfigurable ? 'Configure & Book' : 'Book Now'),
+                              child: Text(isConfigurable
+                                  ? 'Configure & Book'
+                                  : (_service!.categoryId == 'cctv'
+                                      ? 'Book Now'
+                                      : 'Request Quotation')),
                             ),
                           ),
                           const SizedBox(width: 8),
