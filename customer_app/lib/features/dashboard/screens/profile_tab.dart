@@ -50,7 +50,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     } catch (e) {
       debugPrint('Profile load error: $e');
       setState(() {
-        _error = 'Failed to load profile settings.';
         _isLoading = false;
       });
     }

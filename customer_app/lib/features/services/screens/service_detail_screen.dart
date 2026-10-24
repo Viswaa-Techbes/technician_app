@@ -8,7 +8,6 @@ import '../../../models/service_model.dart';
 import '../../../repositories/service_repository.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../components/service_config_modal.dart';
-import 'services_list_screen.dart';
 
 class ServiceDetailScreen extends ConsumerStatefulWidget {
   final String slug;

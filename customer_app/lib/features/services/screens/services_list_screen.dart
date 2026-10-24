@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/network/dio_client.dart';
-import '../../../core/network/api_config.dart';
 import '../../../repositories/service_repository.dart';
 import '../../dashboard/screens/main_navigation_screen.dart';
 import '../components/service_config_modal.dart';

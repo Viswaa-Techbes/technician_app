@@ -73,7 +73,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() {
         _isSendingOtp = false;
         _otpSent = true;
-        _otpTimer = 60;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('OTP sent successfully (Simulated)')),

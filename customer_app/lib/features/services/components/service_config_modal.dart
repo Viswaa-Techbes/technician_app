@@ -189,6 +189,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
   
   double? _latitude;
   double? _longitude;
+  String _mapLink = '';
   String _fullAddress = '';
 
   // Payment configuration
@@ -614,6 +615,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
       'serviceType': isBuyCctvProducts ? 'other' : 'installation',
       'latitude': _latitude ?? 12.9716,
       'longitude': _longitude ?? 77.5946,
+      'googleMapLink': _mapLink,
       'city': _cityController.text.trim(),
       'state': _stateController.text.trim(),
       'pincode': _pincodeController.text.trim(),
@@ -686,6 +688,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
           'state': _stateController.text.trim(),
           'latitude': _latitude ?? 12.9716,
           'longitude': _longitude ?? 77.5946,
+          'googleMapLink': _mapLink,
           'manualNotes': _notesController.text.trim(),
           'formattedAddress': formattedAddress,
           'isDefault': _savedAddresses.isEmpty,

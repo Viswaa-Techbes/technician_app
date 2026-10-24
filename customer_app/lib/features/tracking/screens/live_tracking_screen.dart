@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
@@ -27,7 +26,6 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
   // Booking & Tech Details
   bool _isLoading = true;
   String? _errorMessage;
-  Map<String, dynamic>? _booking;
   String? _assignedTechId;
   String _techName = 'Technician Partner';
   String _techPhone = '';
@@ -90,7 +88,6 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
           double? custLng = double.tryParse(found['longitude']?.toString() ?? '');
           
           setState(() {
-            _booking = found;
             _currentStatus = (found['status'] ?? found['bookingStatus'] ?? 'confirmed').toString().toLowerCase();
             _startJobOtp = found['startJobOtp']?.toString();
             _customerLatLng = custLat != null && custLng != null ? LatLng(custLat, custLng) : LatLng(12.9716, 77.5946);
@@ -311,6 +308,25 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
       appBar: AppBar(
         title: const Text('Live Tracking'),
         actions: [
+          if (_isLiveConnected)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircleAvatar(radius: 3, backgroundColor: Colors.green),
+                    SizedBox(width: 4),
+                    Text('LIVE', style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _fetchBookingDetails,
