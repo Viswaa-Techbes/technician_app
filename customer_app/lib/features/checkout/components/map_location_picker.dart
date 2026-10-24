@@ -183,8 +183,6 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -235,7 +233,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
             child: ListView.separated(
               shrinkWrap: true,
               itemCount: _suggestions.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
+              separatorBuilder: (ctx, idx) => const Divider(height: 1),
               itemBuilder: (context, index) {
                 final item = _suggestions[index];
                 return ListTile(

@@ -14,7 +14,6 @@ class NotificationsTab extends ConsumerStatefulWidget {
 
 class _NotificationsTabState extends ConsumerState<NotificationsTab> {
   bool _isLoading = true;
-  String? _error;
   List<dynamic> _notifications = [];
   
   // Search & Filter State
@@ -40,7 +39,6 @@ class _NotificationsTabState extends ConsumerState<NotificationsTab> {
   Future<void> _fetchNotifications() async {
     setState(() {
       _isLoading = true;
-      _error = null;
     });
 
     final cacheService = ref.read(offlineCacheProvider);

@@ -21,7 +21,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String _selectedTab = 'email'; // 'email' or 'mobile'
   bool _rememberMe = true;
   bool _otpSent = false;
-  int _otpTimer = 0;
   bool _isSendingOtp = false;
 
   @override

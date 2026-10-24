@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/network/dio_client.dart';
-import '../../../core/network/api_config.dart';
 import '../../auth/providers/auth_provider.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -22,7 +21,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
 
   // Dashboard Data State
   Map<String, dynamic> _profile = {};
-  List<dynamic> _metrics = [];
   List<dynamic> _bookings = [];
   List<dynamic> _addresses = [];
   List<dynamic> _payments = [];
@@ -62,18 +60,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
         final raw = response.data['data'];
         setState(() {
           _profile = raw['profile'] ?? {};
-          
-          final upcoming = raw['metrics']?.containsKey('upcomingServices') == true ? raw['metrics']['upcomingServices'] : 0;
-          final history = raw['metrics']?.containsKey('orderHistory') == true ? raw['metrics']['orderHistory'] : 0;
-          final savedAddr = raw['metrics']?.containsKey('savedAddresses') == true ? raw['metrics']['savedAddresses'] : 0;
-          final payCount = raw['metrics']?.containsKey('payments') == true ? raw['metrics']['payments'] : 0;
-
-          _metrics = [
-            {'title': 'Upcoming services', 'value': '$upcoming', 'icon': Icons.calendar_today, 'color': const Color(0xFF10B981)},
-            {'title': 'Order history', 'value': '$history', 'icon': Icons.history, 'color': Colors.blue},
-            {'title': 'Saved addresses', 'value': '$savedAddr', 'icon': Icons.map, 'color': const Color(0xFF10B981)},
-            {'title': 'Payments', 'value': '$payCount', 'icon': Icons.payment, 'color': Colors.blue},
-          ];
 
           _bookings = raw['bookings'] ?? [];
           _addresses = raw['addresses'] ?? [];
@@ -253,7 +239,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final user = ref.watch(authProvider).user;
 
     if (_isLoading) {
@@ -618,7 +603,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
                 const SizedBox(height: 2),
                 Text(
                   p['status']?.toString().toUpperCase() ?? 'SUCCESS',
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF10B981)),
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
                 ),
               ],
             ),

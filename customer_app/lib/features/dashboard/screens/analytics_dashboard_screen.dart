@@ -20,7 +20,6 @@ class _AnalyticsDashboardScreenState extends ConsumerState<AnalyticsDashboardScr
   double _walletBalance = 0;
   int _loyaltyPoints = 0;
   double _savedOffers = 0;
-  int _upcomingVisits = 0;
 
   // Mock monthly spend for custom painter chart (Jan to Jun)
   final List<double> _monthlySpend = [4500, 1200, 7800, 3200, 9800, 4800];
@@ -38,12 +37,10 @@ class _AnalyticsDashboardScreenState extends ConsumerState<AnalyticsDashboardScr
       if (response.data != null && response.data['success'] == true) {
         final data = response.data['data'];
         final bookings = data['bookings'] as List<dynamic>? ?? [];
-        final payments = data['payments'] as List<dynamic>? ?? [];
         final metrics = data['metrics'] ?? {};
 
         double spentSum = 0;
         int completed = 0;
-        int upcoming = 0;
         int amcCount = 0;
 
         for (var b in bookings) {
@@ -53,8 +50,6 @@ class _AnalyticsDashboardScreenState extends ConsumerState<AnalyticsDashboardScr
           if (s == 'completed') {
             completed++;
             spentSum += ((b['amount'] ?? b['price'] ?? 0) as num).toDouble();
-          } else if (['pending', 'assigned', 'travelling', 'arrived', 'working'].contains(s)) {
-            upcoming++;
           }
 
           if (title.contains('amc') || title.contains('annual maintenance')) {
@@ -85,7 +80,6 @@ class _AnalyticsDashboardScreenState extends ConsumerState<AnalyticsDashboardScr
           _walletBalance = walletBal;
           _loyaltyPoints = loyalty;
           _savedOffers = _totalSpent * 0.10; // estimate
-          _upcomingVisits = upcoming;
           _isLoading = false;
         });
       } else {
@@ -102,7 +96,6 @@ class _AnalyticsDashboardScreenState extends ConsumerState<AnalyticsDashboardScr
         _walletBalance = 1500.0;
         _loyaltyPoints = 250;
         _savedOffers = 3200.0;
-        _upcomingVisits = 1;
         _isLoading = false;
       });
     }
