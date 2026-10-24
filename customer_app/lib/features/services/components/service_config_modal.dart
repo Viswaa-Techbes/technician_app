@@ -1305,7 +1305,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
                 ],
               ),
             );
-          }).toList(),
+          }),
         ] else if (!isInstallation) ...[
           const SizedBox(height: 20),
           const Center(child: Text('No details questions required. Please tap Continue.', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13))),
@@ -1483,7 +1483,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
                 ),
               ),
             );
-          }).toList(),
+          }),
           const SizedBox(height: 8),
 
           // Cable configurations
@@ -1924,7 +1924,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
               dense: true,
             ),
           );
-        }).toList(),
+        }),
         const SizedBox(height: 24),
         const Text('Special Directives / Requirements', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
         const SizedBox(height: 10),
@@ -2539,7 +2539,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
               controlAffinity: ListTileControlAffinity.leading,
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -2655,7 +2655,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
               ),
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -2766,7 +2766,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
               ],
             ),
           );
-        }).toList(),
+        }),
         
         const Divider(height: 24, color: Color(0xFFE2E8F0)),
 
