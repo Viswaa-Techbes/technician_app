@@ -161,12 +161,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return s == 'dispatched' || s == 'in_progress' || s == 'active';
     }).toList();
 
-    // Upcoming bookings (confirmed, assigned, travelling, arrived)
-    final upcoming = bookings.where((b) {
-      final s = (b['status'] ?? b['bookingStatus'] ?? '').toString().toLowerCase();
-      return s == 'confirmed' || s == 'assigned' || s == 'travelling' || s == 'arrived';
-    }).toList();
-
     // Identify active AMC plan
     dynamic amcPlan;
     for (var b in bookings) {

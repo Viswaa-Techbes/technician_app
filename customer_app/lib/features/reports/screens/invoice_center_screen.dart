@@ -30,7 +30,6 @@ class _InvoiceCenterScreenState extends ConsumerState<InvoiceCenterScreen> {
       final response = await client.get('/api/v2/user/dashboard');
       if (response.data != null && response.data['success'] == true) {
         final reports = response.data['data']['serviceReports'] as List<dynamic>? ?? [];
-        final payments = response.data['data']['payments'] as List<dynamic>? ?? [];
         final bookings = response.data['data']['bookings'] as List<dynamic>? ?? [];
 
         // Build composite invoice data using report, payment, and booking records

@@ -5,7 +5,6 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,6 +14,8 @@ void main() {
   testWidgets('CustomerApp smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const ProviderScope(child: CustomerApp()));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
 
     // Verify CustomerApp builds successfully
     expect(find.byType(CustomerApp), findsOneWidget);
