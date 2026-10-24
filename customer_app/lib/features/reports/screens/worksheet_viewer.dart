@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/network/dio_client.dart';
-import '../../../core/network/api_config.dart';
 
 class WorksheetViewerScreen extends ConsumerStatefulWidget {
   final String worksheetId; // maps to jobId in routing
@@ -95,8 +93,6 @@ class _WorksheetViewerScreenState extends ConsumerState<WorksheetViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     if (_isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
@@ -188,7 +184,7 @@ class _WorksheetViewerScreenState extends ConsumerState<WorksheetViewerScreen> {
                         children: [
                           Text(
                             'Status: ${status.toString().toUpperCase()}',
-                            style: const TextStyle(color: const Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 12),
+                            style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 12),
                           ),
                           Text(
                             _worksheet!['completionOtpVerified'] == true ? 'OTP Verified' : 'Standard Handover',

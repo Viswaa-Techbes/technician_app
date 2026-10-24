@@ -21,9 +21,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchController = TextEditingController();
-  String _searchQuery = '';
   List<dynamic> _activeBookings = [];
-  List<dynamic> _upcomingBookings = [];
   bool _isLoading = true;
   bool _isOffline = false;
 
@@ -185,7 +183,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     setState(() {
       _activeBookings = active;
-      _upcomingBookings = upcoming;
       _activeAmcSummary = amcPlan;
     });
   }
@@ -778,7 +775,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   height: 140,
                   width: double.infinity,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, _, __) => Container(
+                  errorBuilder: (context, error, stackTrace) => Container(
                     height: 140,
                     color: const Color(0xFFF1F5F9),
                     alignment: Alignment.center,

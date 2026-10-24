@@ -6,7 +6,6 @@ import 'package:razorpay_flutter/razorpay_flutter.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/network/api_config.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../cart/providers/cart_provider.dart';
 import '../../checkout/components/map_location_picker.dart';
 import '../../../core/config/payment_config.dart';
 
@@ -106,10 +105,15 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
     int total = _cctvTotalCameras;
     String rec = 'None';
     if (total > 0) {
-      if (total <= 4) rec = '4 Channel';
-      else if (total <= 8) rec = '8 Channel';
-      else if (total <= 16) rec = '16 Channel';
-      else rec = '32 Channel';
+      if (total <= 4) {
+        rec = '4 Channel';
+      } else if (total <= 8) {
+        rec = '8 Channel';
+      } else if (total <= 16) {
+        rec = '16 Channel';
+      } else {
+        rec = '32 Channel';
+      }
     }
     setState(() {
       _cctvDvrChannels = rec;
@@ -140,10 +144,6 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
   // Metadata arrays from backend
   List<dynamic> _cctvBrands = [];
   List<dynamic> _cctvAllModels = [];
-  List<dynamic> _cctvSdCards = [];
-  List<dynamic> _cctvCables = [];
-  List<dynamic> _cctvInstallationCharges = [];
-  List<dynamic> _cctvAccessories = [];
 
   // CCTV Products variables
   List<dynamic> _availableProducts = [];
@@ -189,7 +189,6 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
   
   double? _latitude;
   double? _longitude;
-  String _mapLink = '';
   String _fullAddress = '';
 
   // Payment configuration
@@ -251,10 +250,6 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
         setState(() {
           _cctvBrands = results[0].data['data'] ?? [];
           _cctvAllModels = results[1].data['data'] ?? [];
-          _cctvSdCards = results[2].data['data'] ?? [];
-          _cctvCables = results[3].data['data'] ?? [];
-          _cctvInstallationCharges = results[4].data['data'] ?? [];
-          _cctvAccessories = results[5].data['data'] ?? [];
           _cctvHdds = results[6].data['data'] ?? [];
           _cctvRacks = results[7].data['data'] ?? [];
           
@@ -2279,7 +2274,7 @@ class _ServiceConfigModalState extends ConsumerState<ServiceConfigModal> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(Icons.info_outline, size: 16, color: Color(0xFFD97706)),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Prices cover baseline technician service & travel fees. Spare components or additional camera lengths recommended on-site will be billed separately by the engineer.',

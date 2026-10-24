@@ -16,7 +16,6 @@ class ProfileTab extends ConsumerStatefulWidget {
 
 class _ProfileTabState extends ConsumerState<ProfileTab> {
   bool _isLoading = true;
-  String? _error;
   Map<String, dynamic> _profile = {};
   List<dynamic> _addresses = [];
   List<dynamic> _payments = [];
@@ -31,7 +30,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   Future<void> _loadProfileData() async {
     setState(() {
       _isLoading = true;
-      _error = null;
     });
 
     try {

@@ -13,8 +13,6 @@ class ReferralScreen extends ConsumerStatefulWidget {
 class _ReferralScreenState extends ConsumerState<ReferralScreen> {
   bool _isLoading = true;
   String _referralCode = 'TB-REF9182';
-  double _referralEarnings = 500;
-  int _referralsCount = 2;
   String _loyaltyLevel = 'Silver';
   int _pointsToNextLevel = 150;
 

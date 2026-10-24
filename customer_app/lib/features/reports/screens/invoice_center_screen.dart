@@ -15,7 +15,6 @@ class InvoiceCenterScreen extends ConsumerStatefulWidget {
 
 class _InvoiceCenterScreenState extends ConsumerState<InvoiceCenterScreen> {
   bool _isLoading = true;
-  String? _error;
   List<dynamic> _invoices = [];
   dynamic _selectedInvoice;
 
@@ -39,7 +38,6 @@ class _InvoiceCenterScreenState extends ConsumerState<InvoiceCenterScreen> {
         for (var r in reports) {
           final bId = r['jobId'] ?? r['_id'];
           final booking = bookings.firstWhere((b) => b['_id'] == bId, orElse: () => null);
-          final payment = payments.firstWhere((p) => p['bookingId'] == bId, orElse: () => null);
           
           loaded.add({
             'id': r['jobId'],
@@ -283,7 +281,7 @@ class _InvoiceCenterScreenState extends ConsumerState<InvoiceCenterScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                               color: Colors.white,
                               child: DropdownButtonFormField<dynamic>(
-                                value: _selectedInvoice,
+                                initialValue: _selectedInvoice,
                                 items: _invoices.map((inv) {
                                   return DropdownMenuItem<dynamic>(
                                     value: inv,
