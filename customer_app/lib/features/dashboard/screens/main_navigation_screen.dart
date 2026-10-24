@@ -76,8 +76,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
           data: NavigationBarThemeData(
             backgroundColor: Colors.white,
             indicatorColor: AppTheme.primaryColor.withOpacity(0.08),
-            labelTextStyle: MaterialStateProperty.resolveWith((states) {
-              if (states.contains(MaterialState.selected)) {
+            labelTextStyle: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
                 return const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -90,8 +90,8 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                 color: AppTheme.textSecondaryColor,
               );
             }),
-            iconTheme: MaterialStateProperty.resolveWith((states) {
-              if (states.contains(MaterialState.selected)) {
+            iconTheme: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
                 return const IconThemeData(
                   color: AppTheme.primaryColor,
                   size: 24,

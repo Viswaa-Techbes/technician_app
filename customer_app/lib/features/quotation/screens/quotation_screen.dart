@@ -91,6 +91,29 @@ class _QuotationScreenState extends ConsumerState<QuotationScreen> {
       {'slug': 'meta-ads-campaigns', 'name': 'Meta Ads (IG & FB)'},
       {'slug': 'seo-organic-growth', 'name': 'SEO & Organic Growth'},
     ],
+    'laptop': [
+      {'slug': 'laptop-repair', 'name': 'Laptop Hardware Repair'},
+      {'slug': 'laptop-screen', 'name': 'Screen & Display Replacement'},
+      {'slug': 'laptop-upgrade', 'name': 'SSD & RAM Performance Upgrade'},
+      {'slug': 'laptop-diagnosis', 'name': 'Free Diagnostic Check'},
+    ],
+    'desktop': [
+      {'slug': 'desktop-repair', 'name': 'Desktop Repair & Diagnostics'},
+      {'slug': 'custom-pc', 'name': 'Custom PC Build & Assembly'},
+      {'slug': 'desktop-service', 'name': 'Deep Cleaning & Thermal Paste'},
+    ],
+    'server': [
+      {'slug': 'server-installation', 'name': 'Server Hardware Setup & Rack Mount'},
+      {'slug': 'server-maintenance', 'name': 'Server Maintenance & AMC'},
+    ],
+    'cyber-security': [
+      {'slug': 'managed-firewall-setup', 'name': 'Managed Firewall Deployment'},
+      {'slug': 'security-audit', 'name': 'Security & Vulnerability Audit'},
+    ],
+    'amc': [
+      {'slug': 'annual-maintenance-contract', 'name': 'Comprehensive IT & CCTV AMC'},
+      {'slug': 'preventive-maintenance', 'name': 'Quarterly Preventive Maintenance'},
+    ],
   };
 
   @override

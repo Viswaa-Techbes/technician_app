@@ -218,18 +218,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 setState(() => _isLoading = true);
                 try {
                   final client = ref.read(dioClientProvider);
-                  // Book high priority mock
-                  final res = await client.post('/api/v2/bookings/create', data: {
-                    'serviceId': 'cctv-installation', // dummy configurable service id
+                  String? addressId;
+                  try {
+                    final addrRes = await client.get('/api/v2/user/addresses');
+                    if (addrRes.data != null && addrRes.data['data'] != null) {
+                      final addrs = addrRes.data['data'] as List<dynamic>;
+                      if (addrs.isNotEmpty) {
+                        addressId = addrs[0]['_id']?.toString() ?? addrs[0]['id']?.toString();
+                      }
+                    }
+                  } catch (_) {}
+
+                  // Book high priority emergency dispatch
+                  final payload = {
+                    'serviceId': 'cctv-installation',
                     'serviceName': 'Emergency $type Dispatch',
                     'bookingDate': DateFormat('yyyy-MM-dd').format(DateTime.now()),
                     'timeSlot': DateFormat('HH:mm').format(DateTime.now()),
                     'amount': 999,
-                    'addressId': '65baaa7782193b21820b8293', // mock
                     'latitude': '12.9716',
                     'longitude': '77.5946',
-                    'notes': 'EMERGENCY SLA DISPATCH REQUIRED',
-                  });
+                    'notes': 'EMERGENCY SLA DISPATCH REQUIRED: $type issue',
+                  };
+                  if (addressId != null && addressId.isNotEmpty) {
+                    payload['addressId'] = addressId;
+                  }
+
+                  final res = await client.post('/api/v2/bookings/create', data: payload);
                   if (res.data != null && res.data['success'] == true) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Emergency technician dispatched! Check bookings to track live.')),
@@ -260,6 +275,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         return Icons.videocam;
       case 'networking':
         return Icons.router;
+      case 'website-development':
+        return Icons.language;
+      case 'digital-marketing':
+        return Icons.campaign;
       case 'laptop':
         return Icons.laptop;
       case 'desktop':
