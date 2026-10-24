@@ -1,83 +1,35 @@
 import '../models/service_model.dart';
 
 class ServiceRepository {
+  // Verified Main Site Categories: CCTV, Networking, Web Designing, Digital Marketing & Podcasting
   static final List<ServiceCategory> categories = [
     ServiceCategory(
       id: "cctv",
       title: "CCTV",
-      description: "Smart surveillance, remote monitoring, and office security.",
-      servicesLabel: "20 services",
+      description: "Installation, repair, maintenance & smart surveillance camera systems.",
+      servicesLabel: "6 services",
       gradient: "from-cyan-500 via-sky-500 to-blue-600",
     ),
     ServiceCategory(
       id: "networking",
       title: "Networking",
-      description: "Wi-Fi, structured cabling, routers, and enterprise rollout.",
+      description: "Wired & wireless solutions, structured cabling, Wi-Fi mesh & routers.",
       servicesLabel: "12 services",
       gradient: "from-emerald-500 via-teal-500 to-cyan-600",
     ),
     ServiceCategory(
       id: "website-development",
-      title: "Website Development",
-      description: "Custom websites, e-commerce, and business landing pages.",
+      title: "Web Designing",
+      description: "Custom websites, web applications, landing pages & digital solutions.",
       servicesLabel: "18 services",
-      gradient: "from-rose-500 via-pink-500 to-red-600",
+      gradient: "from-blue-600 via-indigo-600 to-violet-700",
     ),
     ServiceCategory(
       id: "digital-marketing",
-      title: "Digital Marketing & Podcast",
-      description: "Performance marketing, SEO, and professional podcast studio production.",
+      title: "Digital Marketing",
+      description: "SEO, Google & Meta Ads, growth marketing & podcasting studio.",
       servicesLabel: "10 services",
       gradient: "from-purple-500 via-pink-500 to-rose-600",
-    ),
-    ServiceCategory(
-      id: "laptop",
-      title: "Laptop",
-      description: "Laptop repair, parts upgrade, and software support.",
-      servicesLabel: "10 services",
-      gradient: "from-blue-600 via-indigo-600 to-purple-600",
-    ),
-    ServiceCategory(
-      id: "desktop",
-      title: "Desktop",
-      description: "Desktop repairs, diagnosis, and hardware builds.",
-      servicesLabel: "13 services",
-      gradient: "from-purple-500 via-indigo-500 to-blue-600",
-    ),
-    ServiceCategory(
-      id: "server",
-      title: "Server",
-      description: "Server hardware setup, administration, and support.",
-      servicesLabel: "8 services",
-      gradient: "from-slate-700 via-blue-700 to-cyan-600",
-    ),
-    ServiceCategory(
-      id: "cyber-security",
-      title: "Cyber Security",
-      description: "Firewalls, audits, endpoint security, and threat hardening.",
-      servicesLabel: "6 services",
-      gradient: "from-red-500 via-orange-500 to-amber-600",
-    ),
-    ServiceCategory(
-      id: "home-automation",
-      title: "Home Automation",
-      description: "Smart home hubs, locks, and automatic controls.",
-      servicesLabel: "Coming Soon",
-      gradient: "from-orange-500 via-amber-500 to-rose-500",
-    ),
-    ServiceCategory(
-      id: "electronic-contracts",
-      title: "Electronic Contracts",
-      description: "E-contracts and digital agreements automation.",
-      servicesLabel: "Coming Soon",
-      gradient: "from-teal-500 via-emerald-500 to-lime-500",
-    ),
-    ServiceCategory(
-      id: "software-licensing",
-      title: "Software Licensing",
-      description: "Enterprise software licensing and audits.",
-      servicesLabel: "Coming Soon",
-      gradient: "from-teal-500 via-emerald-500 to-green-600",
     ),
   ];
 
