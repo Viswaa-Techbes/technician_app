@@ -6,6 +6,15 @@ plugins {
     id("com.google.gms.google-services")
 }
 
+import java.util.Properties
+import java.io.FileInputStream
+
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.techbes.customer_app"
     compileSdk = flutter.compileSdkVersion
@@ -22,21 +31,37 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.techbes.customer_app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            val keyAliasVal = keystoreProperties.getProperty("keyAlias")
+            val keyPasswordVal = keystoreProperties.getProperty("keyPassword")
+            val storeFileVal = keystoreProperties.getProperty("storeFile")
+            val storePasswordVal = keystoreProperties.getProperty("storePassword")
+
+            if (keyAliasVal != null && keyPasswordVal != null && storeFileVal != null && storePasswordVal != null) {
+                keyAlias = keyAliasVal
+                keyPassword = keyPasswordVal
+                storeFile = file(storeFileVal)
+                storePassword = storePasswordVal
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            val releaseSigningConfig = signingConfigs.getByName("release")
+            if (releaseSigningConfig.storeFile != null && releaseSigningConfig.storeFile!!.exists()) {
+                signingConfig = releaseSigningConfig
+            } else {
+                signingConfig = signingConfigs.getByName("debug")
+            }
         }
     }
 }
