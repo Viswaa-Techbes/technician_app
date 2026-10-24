@@ -297,6 +297,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
               child: Column(
                 children: [
                   ListTile(
+                    leading: const Icon(Icons.request_quote_outlined, color: AppTheme.primaryColor),
+                    title: const Text('My Quotations & Enquiries', style: TextStyle(fontSize: 13.5)),
+                    subtitle: const Text('Track and view custom service estimates', style: TextStyle(fontSize: 11)),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
+                    onTap: () => context.push('/my-quotes'),
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  ListTile(
                     leading: const Icon(Icons.bar_chart, color: AppTheme.primaryColor),
                     title: const Text('My Service Analytics', style: TextStyle(fontSize: 13.5)),
                     subtitle: const Text('Visualize spent, bookings and rewards metrics', style: TextStyle(fontSize: 11)),

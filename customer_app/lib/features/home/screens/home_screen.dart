@@ -554,9 +554,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              _buildShortcutButton(Icons.verified_user, 'AMC Plans', () => context.push('/amc')),
+                              _buildShortcutButton(Icons.request_quote_outlined, 'Quotes', () => context.push('/my-quotes')),
+                              _buildShortcutButton(Icons.verified_user, 'AMC', () => context.push('/amc')),
                               _buildShortcutButton(Icons.bar_chart, 'Analytics', () => context.push('/analytics')),
-                              _buildShortcutButton(Icons.history, 'Timeline', () => context.push('/timeline')),
                               _buildShortcutButton(Icons.receipt_long, 'Invoices', () => context.push('/invoice-center')),
                               _buildShortcutButton(Icons.card_giftcard, 'Rewards', () => context.push('/referral')),
                             ],
