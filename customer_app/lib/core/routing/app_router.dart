@@ -25,6 +25,7 @@ import '../../features/home/screens/ai_assistant_screen.dart';
 import '../../features/profile/screens/referral_screen.dart';
 import '../../features/reports/screens/service_timeline_screen.dart';
 import '../../features/quotation/screens/quotation_screen.dart';
+import '../../features/quotation/screens/my_quotes_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -156,6 +157,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             serviceName: serviceName,
           );
         },
+      ),
+      GoRoute(
+        path: '/my-quotes',
+        builder: (context, state) => const MyQuotesScreen(),
       ),
     ],
   );
