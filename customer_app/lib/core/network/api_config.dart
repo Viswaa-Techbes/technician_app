@@ -81,4 +81,18 @@ class ApiConfig {
 
   // Analytics (User)
   static const String userAnalytics = "/api/v2/analytics/user";
+
+  // Apartment & Society Complaints
+  static const String residentActivate = "/api/v2/apartments/residents/activate";
+  static const String residentProfile = "/api/v2/apartments/residents/me";
+  static const String apartmentTickets = "/api/v2/apartments/tickets";
+  static String apartmentTicketDetails(String id) => "/api/v2/apartments/tickets/$id";
+  static String apartmentTicketReply(String id) => "/api/v2/apartments/tickets/$id/reply";
+  static String apartmentTicketStatus(String id) => "/api/v2/apartments/tickets/$id/status";
+  static String apartmentTicketInternalNotes(String id) => "/api/v2/apartments/tickets/$id/internal-notes";
+  static String apartmentTicketResolve(String id) => "/api/v2/apartments/tickets/$id/resolve";
+  static String apartmentTicketReopen(String id) => "/api/v2/apartments/tickets/$id/reopen";
+  static const String apartments = "/api/v2/apartments";
+  static String apartmentDetails(String id) => "/api/v2/apartments/$id";
+  static const String upload = "/api/v2/upload";
 }

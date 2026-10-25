@@ -24,6 +24,7 @@ class _NotificationsTabState extends ConsumerState<NotificationsTab> {
 
   final List<String> _categories = [
     'All',
+    'Society',
     'Bookings',
     'Quotations',
     'Payments',
@@ -157,7 +158,13 @@ class _NotificationsTabState extends ConsumerState<NotificationsTab> {
       return;
     }
 
-    // 5. Default: Show Rich Notification Details Sheet
+    // 5. Society & Apartment Complaint related
+    if (type.contains('ticket') || type.contains('society') || title.contains('Ticket') || title.contains('Complaint')) {
+      context.push('/apartment');
+      return;
+    }
+
+    // 6. Default: Show Rich Notification Details Sheet
     _showNotificationDetailsModal(n);
   }
 

@@ -156,7 +156,102 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
               ),
             ),
             
-            const SizedBox(height: 20),
+            // Apartment Resident & Complaints Card
+            Container(
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF1E3A8A), Color(0xFF2563EB)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF1E3A8A).withOpacity(0.25),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.18),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.apartment_rounded, color: Colors.white, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Apartment Resident Hub',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            Text(
+                              user?['flatNumber'] != null && user!['flatNumber'].toString().isNotEmpty
+                                  ? 'Flat ${user['flatNumber']} (${user['block'] ?? "Block A"})'
+                                  : 'Society Maintenance & Complaints',
+                              style: const TextStyle(color: Colors.white70, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF1E3A8A),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          minimumSize: Size.zero,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: () => context.push('/apartment'),
+                        child: const Text('Open Hub', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24, color: Colors.white24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                        ),
+                        icon: const Icon(Icons.add_circle_outline, size: 16, color: Colors.white),
+                        label: const Text('Register Complaint', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        onPressed: () => context.push('/apartment/register-complaint'),
+                      ),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                        ),
+                        icon: const Icon(Icons.vpn_key_outlined, size: 16, color: Colors.white70),
+                        label: const Text('Activate Code', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                        onPressed: () => context.push('/resident-activate'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
 
             // Invoices & Worksheets Section
             if (_serviceReports.isNotEmpty) ...[
@@ -293,6 +388,22 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
               ),
               child: Column(
                 children: [
+                  ListTile(
+                    leading: const Icon(Icons.apartment_rounded, color: AppTheme.primaryColor),
+                    title: const Text('My Apartment & Society Complaints', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+                    subtitle: const Text('Register maintenance complaints, track status, and chat with in-charge', style: TextStyle(fontSize: 11)),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
+                    onTap: () => context.push('/apartment'),
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  ListTile(
+                    leading: const Icon(Icons.vpn_key_outlined, color: AppTheme.primaryColor),
+                    title: const Text('Activate Resident Account', style: TextStyle(fontSize: 13.5)),
+                    subtitle: const Text('Enter 6-digit society activation code to link your flat', style: TextStyle(fontSize: 11)),
+                    trailing: const Icon(Icons.chevron_right, size: 20),
+                    onTap: () => context.push('/resident-activate'),
+                  ),
+                  const Divider(height: 1, indent: 56),
                   ListTile(
                     leading: const Icon(Icons.request_quote_outlined, color: AppTheme.primaryColor),
                     title: const Text('My Quotations & Enquiries', style: TextStyle(fontSize: 13.5)),

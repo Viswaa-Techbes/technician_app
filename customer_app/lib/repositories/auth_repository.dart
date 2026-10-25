@@ -14,9 +14,11 @@ class AuthRepository {
 
   AuthRepository(this._dioClient, this.storage);
 
-  Future<Map<String, dynamic>> login(String email, String password) async {
+  Future<Map<String, dynamic>> login(String identifier, String password) async {
+    final clean = identifier.trim();
     final response = await _dioClient.post(ApiConfig.login, data: {
-      'email': email.trim().toLowerCase(),
+      'email': clean,
+      'mobileNumber': clean,
       'password': password,
     });
     final data = response.data;
@@ -25,6 +27,28 @@ class AuthRepository {
     }
     if (data['user'] != null) {
       await storage.saveUser(data['user']);
+    }
+    return data;
+  }
+
+  Future<Map<String, dynamic>> activateResident({
+    required String phone,
+    required String activationCode,
+    required String password,
+  }) async {
+    final response = await _dioClient.post(ApiConfig.residentActivate, data: {
+      'phone': phone.trim(),
+      'activationCode': activationCode.trim(),
+      'password': password,
+    });
+    final data = response.data;
+    final token = data['token'] ?? data['data']?['token'];
+    final user = data['user'] ?? data['data']?['user'];
+    if (token != null) {
+      await storage.saveToken(token);
+    }
+    if (user != null) {
+      await storage.saveUser(user);
     }
     return data;
   }

@@ -259,11 +259,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               TextField(
                                 controller: _emailController,
                                 decoration: const InputDecoration(
-                                  labelText: 'Email Address',
-                                  prefixIcon: Icon(Icons.email_outlined, size: 18),
-                                  hintText: 'Enter your email',
+                                  labelText: 'Email Address / Mobile Number',
+                                  prefixIcon: Icon(Icons.person_outline, size: 18),
+                                  hintText: 'Enter your email or 10-digit mobile',
                                 ),
-                                keyboardType: TextInputType.emailAddress,
+                                keyboardType: TextInputType.text,
                               ),
                               const SizedBox(height: 16),
                               TextField(
@@ -389,6 +389,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: const Text('Sign Up', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
                     ),
                   ],
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: TextButton.icon(
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.primaryColor,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    ),
+                    icon: const Icon(Icons.key_rounded, size: 18),
+                    label: const Text(
+                      'Apartment Resident? Activate with Society Code',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () => context.push('/resident-activate'),
+                  ),
                 ),
               ],
             ),

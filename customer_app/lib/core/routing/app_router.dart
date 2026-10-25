@@ -25,6 +25,10 @@ import '../../features/profile/screens/referral_screen.dart';
 import '../../features/reports/screens/service_timeline_screen.dart';
 import '../../features/quotation/screens/quotation_screen.dart';
 import '../../features/quotation/screens/my_quotes_screen.dart';
+import '../../features/apartment/screens/apartment_dashboard_screen.dart';
+import '../../features/apartment/screens/register_complaint_screen.dart';
+import '../../features/apartment/screens/complaint_details_screen.dart';
+import '../../features/apartment/screens/resident_activation_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
@@ -35,7 +39,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLoggingIn = state.matchedLocation == '/login' ||
           state.matchedLocation == '/register' ||
           state.matchedLocation == '/otp' ||
-          state.matchedLocation == '/forgot-password';
+          state.matchedLocation == '/forgot-password' ||
+          state.matchedLocation == '/resident-activate';
 
       if (authState.status == AuthStatus.initial || authState.status == AuthStatus.loading) {
         return '/splash';
@@ -160,6 +165,25 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/my-quotes',
         builder: (context, state) => const MyQuotesScreen(),
+      ),
+      GoRoute(
+        path: '/apartment',
+        builder: (context, state) => const ApartmentDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/apartment/register-complaint',
+        builder: (context, state) => const RegisterComplaintScreen(),
+      ),
+      GoRoute(
+        path: '/apartment/complaints/:id',
+        builder: (context, state) {
+          final ticketId = state.pathParameters['id'] ?? '';
+          return ComplaintDetailsScreen(ticketId: ticketId);
+        },
+      ),
+      GoRoute(
+        path: '/resident-activate',
+        builder: (context, state) => const ResidentActivationScreen(),
       ),
     ],
   );

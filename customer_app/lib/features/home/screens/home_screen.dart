@@ -350,6 +350,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     // Quick Module Shortcuts
                     _buildQuickShortcuts(context),
 
+                    // Society Resident Portal Banner
+                    _buildApartmentResidentBanner(context),
+
                     // Verified 4 Core Service Divisions (2x2 Grid)
                     _buildCoreCategoriesSection(context),
 
@@ -633,6 +636,87 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           _buildShortcutItem(Icons.receipt_long_outlined, 'Invoices', () => context.push('/invoice-center')),
           _buildShortcutItem(Icons.support_agent_outlined, 'Support', () => context.push('/ai-assistant')),
         ],
+      ),
+    );
+  }
+
+  Widget _buildApartmentResidentBanner(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F172A), Color(0xFF1E3A8A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withOpacity(0.18),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => context.push('/apartment'),
+          child: Padding(
+            padding: const EdgeInsets.all(15),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.14),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.apartment_rounded, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            'Society Resident Portal',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14.5,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'COMPLAINTS',
+                              style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      const Text(
+                        'Report flat maintenance issues, attach photos, and communicate directly with apartment in-charge.',
+                        style: TextStyle(color: Colors.white70, fontSize: 11.5, height: 1.3),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: Colors.white70, size: 20),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

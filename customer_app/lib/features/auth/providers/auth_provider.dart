@@ -134,6 +134,32 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<bool> activateResident({
+    required String phone,
+    required String activationCode,
+    required String password,
+  }) async {
+    state = AuthState.loading();
+    try {
+      final response = await _repository.activateResident(
+        phone: phone,
+        activationCode: activationCode,
+        password: password,
+      );
+      final user = response['user'] ?? response['data']?['user'];
+      if (response['success'] == true && user != null) {
+        state = AuthState.authenticated(user);
+        return true;
+      } else {
+        state = AuthState.error(response['message'] ?? 'Activation failed');
+        return false;
+      }
+    } catch (e) {
+      state = AuthState.error(e.toString());
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     await _repository.logout();
     state = AuthState.unauthenticated();
