@@ -1,0 +1,8 @@
+# Production Keystore Configuration Template
+# DO NOT COMMIT key.properties TO GIT!
+# Copy this file to 'key.properties' and fill in your secure release credentials:
+#
+# storePassword=YOUR_SECURE_STORE_PASSWORD
+# keyPassword=YOUR_SECURE_KEY_PASSWORD
+# keyAlias=techbes_technician_key
+# storeFile=C:/path/to/your/upload-keystore.jks
