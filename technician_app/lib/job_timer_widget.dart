@@ -33,6 +33,7 @@ class _JobTimerWidgetState extends ConsumerState<JobTimerWidget> {
     _elapsedSeconds = widget.initialDurationSeconds;
     
     switch (widget.initialStatus) {
+      case 'working':
       case 'started':
       case 'in_progress':
       case 'inProgress':

@@ -165,14 +165,26 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
       }
     });
 
-    _socket?.on('bookingStatusUpdate', (data) {
+    void handleStatusUpdate(dynamic data) {
       debugPrint('[Socket] Received live status update: $data');
-      if (data is Map && data['bookingId'] == widget.bookingId) {
-        setState(() {
-          _currentStatus = (data['status'] ?? _currentStatus).toString().toLowerCase();
-        });
+      if (data is Map) {
+        final matchesJob = (data['jobId']?.toString() == widget.bookingId) ||
+            (data['bookingId']?.toString() == widget.bookingId);
+        if (matchesJob) {
+          final nextRaw = data['status']?.toString();
+          if (nextRaw != null && nextRaw.isNotEmpty) {
+            setState(() {
+              _currentStatus = nextRaw.toLowerCase();
+            });
+            _recalculateStats();
+          }
+        }
       }
-    });
+    }
+
+    _socket?.on('bookingStatusUpdate', handleStatusUpdate);
+    _socket?.on('bookingStatusUpdated', handleStatusUpdate);
+    _socket?.on('jobStatusUpdated', handleStatusUpdate);
 
     _socket?.onDisconnect((_) {
       setState(() => _isLiveConnected = false);

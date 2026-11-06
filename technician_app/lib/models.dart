@@ -1,7 +1,23 @@
 import 'core/security/rbac_constants.dart';
 export 'core/security/rbac_constants.dart';
 
-enum JobStatus { assigned, started, workUploaded, completionRequested, approvedByManager, paymentRequested, paymentPending, paymentDone, completed, cancelled }
+enum JobStatus {
+  pending,
+  assigned,
+  accepted,
+  travelling,
+  arrived,
+  working,
+  started,
+  workUploaded,
+  completionRequested,
+  approvedByManager,
+  paymentRequested,
+  paymentPending,
+  paymentDone,
+  completed,
+  cancelled
+}
 
 enum PaymentStatus { pending, requested, pendingPayment, verificationPending, paid, rejected }
 
@@ -120,10 +136,17 @@ class Job {
     );
   }
 
+  factory Job.fromJson(Map<String, dynamic> data, String id) => Job.fromFirestore(data, id);
+
   factory Job.fromFirestore(Map<String, dynamic> data, String id) {
     JobStatus status = JobStatus.assigned;
     final s = data['status'] as String?;
-    if (s == 'assigned' || s == 'pending') status = JobStatus.assigned;
+    if (s == 'pending') status = JobStatus.pending;
+    if (s == 'assigned') status = JobStatus.assigned;
+    if (s == 'accepted') status = JobStatus.accepted;
+    if (s == 'travelling') status = JobStatus.travelling;
+    if (s == 'arrived') status = JobStatus.arrived;
+    if (s == 'working') status = JobStatus.working;
     if (s == 'started' || s == 'in_progress' || s == 'inProgress') status = JobStatus.started;
     if (s == 'work_uploaded') status = JobStatus.workUploaded;
     if (s == 'completion_requested') status = JobStatus.completionRequested;

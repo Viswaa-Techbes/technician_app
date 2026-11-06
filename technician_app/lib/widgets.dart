@@ -136,10 +136,35 @@ class StatusChip extends StatelessWidget {
     IconData icon;
 
     switch (status) {
+      case JobStatus.pending:
+        color = const Color(0xFFF59E0B);
+        label = 'PENDING';
+        icon = Icons.schedule_rounded;
+        break;
       case JobStatus.assigned:
         color = const Color(0xFF94A3B8);
         label = 'ASSIGNED';
         icon = Icons.calendar_today_rounded;
+        break;
+      case JobStatus.accepted:
+        color = const Color(0xFF6366F1);
+        label = 'ACCEPTED';
+        icon = Icons.thumb_up_alt_rounded;
+        break;
+      case JobStatus.travelling:
+        color = const Color(0xFFEA580C);
+        label = 'ON THE WAY';
+        icon = Icons.directions_bike_rounded;
+        break;
+      case JobStatus.arrived:
+        color = const Color(0xFF0D9488);
+        label = 'ARRIVED AT SITE';
+        icon = Icons.pin_drop_rounded;
+        break;
+      case JobStatus.working:
+        color = const Color(0xFF2563EB);
+        label = 'IN PROGRESS';
+        icon = Icons.build_circle_rounded;
         break;
       case JobStatus.started:
         color = const Color(0xFF3B82F6);

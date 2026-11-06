@@ -252,13 +252,39 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
         appBar: AppBar(title: const Text('Dashboard')),
         body: Center(
           child: Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.all(32.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(_errorMessage!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFEF2F2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.cloud_off_rounded, size: 40, color: Color(0xFFDC2626)),
+                ),
                 const SizedBox(height: 16),
-                ElevatedButton(onPressed: _loadDashboardData, child: const Text('Retry')),
+                const Text(
+                  'Unable to Load Dashboard',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryColor),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _errorMessage!,
+                  style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryColor),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: _loadDashboardData,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('Retry Connection'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
               ],
             ),
           ),
@@ -342,14 +368,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
 
           // Scrollable content area
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildBookingsTab(),
-                _buildAddressesTab(),
-                _buildPaymentsTab(),
-                _buildReportsTab(),
-              ],
+            child: RefreshIndicator(
+              onRefresh: _loadDashboardData,
+              color: AppTheme.primaryColor,
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildBookingsTab(),
+                  _buildAddressesTab(),
+                  _buildPaymentsTab(),
+                  _buildReportsTab(),
+                ],
+              ),
             ),
           ),
         ],
@@ -740,18 +770,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
   Widget _buildEmptyState(String title, String subtitle) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(32.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inbox_outlined, size: 48, color: Colors.blueGrey.shade300),
-            const SizedBox(height: 12),
-            Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
-            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF1F5F9),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.inbox_outlined, size: 40, color: Color(0xFF94A3B8)),
+            ),
+            const SizedBox(height: 16),
+            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
+            const SizedBox(height: 6),
             Text(
               subtitle,
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+              style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryColor),
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 18),
+            OutlinedButton.icon(
+              onPressed: () => context.push('/services'),
+              icon: const Icon(Icons.explore_outlined, size: 16),
+              label: const Text('Browse Marketplace'),
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
             ),
           ],
         ),

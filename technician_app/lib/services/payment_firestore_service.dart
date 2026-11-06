@@ -1,10 +1,12 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import 'api_service.dart';
 
+/// Legacy Payment Service adapter.
+/// Migrated from obsolete Firestore writes to MongoDB Backend REST APIs as the single source of truth.
 class PaymentFirestoreService {
-  final FirebaseFirestore _firestore;
+  final ApiService? _api;
 
-  PaymentFirestoreService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  PaymentFirestoreService({ApiService? api}) : _api = api;
 
   Future<void> markPaymentPaid({
     required String jobId,
@@ -12,19 +14,9 @@ class PaymentFirestoreService {
     required String paymentId,
     required double amount,
   }) async {
-    final payload = <String, dynamic>{
-      'jobId': jobId,
-      'orderId': orderId,
-      'paymentId': paymentId,
-      'amount': amount,
-      'paymentStatus': 'paid',
-      'updatedAt': FieldValue.serverTimestamp(),
-      'paidAt': FieldValue.serverTimestamp(),
-    };
-
-    await Future.wait([
-      _firestore.collection('jobs').doc(jobId).set(payload, SetOptions(merge: true)),
-      _firestore.collection('projects').doc(jobId).set(payload, SetOptions(merge: true)),
-    ]);
+    debugPrint('[PaymentService] Marking payment paid via Backend REST API for job $jobId');
+    if (_api != null) {
+      await _api.updateJobStatus(jobId, 'payment_done', note: 'Paid via order $orderId, payment $paymentId');
+    }
   }
 }

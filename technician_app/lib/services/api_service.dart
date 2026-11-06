@@ -114,11 +114,12 @@ class ApiService {
     );
   }
 
-  Future<void> updateJobStatus(String jobId, String status, {String? notes, List<String>? attachments}) async {
+  Future<void> updateJobStatus(String jobId, String status, {String? notes, String? note, List<String>? attachments}) async {
+    final effectiveNote = note ?? notes;
     final res = await http.patch(
       Uri.parse("$baseUrl/technician/tasks/$jobId/status"),
       headers: _headers,
-      body: jsonEncode({"status": status, "notes": notes, "attachments": attachments}),
+      body: jsonEncode({"status": status, "notes": effectiveNote, "note": effectiveNote, "attachments": attachments}),
     );
 
     final json = jsonDecode(res.body) as Map<String, dynamic>;
@@ -212,16 +213,26 @@ class ApiService {
     return [];
   }
 
-  Future<void> submitExpense(double amount, String description, {String? jobId}) async {
-    await http.post(
+  Future<void> submitExpense(double amount, String description, {String? jobId, String? receiptUrl}) async {
+    final res = await http.post(
       Uri.parse("$baseUrl/expenses"),
       headers: _headers,
       body: jsonEncode({
         "amount": amount,
         "description": description,
         if (jobId != null) "jobId": jobId,
+        if (receiptUrl != null) "receiptUrl": receiptUrl,
       }),
     );
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      try {
+        final errJson = jsonDecode(res.body);
+        throw Exception(errJson['message'] ?? 'Failed to submit expense');
+      } catch (e) {
+        if (e is Exception) rethrow;
+        throw Exception('Failed to submit expense (Status ${res.statusCode})');
+      }
+    }
   }
 
   Future<void> updateExpenseStatus(String id, String status) async {

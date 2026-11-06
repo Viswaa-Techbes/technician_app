@@ -199,8 +199,28 @@ class _BookingsTabState extends ConsumerState<BookingsTab> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+      return Scaffold(
+        appBar: AppBar(title: const Text('My Bookings')),
+        body: ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: 3,
+          itemBuilder: (context, index) => Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            height: 140,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.borderColor),
+            ),
+            child: const Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(color: AppTheme.primaryColor, strokeWidth: 2.5),
+              ),
+            ),
+          ),
+        ),
       );
     }
 
@@ -208,13 +228,42 @@ class _BookingsTabState extends ConsumerState<BookingsTab> with SingleTickerProv
       return Scaffold(
         appBar: AppBar(title: const Text('My Bookings')),
         body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(_error!, style: const TextStyle(color: Colors.red)),
-              const SizedBox(height: 16),
-              ElevatedButton(onPressed: _loadBookings, child: const Text('Retry')),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFEF2F2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.cloud_off_rounded, size: 40, color: Color(0xFFDC2626)),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Unable to Load Bookings',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryColor),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _error!,
+                  style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryColor),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: _loadBookings,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('Retry Connection'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -222,46 +271,52 @@ class _BookingsTabState extends ConsumerState<BookingsTab> with SingleTickerProv
 
     final upcomingList = _bookings.where((b) {
       final status = (b['status'] ?? b['bookingStatus'] ?? 'pending').toString().toLowerCase();
-      return status == 'pending' || status == 'dispatched' || status == 'in_progress' || status == 'active';
+      return status != 'completed' && status != 'payment_done' && status != 'closed' && status != 'cancelled' && status != 'rejected';
     }).toList();
 
     final completedList = _bookings.where((b) {
       final status = (b['status'] ?? b['bookingStatus'] ?? 'pending').toString().toLowerCase();
-      return status == 'completed';
+      return status == 'completed' || status == 'payment_done' || status == 'closed';
     }).toList();
 
     final cancelledList = _bookings.where((b) {
       final status = (b['status'] ?? b['bookingStatus'] ?? 'pending').toString().toLowerCase();
-      return status == 'cancelled';
+      return status == 'cancelled' || status == 'rejected';
     }).toList();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Bookings'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadBookings,
+          ),
+        ],
         bottom: TabBar(
           controller: _subTabController,
           indicatorColor: AppTheme.primaryColor,
           labelColor: AppTheme.primaryColor,
           unselectedLabelColor: AppTheme.textSecondaryColor,
-          tabs: const [
-            Tab(text: 'Upcoming'),
-            Tab(text: 'Completed'),
-            Tab(text: 'Cancelled'),
+          tabs: [
+            Tab(text: 'Upcoming (${upcomingList.length})'),
+            Tab(text: 'Completed (${completedList.length})'),
+            Tab(text: 'Cancelled (${cancelledList.length})'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _subTabController,
         children: [
-          _buildBookingsList(upcomingList, true),
-          _buildBookingsList(completedList, false),
-          _buildBookingsList(cancelledList, false),
+          _buildBookingsList(upcomingList, true, 'No active or upcoming bookings.', 'Explore our professional CCTV, networking, and IT services.'),
+          _buildBookingsList(completedList, false, 'No completed services yet.', 'Completed installation and maintenance jobs will appear here.'),
+          _buildBookingsList(cancelledList, false, 'No cancelled bookings.', 'Any cancelled or rejected requests will be listed here.'),
         ],
       ),
     );
   }
 
-  Widget _buildBookingsList(List<dynamic> list, bool activeTrackingAllowed) {
+  Widget _buildBookingsList(List<dynamic> list, bool activeTrackingAllowed, String emptyTitle, String emptySubtitle) {
     if (list.isEmpty) {
       return Center(
         child: Padding(
@@ -269,17 +324,34 @@ class _BookingsTabState extends ConsumerState<BookingsTab> with SingleTickerProv
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.calendar_today_outlined, size: 48, color: Colors.blueGrey.shade200),
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF1F5F9),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.calendar_today_outlined, size: 40, color: Color(0xFF94A3B8)),
+              ),
               const SizedBox(height: 16),
-              const Text(
-                'No bookings found',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryColor),
+              Text(
+                emptyTitle,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryColor),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'Configure a service and choose checkout to book schedule.',
-                style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+              Text(
+                emptySubtitle,
+                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
                 textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: () => context.push('/services'),
+                icon: const Icon(Icons.explore_outlined, size: 16),
+                label: const Text('Browse Services'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
               ),
             ],
           ),

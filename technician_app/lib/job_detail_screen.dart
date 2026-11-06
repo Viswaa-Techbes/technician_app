@@ -15,8 +15,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'features/auth/presentation/providers/auth_provider.dart';
 import 'screens/worksheet_form_screen.dart';
+import 'services/offline_sync_service.dart';
+import 'services/connectivity_service.dart';
 import 'dart:math' as math;
 
 class JobDetailScreen extends ConsumerStatefulWidget {
@@ -49,7 +50,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
     super.initState();
     _currentStatus = widget.job.status;
     _currentPaymentStatus = widget.job.paymentStatus;
-    if (_currentStatus == JobStatus.started) {
+    if (_currentStatus == JobStatus.started || _currentStatus == JobStatus.working) {
       _startTimer();
     }
     _fetchRoute();
@@ -391,7 +392,8 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   }
 
   Widget _buildWorksheetCard() {
-    final bool isStartedOrLater = _currentStatus == JobStatus.started ||
+    final bool isStartedOrLater = _currentStatus == JobStatus.working ||
+        _currentStatus == JobStatus.started ||
         _currentStatus == JobStatus.workUploaded ||
         _currentStatus == JobStatus.completionRequested ||
         _currentStatus == JobStatus.completed ||
@@ -1013,7 +1015,8 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   }
 
   Widget _buildNotesArea() {
-    final bool isStartedOrLater = _currentStatus == JobStatus.started ||
+    final bool isStartedOrLater = _currentStatus == JobStatus.working ||
+        _currentStatus == JobStatus.started ||
         _currentStatus == JobStatus.workUploaded ||
         _currentStatus == JobStatus.completionRequested ||
         _currentStatus == JobStatus.completed ||
@@ -1056,12 +1059,36 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   }
 
   Future<void> _updateStatus(String newStatus, {List<String>? attachments}) async {
+    final conn = ref.read(connectivityProvider);
+    final isOffline = conn == ConnectivityStatus.isDisconnected;
+
+    if (isOffline) {
+      await ref.read(offlineSyncProvider).queueStatusUpdate(widget.job.id, newStatus, attachments: attachments);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Offline: Status saved locally and will auto-sync when connected.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
     final api = ref.read(apiServiceProvider);
     try {
       await api.updateJobStatus(widget.job.id, newStatus, attachments: attachments);
     } catch (e) {
       debugPrint("Failed to update status: $e");
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      await ref.read(offlineSyncProvider).queueStatusUpdate(widget.job.id, newStatus, attachments: attachments);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Network error. Status saved locally for auto-sync: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     }
   }
 
@@ -1355,6 +1382,37 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
 
   Widget _buildActionButtonForStatus() {
     switch (_currentStatus) {
+      case JobStatus.pending:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: CustomButton(
+                    label: "ACCEPT JOB",
+                    onPressed: () async {
+                      await _updateStatus('accepted');
+                      setState(() => _currentStatus = JobStatus.accepted);
+                    },
+                    color: const Color(0xFF10B981),
+                    icon: Icons.check_circle_outline_rounded,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: CustomButton(
+                    label: "DECLINE",
+                    onPressed: _cancelJob,
+                    color: const Color(0xFFEF4444),
+                    icon: Icons.cancel_outlined,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+
       case JobStatus.assigned:
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -1390,15 +1448,139 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
               ],
             ),
             const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: CustomButton(
+                    label: "ACCEPT JOB",
+                    onPressed: () async {
+                      await _updateStatus('accepted');
+                      setState(() => _currentStatus = JobStatus.accepted);
+                    },
+                    color: const Color(0xFF6366F1),
+                    icon: Icons.thumb_up_alt_rounded,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: CustomButton(
+                    label: "START TRAVEL",
+                    onPressed: () async {
+                      await _updateStatus('travelling');
+                      setState(() => _currentStatus = JobStatus.travelling);
+                    },
+                    color: const Color(0xFFEA580C),
+                    icon: Icons.directions_bike_rounded,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+
+      case JobStatus.accepted:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: CustomButton(
+                    label: "NAVIGATE",
+                    onPressed: _openGoogleMapsNavigation,
+                    color: const Color(0xFF3B82F6),
+                    icon: Icons.directions_rounded,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: CustomButton(
+                    label: "CALL",
+                    onPressed: _callCustomer,
+                    color: const Color(0xFF10B981),
+                    icon: Icons.call,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             CustomButton(
-              label: "START JOB",
+              label: "START TRAVELLING TO SITE",
+              onPressed: () async {
+                await _updateStatus('travelling');
+                setState(() => _currentStatus = JobStatus.travelling);
+              },
+              color: const Color(0xFFEA580C),
+              icon: Icons.directions_bike_rounded,
+            ),
+          ],
+        );
+
+      case JobStatus.travelling:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: CustomButton(
+                    label: "NAVIGATE",
+                    onPressed: _openGoogleMapsNavigation,
+                    color: const Color(0xFF3B82F6),
+                    icon: Icons.directions_rounded,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: CustomButton(
+                    label: "CALL",
+                    onPressed: _callCustomer,
+                    color: const Color(0xFF10B981),
+                    icon: Icons.call,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            CustomButton(
+              label: "ARRIVED AT SITE",
+              onPressed: () async {
+                await _updateStatus('arrived');
+                setState(() => _currentStatus = JobStatus.arrived);
+              },
+              color: const Color(0xFF0D9488),
+              icon: Icons.pin_drop_rounded,
+            ),
+          ],
+        );
+
+      case JobStatus.arrived:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: CustomButton(
+                    label: "CALL CUSTOMER",
+                    onPressed: _callCustomer,
+                    color: const Color(0xFF10B981),
+                    icon: Icons.call,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            CustomButton(
+              label: "START WORK (OTP)",
               onPressed: () async {
                 try {
                   final api = ref.read(apiServiceProvider);
                   final res = await api.requestStartOtp(widget.job.id);
                   
                   if (res['otpRequired'] == false) {
-                    setState(() => _currentStatus = JobStatus.started);
+                    await _updateStatus('working');
+                    setState(() => _currentStatus = JobStatus.working);
                     _startTimer();
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('🎉 Job started successfully!'), backgroundColor: Colors.green),
@@ -1410,7 +1592,8 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                   final otpInput = await _showOtpDialog('start', devOtp);
                   if (otpInput != null && otpInput.isNotEmpty) {
                     await api.verifyStartOtp(widget.job.id, otpInput);
-                    setState(() => _currentStatus = JobStatus.started);
+                    await _updateStatus('working');
+                    setState(() => _currentStatus = JobStatus.working);
                     _startTimer();
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('🎉 Job started successfully!'), backgroundColor: Colors.green),
@@ -1427,50 +1610,75 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
             ),
           ],
         );
+
+      case JobStatus.working:
       case JobStatus.started:
         return Row(
           children: [
             Expanded(
               child: _isRunning
                   ? CustomButton(label: "PAUSE", onPressed: _pauseTimer, color: const Color(0xFFF59E0B), icon: Icons.pause_circle_rounded)
-                  : CustomButton(label: "START", onPressed: _startTimer, color: const Color(0xFF2563EB), icon: Icons.play_circle_rounded),
+                  : CustomButton(label: "RESUME", onPressed: _startTimer, color: const Color(0xFF2563EB), icon: Icons.play_circle_rounded),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: CustomButton(
-                label: "SITE VISIT DONE",
+                label: "UPLOAD WORK",
                 onPressed: _uploadWork,
                 color: const Color(0xFF8B5CF6),
-                icon: Icons.check_circle_outline,
+                icon: Icons.upload_file_rounded,
               ),
             ),
           ],
         );
+
       case JobStatus.workUploaded:
-        return CustomButton(
-          label: "COMPLETE JOB (OTP)",
-          onPressed: () async {
-            try {
-              final api = ref.read(apiServiceProvider);
-              final res = await api.requestCompleteOtp(widget.job.id);
-              final devOtp = res['otp'] as String?;
-              final otpInput = await _showOtpDialog('complete', devOtp);
-              if (otpInput != null && otpInput.isNotEmpty) {
-                await api.verifyCompleteOtp(widget.job.id, otpInput);
-                setState(() => _currentStatus = JobStatus.completed);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('🎉 Job completed successfully!'), backgroundColor: Colors.green),
-                );
-              }
-            } catch (e) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Failed to complete job: $e'), backgroundColor: Colors.red),
-              );
-            }
-          },
-          color: const Color(0xFF10B981),
-          icon: Icons.check_circle_rounded,
+        return Row(
+          children: [
+            Expanded(
+              child: CustomButton(
+                label: "REQUEST APPROVAL",
+                onPressed: () async {
+                  await _updateStatus('completion_requested');
+                  setState(() => _currentStatus = JobStatus.completionRequested);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Completion approval requested from Manager'), backgroundColor: Colors.orange),
+                  );
+                },
+                color: const Color(0xFFF59E0B),
+                icon: Icons.hourglass_bottom_rounded,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: CustomButton(
+                label: "COMPLETE (OTP)",
+                onPressed: () async {
+                  try {
+                    final api = ref.read(apiServiceProvider);
+                    final res = await api.requestCompleteOtp(widget.job.id);
+                    final devOtp = res['otp'] as String?;
+                    final otpInput = await _showOtpDialog('complete', devOtp);
+                    if (otpInput != null && otpInput.isNotEmpty) {
+                      await api.verifyCompleteOtp(widget.job.id, otpInput);
+                      setState(() => _currentStatus = JobStatus.completed);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('🎉 Job completed successfully!'), backgroundColor: Colors.green),
+                      );
+                    }
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to complete job: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                },
+                color: const Color(0xFF10B981),
+                icon: Icons.check_circle_rounded,
+              ),
+            ),
+          ],
         );
+
       case JobStatus.completionRequested:
         return CustomButton(
           label: "WAITING FOR APPROVAL",
@@ -1478,6 +1686,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
           color: const Color(0xFF64748B),
           icon: Icons.hourglass_bottom_rounded,
         );
+
       case JobStatus.approvedByManager:
       case JobStatus.paymentRequested:
       case JobStatus.paymentPending:
@@ -1490,6 +1699,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
           );
         }
         return const SizedBox();
+
       case JobStatus.paymentDone:
       case JobStatus.completed:
         return CustomButton(
@@ -1510,6 +1720,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
           color: const Color(0xFFF59E0B),
           icon: Icons.star_rounded,
         );
+
       case JobStatus.cancelled:
         return const SizedBox();
     }

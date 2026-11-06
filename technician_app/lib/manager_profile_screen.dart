@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'models.dart';
+import 'providers/job_providers.dart';
+import 'providers/live_technicians_provider.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'widgets.dart';
 import 'account_details_screen.dart';
@@ -28,41 +30,54 @@ class ManagerProfileScreen extends ConsumerWidget {
                 children: [
                    _buildSectionLabel(context, "Management Overview"),
                   const SizedBox(height: 20),
-                  StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance.collection('projects').snapshots(),
-                    builder: (context, projectsSnapshot) {
-                      return StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance.collection('technicians').snapshots(),
-                        builder: (context, techSnapshot) {
-                          final projects = projectsSnapshot.data?.docs ?? [];
-                          final techs = techSnapshot.data?.docs ?? [];
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final jobsAsync = ref.watch(jobsProvider(null));
+                      final techsAsync = ref.watch(liveTechniciansProvider);
 
-                          final active = projects.where((d) => d['status'] == 'inProgress').length;
-                          final pending = projects.where((d) => d['status'] == 'pendingApproval').length;
-                          final completed = projects.where((d) => d['status'] == 'completed').length;
+                      final jobs = jobsAsync.value ?? [];
+                      final techs = techsAsync.value ?? [];
 
-                          return Column(
+                      final active = jobs.where((j) =>
+                        j.status == JobStatus.working ||
+                        j.status == JobStatus.started ||
+                        j.status == JobStatus.travelling ||
+                        j.status == JobStatus.arrived ||
+                        j.status == JobStatus.assigned
+                      ).length;
+
+                      final pending = jobs.where((j) =>
+                        j.status == JobStatus.completionRequested ||
+                        j.status == JobStatus.workUploaded ||
+                        j.status == JobStatus.approvedByManager ||
+                        j.status == JobStatus.paymentPending
+                      ).length;
+
+                      final completed = jobs.where((j) =>
+                        j.status == JobStatus.completed ||
+                        j.status == JobStatus.paymentDone
+                      ).length;
+
+                      return Column(
+                        children: [
+                          Row(
                             children: [
-                              Row(
-                                children: [
-                                  Expanded(child: _buildMetricTile(context, active.toString(), "Active Jobs", Icons.bolt_rounded, const Color(0xFFEA580C))),
-                                  const SizedBox(width: 16),
-                                  Expanded(child: _buildMetricTile(context, pending.toString(), "Pending Review", Icons.hourglass_empty_rounded, const Color(0xFF8B5CF6))),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(child: _buildMetricTile(context, completed.toString(), "Completed", Icons.check_circle_rounded, const Color(0xFF10B981))),
-                                  const SizedBox(width: 16),
-                                  Expanded(child: _buildMetricTile(context, techs.length.toString(), "Team Size", Icons.group_rounded, const Color(0xFF2563EB))),
-                                ],
-                              ),
+                              Expanded(child: _buildMetricTile(context, active.toString(), "Active Jobs", Icons.bolt_rounded, const Color(0xFFEA580C))),
+                              const SizedBox(width: 16),
+                              Expanded(child: _buildMetricTile(context, pending.toString(), "Pending Review", Icons.hourglass_empty_rounded, const Color(0xFF8B5CF6))),
                             ],
-                          );
-                        }
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(child: _buildMetricTile(context, completed.toString(), "Completed", Icons.check_circle_rounded, const Color(0xFF10B981))),
+                              const SizedBox(width: 16),
+                              Expanded(child: _buildMetricTile(context, techs.length.toString(), "Team Size", Icons.group_rounded, const Color(0xFF2563EB))),
+                            ],
+                          ),
+                        ],
                       );
-                    }
+                    },
                   ),
                   const SizedBox(height: 32),
                   _buildSectionLabel(context, "Preferences & Configuration"),

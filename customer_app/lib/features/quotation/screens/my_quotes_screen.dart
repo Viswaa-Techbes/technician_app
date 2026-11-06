@@ -59,8 +59,14 @@ class _MyQuotesScreenState extends ConsumerState<MyQuotesScreen> {
         return Colors.green;
       case 'quotation_accepted':
       case 'accepted':
-      case 'paid':
         return AppTheme.primaryColor;
+      case 'advance_paid':
+        return Colors.blue;
+      case 'balance_pending':
+      case 'payment_pending':
+        return Colors.purple;
+      case 'paid':
+        return Colors.green;
       case 'rejected':
       case 'cancelled':
         return Colors.redAccent;
@@ -81,6 +87,12 @@ class _MyQuotesScreenState extends ConsumerState<MyQuotesScreen> {
       case 'quotation_accepted':
       case 'accepted':
         return 'Accepted';
+      case 'advance_paid':
+        return 'Advance Paid';
+      case 'balance_pending':
+        return 'Balance Due';
+      case 'payment_pending':
+        return 'Payment Pending';
       case 'paid':
         return 'Booked & Paid';
       case 'rejected':
@@ -104,6 +116,104 @@ class _MyQuotesScreenState extends ConsumerState<MyQuotesScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Could not open PDF quotation')),
+        );
+      }
+    }
+  }
+
+  Future<void> _acceptQuote(String quoteId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Accept Quotation?'),
+        content: const Text('By accepting this quotation, you confirm that the proposed scope and estimation are agreeable. Our service team will be notified immediately.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Accept Quotation', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final client = ref.read(dioClientProvider);
+      final res = await client.post('/api/v2/quotes/$quoteId/accept');
+      if (res.data?['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Quotation accepted! Admin team notified.'), backgroundColor: Colors.green),
+          );
+        }
+        await _fetchQuotes();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to accept quotation: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _rejectQuote(String quoteId) async {
+    final reasonController = TextEditingController();
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Decline Quotation'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Please share the reason for declining (optional):', style: TextStyle(fontSize: 12.5, color: Colors.grey)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: reasonController,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                hintText: 'e.g. Budget constraints, changed requirements',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Back')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text('Decline Quote', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final client = ref.read(dioClientProvider);
+      final res = await client.post('/api/v2/quotes/$quoteId/reject', data: {
+        'reason': reasonController.text.trim(),
+      });
+      if (res.data?['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Quotation marked as declined.'), backgroundColor: Colors.orange),
+          );
+        }
+        await _fetchQuotes();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to decline quotation: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -297,6 +407,17 @@ class _MyQuotesScreenState extends ConsumerState<MyQuotesScreen> {
                                               color: finalAmount != null ? AppTheme.primaryColor : Colors.orange.shade800,
                                             ),
                                           ),
+                                          if (finalAmount != null && quote['advanceAmount'] != null) ...[
+                                            const SizedBox(height: 3),
+                                            Text(
+                                              'Adv: ₹${quote['advanceAmount']} (${quote['advancePercentage'] ?? 50}%) • Bal: ₹${quote['balanceAmount'] ?? 0}',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.green.shade800,
+                                              ),
+                                            ),
+                                          ],
                                         ],
                                       ),
                                       if (quote['_id'] != null && finalAmount != null)
@@ -310,6 +431,40 @@ class _MyQuotesScreenState extends ConsumerState<MyQuotesScreen> {
                                         ),
                                     ],
                                   ),
+
+                                  if (status.toLowerCase().contains('sent') && quote['_id'] != null) ...[
+                                    const SizedBox(height: 14),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: ElevatedButton.icon(
+                                            onPressed: () => _acceptQuote(quote['_id']),
+                                            icon: const Icon(Icons.check_circle_outline, size: 16),
+                                            label: const Text('Accept Quote', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.green,
+                                              foregroundColor: Colors.white,
+                                              padding: const EdgeInsets.symmetric(vertical: 8),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: OutlinedButton.icon(
+                                            onPressed: () => _rejectQuote(quote['_id']),
+                                            icon: const Icon(Icons.close, size: 16, color: Colors.redAccent),
+                                            label: const Text('Decline', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.redAccent)),
+                                            style: OutlinedButton.styleFrom(
+                                              side: const BorderSide(color: Colors.redAccent),
+                                              padding: const EdgeInsets.symmetric(vertical: 8),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
 
                                   if (createdAt.isNotEmpty) ...[
                                     const SizedBox(height: 10),
