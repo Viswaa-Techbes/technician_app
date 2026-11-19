@@ -114,12 +114,21 @@ class ApiService {
     );
   }
 
-  Future<void> updateJobStatus(String jobId, String status, {String? notes, String? note, List<String>? attachments}) async {
+  Future<void> updateJobStatus(String jobId, String status, {String? notes, String? note, List<String>? attachments, double? lat, double? lng}) async {
     final effectiveNote = note ?? notes;
+    final Map<String, dynamic> body = {
+      "status": status,
+      "notes": effectiveNote,
+      "note": effectiveNote,
+      "attachments": attachments,
+    };
+    if (lat != null) body["lat"] = lat;
+    if (lng != null) body["lng"] = lng;
+
     final res = await http.patch(
       Uri.parse("$baseUrl/technician/tasks/$jobId/status"),
       headers: _headers,
-      body: jsonEncode({"status": status, "notes": effectiveNote, "note": effectiveNote, "attachments": attachments}),
+      body: jsonEncode(body),
     );
 
     final json = jsonDecode(res.body) as Map<String, dynamic>;

@@ -48,6 +48,7 @@ class Job {
   final double? longitude;
   final String? googleMapsLink;
   final List<String>? fileAttachments;
+  final String? dispatchNote;
 
   const Job({
     required this.id,
@@ -76,6 +77,7 @@ class Job {
     this.longitude,
     this.googleMapsLink,
     this.fileAttachments,
+    this.dispatchNote,
   });
 
   Job copyWith({
@@ -105,6 +107,7 @@ class Job {
     double? longitude,
     String? googleMapsLink,
     List<String>? fileAttachments,
+    String? dispatchNote,
   }) {
     return Job(
       id: id ?? this.id,
@@ -133,6 +136,7 @@ class Job {
       longitude: longitude ?? this.longitude,
       googleMapsLink: googleMapsLink ?? this.googleMapsLink,
       fileAttachments: fileAttachments ?? this.fileAttachments,
+      dispatchNote: dispatchNote ?? this.dispatchNote,
     );
   }
 
@@ -189,6 +193,7 @@ class Job {
       longitude: (data['longitude'] ?? data['lng'] ?? 0.0).toDouble(),
       googleMapsLink: data['googleMapsLink'],
       fileAttachments: List<String>.from(data['fileAttachments'] ?? data['attachments'] ?? []),
+      dispatchNote: data['dispatchNote'] as String?,
     );
   }
 }

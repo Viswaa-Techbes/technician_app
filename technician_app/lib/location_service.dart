@@ -96,6 +96,20 @@ class LocationService {
   }
 
   // Fetch the latest live location for a specific technician (Useful for Manager side)
+  static Future<Position?> getCurrentPositionSafe() async {
+    try {
+      final enabled = await Geolocator.isLocationServiceEnabled();
+      if (!enabled) return null;
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) return null;
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium, timeLimit: Duration(seconds: 4)),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   static Future<Map<String, dynamic>?> getLiveLocation(String technicianId) async {
     try {
       final response = await http.get(Uri.parse('$_baseUrl/$technicianId'));

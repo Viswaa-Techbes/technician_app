@@ -18,6 +18,7 @@ import 'package:latlong2/latlong.dart';
 import 'screens/worksheet_form_screen.dart';
 import 'services/offline_sync_service.dart';
 import 'services/connectivity_service.dart';
+import 'location_service.dart';
 import 'dart:math' as math;
 
 class JobDetailScreen extends ConsumerStatefulWidget {
@@ -192,6 +193,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 32),
+                            _buildDispatchNoteBanner(),
                             _buildCustomerCard(),
                             _buildSectionHeader('Payment Summary'),
                             _buildPaymentCard(),
@@ -1058,6 +1060,68 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
     );
   }
 
+  Widget _buildDispatchNoteBanner() {
+    final note = widget.job.dispatchNote;
+    if (note == null || note.trim().isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF3C7),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFF59E0B).withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF59E0B),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.assignment_ind_rounded, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'DISPATCH INSTRUCTIONS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                    color: Color(0xFF92400E),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  note.trim(),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF78350F),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _updateStatus(String newStatus, {List<String>? attachments}) async {
     final conn = ref.read(connectivityProvider);
     final isOffline = conn == ConnectivityStatus.isDisconnected;
@@ -1077,7 +1141,14 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
 
     final api = ref.read(apiServiceProvider);
     try {
-      await api.updateJobStatus(widget.job.id, newStatus, attachments: attachments);
+      final pos = await LocationService.getCurrentPositionSafe();
+      await api.updateJobStatus(
+        widget.job.id,
+        newStatus,
+        attachments: attachments,
+        lat: pos?.latitude,
+        lng: pos?.longitude,
+      );
     } catch (e) {
       debugPrint("Failed to update status: $e");
       await ref.read(offlineSyncProvider).queueStatusUpdate(widget.job.id, newStatus, attachments: attachments);
