@@ -70,6 +70,16 @@ class SocketService {
         debugPrint('[TechnicianSocket] Booking assigned: $data');
         _ref.invalidate(jobsProvider(null));
       });
+
+      _socket!.on('jobInstructionUpdated', (data) {
+        debugPrint('[TechnicianSocket] Real-time jobInstructionUpdated: $data');
+        _ref.invalidate(jobsProvider(null));
+      });
+
+      _socket!.on('jobVerified', (data) {
+        debugPrint('[TechnicianSocket] Real-time jobVerified: $data');
+        _ref.invalidate(jobsProvider(null));
+      });
     } catch (e) {
       debugPrint('[TechnicianSocket] Socket connection error: $e');
     }

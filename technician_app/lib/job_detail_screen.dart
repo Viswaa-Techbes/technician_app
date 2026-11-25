@@ -187,6 +187,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const SizedBox(height: 32),
+                            _buildAdminVerificationBanner(),
                             _buildDispatchNoteBanner(),
                             _buildCustomerCard(),
                             _buildSectionHeader('Payment Summary'),
@@ -956,23 +957,123 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   }
 
   Widget _buildPhotoBox(String label, IconData icon) {
-    return Container(
-      height: 140,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
+    final bool isStartedOrLater = _currentStatus == JobStatus.working ||
+        _currentStatus == JobStatus.started ||
+        _currentStatus == JobStatus.workUploaded ||
+        _currentStatus == JobStatus.completionRequested ||
+        _currentStatus == JobStatus.completed ||
+        _currentStatus == JobStatus.approvedByManager ||
+        _currentStatus == JobStatus.paymentRequested ||
+        _currentStatus == JobStatus.paymentPending ||
+        _currentStatus == JobStatus.paymentDone;
+
+    return InkWell(
+      onTap: () {
+        if (!isStartedOrLater) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please start the job before uploading photos.')),
+          );
+          return;
+        }
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => WorksheetFormScreen(job: widget.job),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        height: 140,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFF1F5F9)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(color: Color(0xFFF8FAFC), shape: BoxShape.circle),
+              child: Icon(icon, color: const Color(0xFF2563EB), size: 24),
+            ),
+            const SizedBox(height: 12),
+            Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF64748B), letterSpacing: 1)),
+          ],
+        ),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+    );
+  }
+
+  Widget _buildAdminVerificationBanner() {
+    final bool isVerified = widget.job.adminVerified || widget.job.verificationStatus == 'verified';
+    final bool isRework = widget.job.verificationStatus == 'rework_requested';
+
+    if (!isVerified && !isRework) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isVerified ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isVerified ? const Color(0xFF22C55E).withOpacity(0.4) : const Color(0xFFEF4444).withOpacity(0.4),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (isVerified ? const Color(0xFF22C55E) : const Color(0xFFEF4444)).withOpacity(0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: const Color(0xFFF8FAFC), shape: BoxShape.circle),
-            child: Icon(icon, color: const Color(0xFF94A3B8), size: 24),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isVerified ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              isVerified ? Icons.verified_user_rounded : Icons.warning_amber_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
           ),
-          const SizedBox(height: 12),
-          Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF64748B), letterSpacing: 1)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isVerified ? 'VERIFIED BY ADMIN ✓' : 'ADMIN QUERY / REWORK REQUESTED',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                    color: isVerified ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
+                  ),
+                ),
+                if (widget.job.verificationNote != null && widget.job.verificationNote!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.job.verificationNote!.trim(),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isVerified ? const Color(0xFF166534) : const Color(0xFF991B1B),
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1790,37 +1891,6 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
         return const SizedBox();
     }
   }
-}
-
-class _MapGridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF3B82F6).withValues(alpha: 0.06)
-      ..strokeWidth = 1;
-
-    // Horizontal lines
-    const spacing = 28.0;
-    for (double y = 0; y < size.height; y += spacing) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-    // Vertical lines
-    for (double x = 0; x < size.width; x += spacing) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-
-    // Cross-hair center lines
-    final cx = size.width / 2;
-    final cy = size.height / 2 - 20;
-    final crossPaint = Paint()
-      ..color = const Color(0xFF3B82F6).withValues(alpha: 0.12)
-      ..strokeWidth = 1.2;
-    canvas.drawLine(Offset(cx, 0), Offset(cx, size.height), crossPaint);
-    canvas.drawLine(Offset(0, cy), Offset(size.width, cy), crossPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 enum _WorkProofSource { camera, gallery }

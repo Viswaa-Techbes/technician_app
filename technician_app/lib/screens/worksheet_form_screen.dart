@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -290,6 +288,15 @@ class _WorksheetFormScreenState extends ConsumerState<WorksheetFormScreen> {
             _afterPhotos.add(urls[0]);
           }
         });
+
+        // Auto-save draft so photo is immediately mirrored to Job and visible in Admin drawer in real-time
+        try {
+          final payload = _buildPayload('in_progress');
+          await api.updateWorksheet(widget.job.id, payload);
+          debugPrint('[Worksheet] Auto-saved draft with new photo proof');
+        } catch (e) {
+          debugPrint('[Worksheet] Auto-save draft error: $e');
+        }
       }
     } catch (e) {
       if (mounted) {

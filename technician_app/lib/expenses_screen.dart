@@ -7,7 +7,6 @@ import 'models.dart';
 import 'widgets.dart';
 import 'services/api_service.dart';
 import 'services/connectivity_service.dart';
-import 'features/auth/presentation/providers/auth_provider.dart';
 
 class ExpensesScreen extends ConsumerStatefulWidget {
   const ExpensesScreen({super.key});

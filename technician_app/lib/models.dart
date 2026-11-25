@@ -49,6 +49,11 @@ class Job {
   final String? googleMapsLink;
   final List<String>? fileAttachments;
   final String? dispatchNote;
+  final bool adminVerified;
+  final String? verificationStatus;
+  final String? verificationNote;
+  final List<String>? beforePhotos;
+  final List<String>? afterPhotos;
 
   const Job({
     required this.id,
@@ -78,6 +83,11 @@ class Job {
     this.googleMapsLink,
     this.fileAttachments,
     this.dispatchNote,
+    this.adminVerified = false,
+    this.verificationStatus,
+    this.verificationNote,
+    this.beforePhotos,
+    this.afterPhotos,
   });
 
   Job copyWith({
@@ -108,6 +118,11 @@ class Job {
     String? googleMapsLink,
     List<String>? fileAttachments,
     String? dispatchNote,
+    bool? adminVerified,
+    String? verificationStatus,
+    String? verificationNote,
+    List<String>? beforePhotos,
+    List<String>? afterPhotos,
   }) {
     return Job(
       id: id ?? this.id,
@@ -137,6 +152,11 @@ class Job {
       googleMapsLink: googleMapsLink ?? this.googleMapsLink,
       fileAttachments: fileAttachments ?? this.fileAttachments,
       dispatchNote: dispatchNote ?? this.dispatchNote,
+      adminVerified: adminVerified ?? this.adminVerified,
+      verificationStatus: verificationStatus ?? this.verificationStatus,
+      verificationNote: verificationNote ?? this.verificationNote,
+      beforePhotos: beforePhotos ?? this.beforePhotos,
+      afterPhotos: afterPhotos ?? this.afterPhotos,
     );
   }
 
@@ -194,6 +214,11 @@ class Job {
       googleMapsLink: data['googleMapsLink'],
       fileAttachments: List<String>.from(data['fileAttachments'] ?? data['attachments'] ?? []),
       dispatchNote: data['dispatchNote'] as String?,
+      adminVerified: data['adminVerified'] == true,
+      verificationStatus: data['verificationStatus'] as String?,
+      verificationNote: data['verificationNote'] as String?,
+      beforePhotos: data['beforePhotos'] != null ? List<String>.from(data['beforePhotos']) : null,
+      afterPhotos: data['afterPhotos'] != null ? List<String>.from(data['afterPhotos']) : null,
     );
   }
 }
