@@ -524,23 +524,28 @@ function sanitizeQuoteForCustomer(quote) {
   const plain = quote.toObject ? quote.toObject() : { ...quote };
 
   if (!isSentOrPaid) {
-    // Hide prices completely
+    // Hide prices completely, but provide clean safe defaults for numbers
     plain.items = (plain.items || []).map((item) => ({
       _id: item._id,
       productName: item.productName,
-      quantity: item.quantity,
-      unitPrice: null,
-      lineTotal: null,
+      quantity: item.quantity || 1,
+      unitPrice: 0,
+      lineTotal: 0,
     }));
-    plain.subtotal = null;
-    plain.gstAmount = null;
-    plain.finalAmount = null;
-    plain.pricingBreakdown = null;
-    plain.advancePercentage = null;
-    plain.advanceAmount = null;
-    plain.advancePaidAmount = null;
-    plain.balanceAmount = null;
-    plain.balancePaidAmount = null;
+    plain.subtotal = 0;
+    plain.gstAmount = 0;
+    plain.finalAmount = 0;
+    plain.pricingBreakdown = {
+      labourCharge: 0,
+      serviceCharge: 0,
+      accessoriesCharge: 0,
+      miscCharge: 0,
+    };
+    plain.advancePercentage = 0;
+    plain.advanceAmount = 0;
+    plain.advancePaidAmount = 0;
+    plain.balanceAmount = 0;
+    plain.balancePaidAmount = 0;
     plain.pricingStatus = 'Pricing Under Review by TechBes Admin';
   } else {
     plain.pricingStatus = 'Pricing Ready';
@@ -553,20 +558,38 @@ function sanitizeQuoteForCustomer(quote) {
     const advPaid = Number(plain.advancePaidAmount || 0);
     if (plain.balanceAmount === undefined || plain.balanceAmount === null) {
       plain.balanceAmount = advPaid > 0
-        ? Math.max(0, Math.round((finalAmount - advPaid - (plain.balancePaidAmount || 0)) * 100) / 100)
+        ? Math.max(0, Math.round((finalAmount - advPaid - (Number(plain.balancePaidAmount) || 0)) * 100) / 100)
         : Math.max(0, Math.round((finalAmount - plain.advanceAmount) * 100) / 100);
     }
-    plain.pricingBreakdown = plain.pricingBreakdown || {
-      labourCharge: 0,
-      serviceCharge: 0,
-      accessoriesCharge: 0,
-      miscCharge: 0,
+    plain.subtotal = Number(plain.subtotal || 0);
+    plain.gstAmount = Number(plain.gstAmount || 0);
+    plain.finalAmount = finalAmount;
+    plain.advancePaidAmount = advPaid;
+    plain.balancePaidAmount = Number(plain.balancePaidAmount || 0);
+    plain.pricingBreakdown = {
+      labourCharge: Number(plain.pricingBreakdown?.labourCharge || 0),
+      serviceCharge: Number(plain.pricingBreakdown?.serviceCharge || 0),
+      accessoriesCharge: Number(plain.pricingBreakdown?.accessoriesCharge || 0),
+      miscCharge: Number(plain.pricingBreakdown?.miscCharge || 0),
     };
+    plain.items = (plain.items || []).map((item) => ({
+      _id: item._id,
+      productName: item.productName,
+      quantity: Number(item.quantity || 1),
+      unitPrice: Number(item.unitPrice || 0),
+      lineTotal: Number(item.lineTotal || 0),
+    }));
   }
 
   // Include job status if linked
   if (plain.orderId && typeof plain.orderId === 'object' && plain.orderId.status) {
     plain.jobStatus = plain.orderId.status;
+  }
+  if (!plain.jobId && plain.orderId) {
+    plain.jobId = plain.orderId;
+  }
+  if (!plain.orderId && plain.jobId) {
+    plain.orderId = plain.jobId;
   }
 
   return plain;
@@ -1623,6 +1646,8 @@ async function updateQuoteRequest(req, res, next) {
       quote.jobId = createdJob._id;
       quote.orderId = createdJob._id;
       quote.orderNumber = bookingNumber;
+      quote.orderId = createdJob._id;
+      quote.orderNumber = bookingNumber;
 
       await JobStatusHistory.create({
         jobId: createdJob._id.toString(),
@@ -1853,6 +1878,8 @@ async function acceptQuote(req, res, next) {
       });
 
       quote.jobId = createdJob._id;
+      quote.orderId = createdJob._id;
+      quote.orderNumber = bookingNumber;
 
       await JobStatusHistory.create({
         jobId: createdJob._id.toString(),

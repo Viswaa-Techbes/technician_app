@@ -257,6 +257,11 @@ const quoteRequestSchema = new mongoose.Schema(
       ref: 'Job',
       default: null,
     },
+    jobId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Job',
+      default: null,
+    },
     preferredVisitDate: {
       type: Date,
       default: null,
