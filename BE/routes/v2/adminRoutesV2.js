@@ -37,11 +37,25 @@ router.delete('/customers/:id', adminControllerV2.deleteCustomer);
 
 // Users (Technicians & Managers)
 router.get('/users', adminControllerV2.getUsers);
+router.get('/technicians/available', adminControllerV2.getAvailableTechnicians);
 router.get('/users/:id', adminControllerV2.getUserDetails);
 router.post('/users', adminControllerV2.createUser);
 router.put('/users/:id', adminControllerV2.updateUser);
 router.delete('/users/:id', adminControllerV2.deleteUser);
 router.put('/users/:id/password', adminControllerV2.changeUserPassword);
+router.patch('/users/:id/reset-password', adminControllerV2.changeUserPassword);
+router.post('/users/:id/reset-password', adminControllerV2.changeUserPassword);
+
+// Employee route aliases
+router.get('/employees', adminControllerV2.getUsers);
+router.get('/employees/:id', adminControllerV2.getUserDetails);
+router.post('/employees', adminControllerV2.createUser);
+router.put('/employees/:id', adminControllerV2.updateUser);
+router.delete('/employees/:id', adminControllerV2.deleteUser);
+router.patch('/employees/:id/reset-password', adminControllerV2.changeUserPassword);
+router.post('/employees/:id/reset-password', adminControllerV2.changeUserPassword);
+router.put('/employees/:id/reset-password', adminControllerV2.changeUserPassword);
+router.put('/employees/:id/password', adminControllerV2.changeUserPassword);
 
 // Legacy aliases or specific routes if needed
 router.post('/create-user', adminControllerV2.createUser); // Alias for compatibility
@@ -54,8 +68,20 @@ router.delete('/jobs/:id', adminControllerV2.deleteJob);
 
 // Bookings (v2 Service Requests)
 router.get('/bookings', adminControllerV2.getBookings);
+router.post('/bookings', adminControllerV2.createServiceRequest);
 router.put('/bookings/:id/assign', adminControllerV2.assignBooking);
+router.post('/bookings/:id/assign', adminControllerV2.assignBooking);
+router.post('/service-requests/:id/assign', adminControllerV2.assignBooking);
+router.patch('/bookings/:id/instruction', adminControllerV2.updateJobInstruction);
+router.post('/bookings/:id/instruction', adminControllerV2.updateJobInstruction);
+router.patch('/service-requests/:id/instruction', adminControllerV2.updateJobInstruction);
+router.post('/service-requests/:id/instruction', adminControllerV2.updateJobInstruction);
+router.post('/bookings/:id/verify', adminControllerV2.verifyJobWork);
+router.patch('/bookings/:id/verify', adminControllerV2.verifyJobWork);
+router.post('/service-requests/:id/verify', adminControllerV2.verifyJobWork);
+router.patch('/service-requests/:id/verify', adminControllerV2.verifyJobWork);
 router.get('/service-requests', adminControllerV2.getServiceRequests);
+router.post('/service-requests', adminControllerV2.createServiceRequest);
 router.get('/service-requests/:id', adminControllerV2.getServiceRequestById);
 router.put('/service-requests/:id', adminControllerV2.updateServiceRequest);
 router.patch('/service-requests/:id', adminControllerV2.updateServiceRequest);
@@ -178,6 +204,13 @@ router.put('/payment-requests/:id', adminControllerV2.updatePaymentRequest);
 
 // Tracking & Reports
 router.get('/tracking', adminControllerV2.getTracking);
+
+// Technician Expenses
+router.get('/expenses', adminControllerV2.getExpenses);
+router.patch('/expenses/:id/approve', adminControllerV2.approveExpense);
+router.post('/expenses/:id/approve', adminControllerV2.approveExpense);
+router.patch('/expenses/:id/reject', adminControllerV2.rejectExpense);
+router.post('/expenses/:id/reject', adminControllerV2.rejectExpense);
 router.get('/reviews', adminControllerV2.getReviews);
 router.get('/attendance', adminControllerV2.getAttendance);
 router.get('/addresses', adminControllerV2.getAddresses);
@@ -271,6 +304,7 @@ router.get('/quotes', quoteControllerV2.getQuoteRequests);
 router.get('/quotes/:id', quoteControllerV2.getQuoteRequestDetails);
 router.get('/quotes/:id/pdf', quoteControllerV2.downloadQuotationPdf);
 router.put('/quotes/:id', quoteControllerV2.updateQuoteRequest);
+router.delete('/quotes/:id', quoteControllerV2.deleteQuoteRequest);
 router.post('/quotes/:id/price', quoteControllerV2.priceQuotation);
 router.post('/quotes/:id/send', quoteControllerV2.sendQuotation);
 router.post('/quotes/:id/convert', quoteControllerV2.convertToBooking);

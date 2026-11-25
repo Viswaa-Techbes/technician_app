@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const User = require('../../models/User');
 const Lead = require('../../models/Lead');
 const Job = require('../../models/Job');
@@ -18,7 +19,7 @@ function getV2Metadata(job) {
   return job.v2Metadata;
 }
 
-function formatServiceRequest(job, { address = null, payment = null, lead = null } = {}) {
+function formatServiceRequest(job, { address = null, payment = null, lead = null, statusHistory = null, worksheet = null, expenses = null } = {}) {
   const client = job.client || {};
   const tech = job.assignedTechnician || {};
   const cctv = job.cctvDetails || {};
@@ -67,12 +68,34 @@ function formatServiceRequest(job, { address = null, payment = null, lead = null
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
     status: job.status,
+    dispatchStatus: job.dispatchStatus || null,
+    assignmentMethod: job.assignmentMethod || null,
+    assignmentTime: job.assignmentTime || null,
+    dispatchNote: job.dispatchNote || '',
+    startedAt: job.startedAt || null,
+    actualStartTime: job.actualStartTime || null,
+    completedAt: job.completedAt || null,
+    acceptedAt: job.acceptedAt || null,
     technicianName: tech.name || null,
     technicianId: tech._id || job.technicianId || null,
     internalNotes: meta.internalNotes || meta.notes || cctv.notes || '',
     priority: meta.priority || lead?.priority || 'medium',
     tags: meta.tags || '',
     lead: lead ? { id: lead._id, leadId: lead.leadId, status: lead.status } : null,
+    statusHistory: statusHistory || [],
+    worksheet: worksheet || null,
+    expenses: expenses || [],
+    beforePhotos: (worksheet?.beforePhotos && worksheet.beforePhotos.length) ? worksheet.beforePhotos : (job.beforePhotos || []),
+    afterPhotos: (worksheet?.afterPhotos && worksheet.afterPhotos.length) ? worksheet.afterPhotos : (job.afterPhotos || []),
+    duringPhotos: worksheet?.duringPhotos || [],
+    customerSignature: worksheet?.customerSignatureUrl || job.customerSignature || '',
+    technicianSignature: worksheet?.technicianSignatureUrl || job.technicianSignature || '',
+    technicianObservations: worksheet?.technicianObservations || '',
+    adminVerified: Boolean(job.adminVerified),
+    verificationStatus: job.verificationStatus || (job.adminVerified ? 'verified' : 'pending'),
+    verifiedBy: job.verifiedBy || null,
+    verifiedAt: job.verifiedAt || null,
+    verificationNote: job.verificationNote || '',
   };
 }
 
@@ -100,6 +123,155 @@ async function fetchLeadForJob(job) {
  */
 async function getBookings(req, res, next) {
   return getServiceRequests(req, res, next);
+}
+
+/**
+ * Create a new Service Request / Work Order from Admin Panel
+ */
+async function createServiceRequest(req, res, next) {
+  try {
+    const {
+      customerName,
+      customerPhone,
+      customerEmail,
+      address,
+      location,
+      pincode,
+      serviceCategory,
+      subcategory,
+      equipmentSummary,
+      description,
+      title,
+      totalAmount,
+      amount,
+      paymentStatus,
+      preferredDate,
+      timeSlot,
+      scheduledTime,
+      priority,
+      technicianId,
+      dispatchNote,
+    } = req.body;
+
+    if (!customerName || !customerPhone) {
+      return res.status(400).json({ success: false, message: 'Customer name and mobile number are required' });
+    }
+
+    const normalizedPhone = String(customerPhone).replace(/\D/g, '').slice(-10);
+    if (normalizedPhone.length !== 10) {
+      return res.status(400).json({ success: false, message: 'Valid 10-digit customer mobile number is required' });
+    }
+
+    const finalAddress = (address || location || '').trim();
+    if (!finalAddress) {
+      return res.status(400).json({ success: false, message: 'Site address is required' });
+    }
+
+    const cat = (serviceCategory || 'CCTV').trim();
+    const subcat = (subcategory || 'New Installation').trim();
+    const jobTitle = (title || `${cat} - ${subcat}`).trim();
+    const jobDesc = (equipmentSummary || description || '').trim();
+    const numAmount = Number(totalAmount ?? amount ?? 0) || 0;
+
+    let normalizedPaymentStatus = String(paymentStatus || 'pending').toLowerCase();
+    if (normalizedPaymentStatus === 'partial') normalizedPaymentStatus = 'advance_paid';
+    const validPaymentStatuses = ['pending', 'advance_paid', 'requested', 'pending_payment', 'verification_pending', 'paid', 'rejected', 'FREE', 'NOT_REQUIRED'];
+    if (!validPaymentStatuses.includes(normalizedPaymentStatus)) {
+      normalizedPaymentStatus = 'pending';
+    }
+
+    let normalizedPriority = String(priority || 'medium').toLowerCase();
+    if (normalizedPriority === 'normal') normalizedPriority = 'medium';
+    if (normalizedPriority === 'urgent') normalizedPriority = 'high';
+    if (!['low', 'medium', 'high'].includes(normalizedPriority)) normalizedPriority = 'medium';
+
+    const year = new Date().getFullYear();
+    const randomSeq = String(Math.floor(10000 + Math.random() * 90000));
+    const bookingNumber = `ORD-${year}-${randomSeq}`;
+
+    const serviceTypeMap = {
+      'New Installation': 'installation',
+      'Repair / Troubleshooting': 'repair',
+      'Upgrade': 'other',
+      'AMC Visit': 'other',
+    };
+    const serviceType = serviceTypeMap[subcat] || 'other';
+
+    const startOtp = String(Math.floor(1000 + Math.random() * 9000));
+    const completionOtp = String(Math.floor(1000 + Math.random() * 9000));
+
+    const v2Metadata = new Map();
+    v2Metadata.set('serviceCategory', cat);
+    v2Metadata.set('subcategory', subcat);
+    if (pincode) v2Metadata.set('pincode', String(pincode).trim());
+    if (customerEmail) v2Metadata.set('customerEmail', String(customerEmail).trim());
+    if (preferredDate) v2Metadata.set('preferredDate', String(preferredDate).trim());
+    if (timeSlot) v2Metadata.set('timeSlot', String(timeSlot).trim());
+
+    const job = await Job.create({
+      bookingNumber,
+      bookingId: bookingNumber,
+      title: jobTitle,
+      serviceName: jobTitle,
+      description: jobDesc,
+      serviceType,
+      customerName: customerName.trim(),
+      customerPhone: normalizedPhone,
+      location: finalAddress,
+      address: finalAddress,
+      pincode: pincode ? String(pincode).trim() : '',
+      amount: numAmount,
+      price: numAmount,
+      paymentStatus: normalizedPaymentStatus,
+      scheduledTime: scheduledTime || (preferredDate ? `${preferredDate}${timeSlot ? ' ' + timeSlot : ''}` : 'ASAP'),
+      priority: normalizedPriority,
+      status: 'pending',
+      dispatchStatus: 'pending_dispatch',
+      dispatchNote: (dispatchNote || '').trim(),
+      startOtp,
+      completionOtp,
+      useNewFlow: true,
+      v2Metadata,
+    });
+
+    const JobStatusHistory = mongoose.model('JobStatusHistory');
+    await JobStatusHistory.create({
+      jobId: job._id.toString(),
+      bookingId: bookingNumber,
+      status: 'pending',
+      note: `Work Order created by Admin${dispatchNote ? ': ' + dispatchNote.trim() : ''}`,
+      changedBy: req.user?.id || null,
+      role: req.user?.role || 'admin',
+      timestamp: new Date(),
+    });
+
+    const io = req.app.get('io') || global._socketIo;
+    if (technicianId) {
+      const dispatchService = require('../../services/dispatchService');
+      await dispatchService.adminOverrideAssignment(job._id, technicianId, req.user.id, io, dispatchNote || '');
+    } else if (io) {
+      io.to('admin_room').emit('newBooking', {
+        jobId: job._id.toString(),
+        bookingNumber,
+        customerName: job.customerName,
+        title: job.title,
+      });
+    }
+
+    const populatedJob = await Job.findById(job._id)
+      .populate('client', 'name phone email')
+      .populate('assignedTechnician', 'name email specialty')
+      .populate('addressId')
+      .lean();
+
+    return res.status(201).json({
+      success: true,
+      message: 'Work Order created successfully',
+      data: formatServiceRequest(populatedJob),
+    });
+  } catch (err) {
+    next(err);
+  }
 }
 
 /**
@@ -141,20 +313,34 @@ async function getServiceRequestById(req, res, next) {
   try {
     const job = await Job.findOne({ _id: req.params.id, useNewFlow: true })
       .populate('client', 'name phone email')
-      .populate('assignedTechnician', 'name email specialty')
+      .populate('assignedTechnician', 'name email specialty phone mobileNumber lat lng availabilityStatus')
       .populate('addressId')
       .lean();
 
     if (!job) return res.status(404).json({ success: false, message: 'Service request not found' });
 
-    const [payment, lead] = await Promise.all([
+    const JobStatusHistory = mongoose.model('JobStatusHistory');
+    const ServiceWorksheet = mongoose.models.ServiceWorksheet || require('../../models/ServiceWorksheet');
+    const Expense = mongoose.models.Expense || require('../../models/Expense');
+
+    const [payment, lead, statusHistory, worksheet, expenses] = await Promise.all([
       Payment.findOne({ jobId: job._id }).sort({ createdAt: -1 }).lean(),
       fetchLeadForJob(job),
+      JobStatusHistory.find({ jobId: job._id }).sort({ timestamp: 1 }).populate('changedBy', 'name role').lean(),
+      ServiceWorksheet.findOne({ jobId: job._id }).lean(),
+      Expense.find({ jobId: job._id }).sort({ date: -1 }).lean(),
     ]);
 
     return res.json({
       success: true,
-      data: formatServiceRequest(job, { address: job.addressId, payment, lead }),
+      data: formatServiceRequest(job, {
+        address: job.addressId,
+        payment,
+        lead,
+        statusHistory,
+        worksheet,
+        expenses,
+      }),
     });
   } catch (err) {
     next(err);
@@ -771,6 +957,18 @@ async function getUserDetails(req, res, next) {
   }
 }
 
+function normalizePhoneNumber(phone) {
+  if (!phone) return '';
+  const cleaned = String(phone).trim().replace(/\D/g, '');
+  if (cleaned.length === 12 && cleaned.startsWith('91')) {
+    return cleaned.slice(2);
+  }
+  if (cleaned.length === 11 && cleaned.startsWith('0')) {
+    return cleaned.slice(1);
+  }
+  return cleaned;
+}
+
 /**
  * User Management
  */
@@ -787,21 +985,167 @@ async function createUser(req, res, next) {
   try {
     const { password, role, email, mobileNumber, name } = req.body;
 
+    const rawMobile = mobileNumber || req.body.phone;
+    if (!rawMobile) {
+      return res.status(400).json({ success: false, message: 'Mobile number is required' });
+    }
+
+    const normalizedMobile = normalizePhoneNumber(rawMobile);
+    if (!/^\d{10}$/.test(normalizedMobile)) {
+      return res.status(400).json({ success: false, message: 'Valid 10-digit mobile number is required' });
+    }
+
     if (password) {
-      const passwordCheck = validatePasswordStrength(password);
-      if (!passwordCheck.valid) {
-        return res.status(400).json({ success: false, message: passwordCheck.message });
+      if (typeof password !== 'string' || password.length < 6) {
+        return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
       }
     }
 
     const allowedRoles = ['admin', 'manager', 'technician', 'client'];
     const safeRole = allowedRoles.includes(role) ? role : 'technician';
 
-    const user = await User.create({
+    const normalizedEmail = (typeof email === 'string' && email.trim() !== '') ? email.trim().toLowerCase() : undefined;
+
+    // Check for existing user by mobileNumber variants
+    const mobileVariants = [
+      normalizedMobile,
+      `+91${normalizedMobile}`,
+      `91${normalizedMobile}`,
+      `0${normalizedMobile}`,
+    ];
+
+    const existingUser = await User.findOne({
+      $or: [
+        { mobileNumber: { $in: mobileVariants } },
+        { phone: { $in: mobileVariants } },
+      ],
+    }).select('+password');
+
+    if (existingUser) {
+      const isStaff = ['technician', 'manager', 'admin'].includes(existingUser.role);
+      const isActiveStaff = isStaff && existingUser.isDeleted !== true && existingUser.employeeStatus !== 'Inactive';
+
+      if (isActiveStaff) {
+        return res.status(400).json({
+          success: false,
+          message: 'MobileNumber already registered or in use.',
+        });
+      }
+
+      // Check if email conflicts with another user
+      if (normalizedEmail) {
+        const existingEmailUser = await User.findOne({
+          _id: { $ne: existingUser._id },
+          email: normalizedEmail,
+          isDeleted: { $ne: true },
+        });
+        if (existingEmailUser) {
+          return res.status(400).json({ success: false, message: 'Email already registered' });
+        }
+      }
+
+      // Reactivate soft-deleted employee or promote customer account
+      existingUser.isDeleted = false;
+      existingUser.employeeStatus = req.body.employeeStatus || 'Active';
+      existingUser.status = 'available';
+      existingUser.availabilityStatus = 'ONLINE';
+      existingUser.role = safeRole;
+      existingUser.userType = 'member';
+      existingUser.mobileNumber = normalizedMobile;
+      existingUser.phone = normalizedMobile;
+
+      if (name) existingUser.name = name.trim();
+      if (normalizedEmail) existingUser.email = normalizedEmail;
+      if (password) {
+        existingUser.password = password; // Will be hashed by pre-save hook
+      }
+
+      if (req.body.specialty !== undefined) existingUser.specialty = req.body.specialty;
+      if (req.body.specialty) {
+        existingUser.serviceCategories = [req.body.specialty];
+      } else if (req.body.serviceCategories !== undefined) {
+        existingUser.serviceCategories = req.body.serviceCategories;
+      }
+      if (req.body.address !== undefined) existingUser.address = req.body.address;
+      if (req.body.pincode !== undefined) existingUser.pincode = req.body.pincode;
+      if (req.body.skills !== undefined) {
+        existingUser.skills = Array.isArray(req.body.skills)
+          ? req.body.skills
+          : String(req.body.skills).split(',').map((s) => s.trim()).filter(Boolean);
+      }
+      if (req.body.joiningDate) existingUser.joiningDate = new Date(req.body.joiningDate);
+
+      // Ensure employeeId and employeeCode exist for staff roles
+      if (['technician', 'manager', 'admin'].includes(safeRole)) {
+        if (!existingUser.employeeId) {
+          const ts = Math.floor(Date.now() / 1000);
+          const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+          existingUser.employeeId = `EMP-${ts}-${rand}`;
+        }
+        if (!existingUser.employeeCode) {
+          const randNum = Math.floor(1000 + Math.random() * 9000);
+          existingUser.employeeCode = `TECH-${randNum}`;
+        }
+      }
+
+      await existingUser.save();
+
+      console.log(`[ADMIN ACTION] Re-activated/promoted user ${existingUser._id} to ${safeRole} with mobile ${normalizedMobile} by ${req.user?.id || 'admin'}`);
+
+      await recordAudit({
+        actorId: req.user?.id,
+        actorEmail: req.user?.email,
+        actorRole: req.user?.role,
+        action: isStaff ? 'reactivate_employee_v2' : 'promote_customer_to_employee_v2',
+        entityType: 'user',
+        entityId: existingUser._id.toString(),
+        ip: req.ip || '',
+        userAgent: req.headers['user-agent'] || '',
+        details: {
+          email: existingUser.email,
+          role: existingUser.role,
+          name: existingUser.name,
+          mobileNumber: normalizedMobile,
+        },
+      });
+
+      return res.status(200).json({ success: true, data: existingUser.toSafeObject() });
+    }
+
+    // New user registration
+    if (!password) {
+      return res.status(400).json({ success: false, message: 'Password is required' });
+    }
+
+    if (normalizedEmail) {
+      const existingEmailUser = await User.findOne({
+        email: normalizedEmail,
+        isDeleted: { $ne: true },
+      });
+      if (existingEmailUser) {
+        return res.status(400).json({ success: false, message: 'Email already registered' });
+      }
+    }
+
+    const userData = {
       ...req.body,
+      mobileNumber: normalizedMobile,
+      phone: normalizedMobile,
+      email: normalizedEmail,
       role: safeRole,
       userType: 'member',
-    });
+      employeeStatus: req.body.employeeStatus || 'Active',
+      isDeleted: false,
+    };
+
+    if (userData.specialty && (!userData.serviceCategories || userData.serviceCategories.length === 0)) {
+      userData.serviceCategories = [userData.specialty];
+    }
+    if (typeof userData.skills === 'string') {
+      userData.skills = userData.skills.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+
+    const user = await User.create(userData);
 
     await recordAudit({
       actorId: req.user?.id,
@@ -812,7 +1156,7 @@ async function createUser(req, res, next) {
       entityId: user._id.toString(),
       ip: req.ip || '',
       userAgent: req.headers['user-agent'] || '',
-      details: { email: user.email, role: user.role, name: user.name },
+      details: { email: user.email, role: user.role, name: user.name, mobileNumber: user.mobileNumber },
     });
 
     const safeUser = user.toSafeObject();
@@ -824,9 +1168,89 @@ async function createUser(req, res, next) {
 
 async function updateUser(req, res, next) {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true }).select('-password');
+    const user = await User.findById(req.params.id).select('+password');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    return res.json({ success: true, data: user });
+
+    const updateData = { ...req.body };
+
+    // Normalize mobileNumber if provided
+    if (updateData.mobileNumber || updateData.phone) {
+      const normalizedMobile = normalizePhoneNumber(updateData.mobileNumber || updateData.phone);
+      if (!/^\d{10}$/.test(normalizedMobile)) {
+        return res.status(400).json({ success: false, message: 'Valid 10-digit mobile number is required' });
+      }
+      updateData.mobileNumber = normalizedMobile;
+      updateData.phone = normalizedMobile;
+
+      const existingUser = await User.findOne({
+        _id: { $ne: user._id },
+        $or: [
+          { mobileNumber: { $in: [normalizedMobile, `+91${normalizedMobile}`, `91${normalizedMobile}`, `0${normalizedMobile}`] } },
+          { phone: { $in: [normalizedMobile, `+91${normalizedMobile}`, `91${normalizedMobile}`, `0${normalizedMobile}`] } },
+        ],
+        isDeleted: { $ne: true },
+      });
+      if (existingUser) {
+        return res.status(400).json({ success: false, message: 'MobileNumber already registered or in use.' });
+      }
+    }
+
+    // Optional password update (from Edit Employee Account form or direct update)
+    if (updateData.password !== undefined && String(updateData.password).trim() !== '') {
+      const newPass = String(updateData.password).trim();
+      if (newPass.length < 6) {
+        return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+      }
+      user.password = newPass; // will be hashed by pre-save hook
+      user.sessionActive = false;
+      console.log(`[ADMIN ACTION] Password updated via edit user for ${user._id} by ${req.user?.id || 'admin'}`);
+    }
+    delete updateData.password;
+
+    if (typeof updateData.email === 'string') {
+      const normEmail = updateData.email.trim().toLowerCase();
+      if (normEmail) {
+        const existingEmail = await User.findOne({
+          _id: { $ne: user._id },
+          email: normEmail,
+          isDeleted: { $ne: true },
+        });
+        if (existingEmail) {
+          return res.status(400).json({ success: false, message: 'Email already registered' });
+        }
+        user.email = normEmail;
+      } else {
+        user.email = undefined;
+      }
+      delete updateData.email;
+    }
+
+    if (updateData.specialty && (!updateData.serviceCategories || updateData.serviceCategories.length === 0)) {
+      updateData.serviceCategories = [updateData.specialty];
+    }
+    if (typeof updateData.skills === 'string') {
+      updateData.skills = updateData.skills.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+
+    Object.keys(updateData).forEach((key) => {
+      user[key] = updateData[key];
+    });
+
+    await user.save();
+
+    await recordAudit({
+      actorId: req.user?.id,
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      action: 'update_user_v2',
+      entityType: 'user',
+      entityId: user._id.toString(),
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || '',
+      details: { email: user.email, role: user.role, name: user.name, mobileNumber: user.mobileNumber },
+    });
+
+    return res.json({ success: true, data: user.toSafeObject() });
   } catch (err) {
     next(err);
   }
@@ -834,8 +1258,41 @@ async function updateUser(req, res, next) {
 
 async function deleteUser(req, res, next) {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, { isDeleted: true }, { new: true });
+    const targetUser = await User.findById(req.params.id);
+    if (!targetUser) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (targetUser.role === 'admin') {
+      return res.status(403).json({ success: false, message: 'Admin accounts cannot be deleted or deactivated.' });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      {
+        isDeleted: true,
+        employeeStatus: 'Inactive',
+        availabilityStatus: 'OFFLINE',
+        isOnline: false,
+        sessionActive: false,
+        status: 'offline',
+      },
+      { new: true }
+    );
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    console.log(`[ADMIN ACTION] Employee ${user._id} deleted/deactivated by ${req.user?.id || 'admin'}`);
+
+    await recordAudit({
+      actorId: req.user?.id,
+      actorEmail: req.user?.email,
+      actorRole: req.user?.role,
+      action: 'delete_user_v2',
+      entityType: 'user',
+      entityId: user._id.toString(),
+      ip: req.ip || '',
+      userAgent: req.headers['user-agent'] || '',
+      details: { email: user.email, role: user.role, name: user.name, mobileNumber: user.mobileNumber },
+    });
+
     return res.json({ success: true, message: 'User deleted successfully' });
   } catch (err) {
     next(err);
@@ -969,7 +1426,12 @@ async function getReviews(req, res, next) {
  */
 async function getTracking(req, res, next) {
   try {
-    const techs = await User.find({ role: 'technician', isDeleted: { $ne: true } })
+    const techs = await User.find({
+      role: 'technician',
+      isDeleted: { $ne: true },
+      employeeStatus: { $ne: 'Inactive' },
+      status: { $ne: 'Inactive' }
+    })
       .select('name lat lng isOnline status updatedAt specialty');
     return res.json({
       success: true,
@@ -1119,39 +1581,273 @@ async function updatePaymentRequest(req, res, next) {
   }
 }
 
+async function getAvailableTechnicians(req, res, next) {
+  try {
+    const dispatchService = require('../../services/dispatchService');
+    const technicians = await User.find({ role: 'technician', isDeleted: { $ne: true } })
+      .select('name email phone mobileNumber specialty skills rating completedJobs availabilityStatus activeJobId lat lng locationUpdatedAt serviceCategories pincodeCoverage')
+      .lean();
+
+    let targetCoords = null;
+    let targetPincode = null;
+
+    if (req.query.bookingId) {
+      const booking = await Job.findById(req.query.bookingId).populate('addressId').lean();
+      if (booking) {
+        targetCoords = await dispatchService.getJobCustomerCoords(booking);
+        targetPincode = booking.addressDetails?.pincode || booking.addressId?.pincode || booking.pincode;
+      }
+    } else if (req.query.lat && req.query.lng) {
+      targetCoords = { lat: parseFloat(req.query.lat), lng: parseFloat(req.query.lng) };
+      if (req.query.pincode) targetPincode = req.query.pincode;
+    }
+
+    const activeJobs = await Job.aggregate([
+      {
+        $match: {
+          assignedTechnician: { $in: technicians.map((t) => t._id) },
+          status: { $in: ['assigned', 'accepted', 'travelling', 'arrived', 'working', 'started', 'in_progress', 'work_uploaded', 'completion_requested'] },
+        },
+      },
+      {
+        $group: {
+          _id: '$assignedTechnician',
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const activeJobMap = {};
+    activeJobs.forEach((item) => {
+      activeJobMap[String(item._id)] = item.count;
+    });
+
+    const enriched = technicians.map((t) => {
+      const activeCount = activeJobMap[String(t._id)] || (t.activeJobId ? 1 : 0);
+      let distanceKm = null;
+      if (targetCoords && t.lat && t.lng) {
+        distanceKm = Math.round(dispatchService.haversineKm(targetCoords.lat, targetCoords.lng, t.lat, t.lng) * 10) / 10;
+      }
+      const isOnline = t.availabilityStatus === 'ONLINE';
+      return {
+        id: t._id,
+        _id: t._id,
+        name: t.name,
+        phone: t.mobileNumber || t.phone || '',
+        email: t.email || '',
+        specialty: t.specialty || (Array.isArray(t.skills) && t.skills.length ? t.skills.join(', ') : 'CCTV & Network Specialist'),
+        skills: t.skills || [],
+        rating: t.rating || 5,
+        completedJobs: t.completedJobs || 0,
+        availabilityStatus: t.availabilityStatus || 'OFFLINE',
+        isOnline,
+        activeJobsCount: activeCount,
+        activeJobId: t.activeJobId || null,
+        lat: t.lat || null,
+        lng: t.lng || null,
+        locationUpdatedAt: t.locationUpdatedAt || null,
+        distanceKm,
+        pincodeMatch: targetPincode && t.pincodeCoverage ? t.pincodeCoverage.includes(String(targetPincode)) : false,
+      };
+    });
+
+    enriched.sort((a, b) => {
+      const statusScore = (s) => (s === 'ONLINE' ? 2 : s === 'BUSY' ? 1 : 0);
+      const diffScore = statusScore(b.availabilityStatus) - statusScore(a.availabilityStatus);
+      if (diffScore !== 0) return diffScore;
+
+      if (a.activeJobsCount !== b.activeJobsCount) return a.activeJobsCount - b.activeJobsCount;
+
+      if (a.distanceKm !== null && b.distanceKm !== null) return a.distanceKm - b.distanceKm;
+      if (a.distanceKm !== null) return -1;
+      if (b.distanceKm !== null) return 1;
+
+      return (b.rating || 0) - (a.rating || 0);
+    });
+
+    return res.json({ success: true, data: enriched });
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function assignBooking(req, res, next) {
   try {
     const { id } = req.params;
-    const { technicianId } = req.body;
+    const { technicianId, dispatchNote } = req.body;
 
     if (!technicianId) {
       return res.status(400).json({ success: false, message: 'technicianId is required' });
     }
 
+    const io = req.app.get('io') || global._socketIo;
+    const dispatchService = require('../../services/dispatchService');
+    const job = await dispatchService.adminOverrideAssignment(id, technicianId, req.user.id, io, dispatchNote);
+
+    return res.json({ success: true, data: job, message: 'Technician assigned successfully' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updateJobInstruction(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { instruction, dispatchNote, note } = req.body;
+    const finalInstruction = (instruction || dispatchNote || note || '').trim();
+    if (!finalInstruction) {
+      return res.status(400).json({ success: false, message: 'Instruction or note is required' });
+    }
+
     const job = await Job.findById(id);
-    if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
+    if (!job) return res.status(404).json({ success: false, message: 'Service request not found' });
 
-    const technician = await User.findOne({ _id: technicianId, role: 'technician' });
-    if (!technician) return res.status(404).json({ success: false, message: 'Technician not found' });
-
-    job.assignedTechnician = technicianId;
-    job.assignedManager = req.user.id;
-    job.status = 'assigned';
+    job.dispatchNote = finalInstruction;
     await job.save();
 
-    // Notify technician
-    const notificationService = require('../../services/notificationService');
-    const io = req.app.get('io');
-    io.to(technicianId.toString()).emit('bookingAssigned', job);
-    await notificationService.createNotification(
-      technicianId,
-      'New Job Assigned',
-      `You have a new service request: ${job.serviceName || job.title}${job.bookingDate ? ' on ' + job.bookingDate : ''} at ${job.timeSlot || 'TBD'}`,
-      'job_assigned',
-      io
-    );
+    // Log in JobStatusHistory
+    const JobStatusHistory = mongoose.model('JobStatusHistory');
+    await JobStatusHistory.create({
+      jobId: job._id.toString(),
+      bookingId: (job.bookingNumber || job._id).toString(),
+      status: job.status,
+      note: `Admin Instruction: ${finalInstruction}`,
+      updatedBy: req.user?.role || 'admin',
+      updatedAt: new Date(),
+    }).catch(err => console.error('[updateJobInstruction] History log error:', err));
 
-    return res.json({ success: true, data: job });
+    // Real-time socket broadcast
+    const io = req.app.get('io') || global._socketIo;
+    if (io) {
+      const payload = {
+        jobId: job._id.toString(),
+        bookingId: (job.bookingNumber || job._id).toString(),
+        dispatchNote: finalInstruction,
+        status: job.status,
+        updatedAt: new Date().toISOString(),
+      };
+      if (job.assignedTechnician) {
+        io.to(job.assignedTechnician.toString()).emit('jobInstructionUpdated', payload);
+        io.to(job.assignedTechnician.toString()).emit('bookingStatusUpdated', payload);
+      }
+      io.to('admin_room').emit('jobInstructionUpdated', payload);
+      io.to('admin_room').emit('bookingStatusUpdated', payload);
+    }
+
+    // FCM Push Notification to technician
+    if (job.assignedTechnician) {
+      const notificationService = require('../../services/notificationService');
+      await notificationService.createNotification(
+        job.assignedTechnician,
+        'Admin Instruction Update',
+        `Admin note: ${finalInstruction}`,
+        'instruction_updated',
+        io,
+        { jobId: job._id.toString(), dispatchNote: finalInstruction }
+      ).catch(err => console.error('[updateJobInstruction] Notification error:', err));
+    }
+
+    return res.json({
+      success: true,
+      message: 'Instruction dispatched to technician successfully',
+      data: {
+        id: job._id,
+        dispatchNote: job.dispatchNote,
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function verifyJobWork(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { status = 'verified', verificationNote, note } = req.body;
+    const finalNote = (verificationNote || note || '').trim();
+
+    const job = await Job.findById(id);
+    if (!job) return res.status(404).json({ success: false, message: 'Service request not found' });
+
+    const isVerified = status === 'verified';
+    job.adminVerified = isVerified;
+    job.verificationStatus = isVerified ? 'verified' : 'rework_requested';
+    job.verifiedBy = req.user?.id || null;
+    job.verifiedAt = new Date();
+    job.verificationNote = finalNote;
+
+    if (isVerified) {
+      const ServiceWorksheet = mongoose.models.ServiceWorksheet || require('../../models/ServiceWorksheet');
+      await ServiceWorksheet.findOneAndUpdate(
+        { jobId: job._id },
+        { status: 'approved', approvedAt: new Date() }
+      ).catch(err => console.error('[verifyJobWork] Worksheet approve error:', err));
+    }
+
+    await job.save();
+
+    // Log in JobStatusHistory
+    const JobStatusHistory = mongoose.model('JobStatusHistory');
+    await JobStatusHistory.create({
+      jobId: job._id.toString(),
+      bookingId: (job.bookingNumber || job._id).toString(),
+      status: job.status,
+      note: isVerified
+        ? `Work Verified & Approved by Admin${finalNote ? ': ' + finalNote : ''}`
+        : `Admin Requested Rework / Query: ${finalNote}`,
+      updatedBy: req.user?.role || 'admin',
+      updatedAt: new Date(),
+    }).catch(err => console.error('[verifyJobWork] History log error:', err));
+
+    // Real-time socket broadcast
+    const io = req.app.get('io') || global._socketIo;
+    if (io) {
+      const payload = {
+        jobId: job._id.toString(),
+        bookingId: (job.bookingNumber || job._id).toString(),
+        adminVerified: job.adminVerified,
+        verificationStatus: job.verificationStatus,
+        verificationNote: job.verificationNote,
+        verifiedAt: job.verifiedAt,
+        status: job.status,
+      };
+      if (job.assignedTechnician) {
+        io.to(job.assignedTechnician.toString()).emit('jobVerified', payload);
+        io.to(job.assignedTechnician.toString()).emit('bookingStatusUpdated', payload);
+      }
+      io.to('admin_room').emit('jobVerified', payload);
+      io.to('admin_room').emit('bookingStatusUpdated', payload);
+    }
+
+    // FCM Push Notification to technician
+    if (job.assignedTechnician) {
+      const notificationService = require('../../services/notificationService');
+      const title = isVerified ? 'Work Approved by Admin ✓' : 'Admin Feedback / Rework Query ⚠️';
+      const body = isVerified
+        ? (finalNote || 'Your completed service has been verified and approved by Admin.')
+        : `Action Required: ${finalNote || 'Please review Admin query on your worksheet.'}`;
+
+      await notificationService.createNotification(
+        job.assignedTechnician,
+        title,
+        body,
+        isVerified ? 'job_verified' : 'rework_requested',
+        io,
+        { jobId: job._id.toString(), verificationStatus: job.verificationStatus, note: finalNote }
+      ).catch(err => console.error('[verifyJobWork] Notification error:', err));
+    }
+
+    return res.json({
+      success: true,
+      message: isVerified ? 'Job work verified and approved successfully' : 'Rework query sent to technician',
+      data: {
+        id: job._id,
+        adminVerified: job.adminVerified,
+        verificationStatus: job.verificationStatus,
+        verificationNote: job.verificationNote,
+        verifiedAt: job.verifiedAt,
+      }
+    });
   } catch (err) {
     next(err);
   }
@@ -1287,7 +1983,7 @@ async function deleteServiceRequest(req, res, next) {
 }
 
 /**
- * Change User Password (Admin action)
+ * Change / Reset User/Employee Password (Admin action)
  */
 async function changeUserPassword(req, res, next) {
   try {
@@ -1295,18 +1991,17 @@ async function changeUserPassword(req, res, next) {
     const { newPassword, password } = req.body;
     const targetPassword = newPassword || password;
 
-    if (!targetPassword) {
+    if (!targetPassword || typeof targetPassword !== 'string') {
       return res.status(400).json({
         success: false,
         message: 'New password is required',
       });
     }
 
-    const passwordCheck = validatePasswordStrength(targetPassword);
-    if (!passwordCheck.valid) {
+    if (targetPassword.length < 6) {
       return res.status(400).json({
         success: false,
-        message: passwordCheck.message,
+        message: 'Password must be at least 6 characters long',
       });
     }
 
@@ -1315,25 +2010,32 @@ async function changeUserPassword(req, res, next) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    user.password = targetPassword; // Will be hashed by pre-save hook
+    user.password = targetPassword; // Will be hashed by pre-save hook using bcrypt
     user.sessionActive = false; // Invalidate current session for security
     await user.save();
+
+    console.log(`[ADMIN ACTION] Password reset for employee ${user._id} by ${req.user?.id || 'admin'}`);
 
     await recordAudit({
       actorId: req.user?.id,
       actorEmail: req.user?.email,
       actorRole: req.user?.role,
-      action: 'admin_change_user_password',
+      action: 'admin_reset_employee_password',
       entityType: 'user',
       entityId: user._id.toString(),
       ip: req.ip || '',
       userAgent: req.headers['user-agent'] || '',
-      details: { targetUserEmail: user.email },
+      details: {
+        targetUserEmail: user.email,
+        targetUserRole: user.role,
+        targetUserMobile: user.mobileNumber,
+        targetUserName: user.name,
+      },
     });
 
     return res.json({
       success: true,
-      message: `Password changed successfully for ${user.name || 'user'}`,
+      message: `Password reset successfully for ${user.name || 'employee'}`,
     });
   } catch (err) {
     next(err);
@@ -1361,11 +2063,152 @@ async function updateApplicationStatus(req, res, next) {
   }
 }
 
+/**
+ * Technician Field Expenses (Admin Review)
+ */
+async function getExpenses(req, res, next) {
+  try {
+    const Expense = mongoose.models.Expense || require('../../models/Expense');
+    const { status } = req.query;
+    const query = {};
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+    const expenses = await Expense.find(query)
+      .sort({ createdAt: -1 })
+      .populate('technicianId', 'name mobileNumber email')
+      .populate('jobId', 'bookingNumber title customerName')
+      .lean();
+
+    return res.json({
+      success: true,
+      data: expenses.map((e) => ({
+        _id: e._id,
+        id: e._id,
+        description: e.description,
+        category: e.category || 'General',
+        amount: e.amount,
+        status: e.status,
+        receiptUrl: e.receiptUrl || '',
+        rejectionReason: e.rejectionReason || '',
+        date: e.date || e.createdAt,
+        createdAt: e.createdAt,
+        technicianId: e.technicianId?._id || e.technicianId,
+        technicianName: e.technicianId?.name || 'Unknown Tech',
+        technicianPhone: e.technicianId?.mobileNumber || '',
+        jobId: e.jobId?._id || e.jobId || null,
+        bookingNumber: e.jobId?.bookingNumber || '',
+        jobTitle: e.jobId?.title || '',
+        customerName: e.jobId?.customerName || '',
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function approveExpense(req, res, next) {
+  try {
+    const Expense = mongoose.models.Expense || require('../../models/Expense');
+    const { id } = req.params;
+    const expense = await Expense.findByIdAndUpdate(
+      id,
+      {
+        status: 'approved',
+        rejectionReason: '',
+        reviewedBy: req.user?.id || null,
+        reviewedAt: new Date(),
+      },
+      { new: true }
+    )
+      .populate('technicianId', 'name mobileNumber')
+      .populate('jobId', 'bookingNumber title customerName');
+
+    if (!expense) {
+      return res.status(404).json({ success: false, message: 'Expense not found' });
+    }
+
+    const io = req.app.get('io') || global._socketIo;
+    if (io) {
+      const techId = expense.technicianId?._id?.toString() || expense.technicianId?.toString();
+      if (techId) {
+        io.to(techId).emit('expenseStatusUpdated', {
+          expenseId: expense._id.toString(),
+          status: 'approved',
+          amount: expense.amount,
+        });
+      }
+      io.to('admin_room').emit('expenseStatusUpdated', {
+        expenseId: expense._id.toString(),
+        status: 'approved',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Expense approved successfully',
+      data: expense,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function rejectExpense(req, res, next) {
+  try {
+    const Expense = mongoose.models.Expense || require('../../models/Expense');
+    const { id } = req.params;
+    const reason = (req.body?.reason || req.body?.rejectionReason || req.body?.note || '').trim();
+    const expense = await Expense.findByIdAndUpdate(
+      id,
+      {
+        status: 'rejected',
+        rejectionReason: reason,
+        reviewedBy: req.user?.id || null,
+        reviewedAt: new Date(),
+      },
+      { new: true }
+    )
+      .populate('technicianId', 'name mobileNumber')
+      .populate('jobId', 'bookingNumber title customerName');
+
+    if (!expense) {
+      return res.status(404).json({ success: false, message: 'Expense not found' });
+    }
+
+    const io = req.app.get('io') || global._socketIo;
+    if (io) {
+      const techId = expense.technicianId?._id?.toString() || expense.technicianId?.toString();
+      if (techId) {
+        io.to(techId).emit('expenseStatusUpdated', {
+          expenseId: expense._id.toString(),
+          status: 'rejected',
+          reason,
+        });
+      }
+      io.to('admin_room').emit('expenseStatusUpdated', {
+        expenseId: expense._id.toString(),
+        status: 'rejected',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Expense rejected',
+      data: expense,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getBookings,
   getServiceRequests,
+  createServiceRequest,
   getServiceRequestById,
   assignBooking,
+  getAvailableTechnicians,
   getDashboard,
   getLeads,
   createLead,
@@ -1395,7 +2238,12 @@ module.exports = {
   updatePaymentRequest,
   updateServiceRequest,
   deleteServiceRequest,
+  updateJobInstruction,
+  verifyJobWork,
   changeUserPassword,
   getApplications,
   updateApplicationStatus,
+  getExpenses,
+  approveExpense,
+  rejectExpense,
 };

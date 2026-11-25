@@ -185,6 +185,56 @@ function extractCameraCount(rawText = '') {
 }
 
 /**
+ * Parse multilingual budget expressions into a numeric cap (₹).
+ * Supports English, Tamil/Tanglish, Kannada/Kanglish.
+ * Examples: "20k ku ulla", "under 20k", "below 20000", "20,000 budget",
+ *           "max 15k", "around 25k", "20 ಸಾವಿರ ಒಳಗೆ", "₹20000 ku ulla kudu"
+ */
+function extractBudgetMax(text = '') {
+  if (!text) return null;
+  const lower = normalizeKannadaDigits(String(text)).toLowerCase();
+
+  // Normalise commas in numbers: "20,000" → "20000"
+  const cleaned = lower.replace(/(\d),(\d{3})/g, '$1$2');
+
+  // Pattern set — ordered most specific to least specific
+  const patterns = [
+    // Tamil/Tanglish: "20k ku ulla", "20k ulla", "20,000 ku ulla kudu", "15k ku kudu", "budget 20k"
+    /(?:₹|rs\.?|inr)?\s*(\d[\d,]*)\s*(?:k|thousand)?\s*(?:ku\s+)?(?:ulla|ullaye|ulladhu|ku\s*ulla|ku\s*kudu|matten|mela\s*kuda|kulla)\b/i,
+    // Kannada/Kanglish: "20 ಸಾವಿರ ಒಳಗೆ", "20k alli", "20000 alli"
+    /(\d[\d,]*)\s*(?:k|thousand|ಸಾವಿರ|saavira|savira)?\s*(?:ಒಳಗೆ|olagè|olage|alli\b|alli\s)/i,
+    // English: "under 20k", "below ₹20000", "max 15k", "within 25000", "budget of 20k"
+    /(?:under|below|max|maximum|within|upto|up\s*to|budget(?:\s*of)?|not\s*more\s*than|less\s*than)\s*(?:rs\.?|inr|₹)?\s*(\d[\d,]*)\s*(?:k|thousand|lac|lakh|lakhs)?/i,
+    // "around 25k" / "approximately 20k" / "roughly 20k" — treat as soft upper bound
+    /(?:around|approx(?:imately)?|roughly|about)\s*(?:rs\.?|inr|₹)?\s*(\d[\d,]*)\s*(?:k|thousand|lac|lakh|lakhs)?/i,
+    // Bare: "20k budget", "25000 budget", "budget 20000"
+    /(?:₹|rs\.?|inr)?\s*(\d[\d,]*)\s*(?:k|thousand|lac|lakh|lakhs)?\s*(?:budget|only|matra|ku)/i,
+    /(?:budget)\s*(?:₹|rs\.?|inr)?\s*(\d[\d,]*)\s*(?:k|thousand|lac|lakh|lakhs)?/i,
+  ];
+
+  for (const pattern of patterns) {
+    const m = cleaned.match(pattern);
+    if (m) {
+      const rawNum = m[1].replace(/,/g, '');
+      let amt = parseInt(rawNum, 10);
+      if (isNaN(amt) || amt <= 0) continue;
+
+      // Detect multiplier from full match context
+      const fullMatch = m[0].toLowerCase();
+      if (/\b(k|thousand)\b/.test(fullMatch) || (amt < 500 && !fullMatch.includes('lakh') && !fullMatch.includes('lac'))) {
+        // If the number itself is small (< 500) and no lakh keyword → treat as "k"
+        if (amt < 500) amt *= 1000;
+      } else if (/\b(lac|lakh|lakhs)\b/.test(fullMatch)) {
+        amt *= 100000;
+      }
+      // Sanity: ignore if < ₹2,000 or > ₹50,00,000
+      if (amt >= 2000 && amt <= 5000000) return amt;
+    }
+  }
+  return null;
+}
+
+/**
  * Identify user preferences (brand, component focus, vision, IP/PoE, 4K, audio, budget cap).
  */
 function extractUserPreferences(text = '') {
@@ -236,17 +286,8 @@ function extractUserPreferences(text = '') {
   const is4K = lower.match(/\b(4k|ultra hd|4mp|5mp|8mp)\b/) !== null;
   const audioPreference = lower.match(/\b(audio|mic|microphone|sound|talk|voice)\b/) !== null || lower.includes('ಆಡಿಯೋ');
 
-  // 5. Budget Cap
-  let budgetCap = null;
-  const budgetMatch = lower.match(/(?:under|below|budget|max|within|upto|up to)\s*(?:rs\.?|inr|₹)?\s*(\d+)(?:\s*(k|thousand|lac|lakh))?/i);
-  if (budgetMatch && budgetMatch[1]) {
-    let amt = parseInt(budgetMatch[1], 10);
-    const unit = budgetMatch[2] ? budgetMatch[2].toLowerCase() : '';
-    if (unit === 'k' || unit === 'thousand') amt *= 1000;
-    else if (unit === 'lac' || unit === 'lakh') amt *= 100000;
-    else if (amt < 200) amt *= 1000;
-    if (amt > 1000) budgetCap = amt;
-  }
+  // 5. Budget Cap — use dedicated multilingual parser
+  const budgetCap = extractBudgetMax(text);
 
   return {
     brand,
@@ -257,6 +298,63 @@ function extractUserPreferences(text = '') {
     audioPreference,
     budgetCap,
   };
+}
+
+/**
+ * Decide whether a request is vague / incomplete and needs clarifying questions first.
+ * Returns true (→ Phase A) when essential sizing info is missing.
+ * Returns false (→ Phase B) when enough context is known.
+ */
+function isVagueRequest(latestMsg = '', sessionContext = {}) {
+  const lower = String(latestMsg).toLowerCase();
+
+  // Explicit "help me plan" / "not sure" phrases → always ask
+  if (lower.match(/\b(help\s*me\s*(plan|estimate|choose|decide)|not\s*sure|don'?t\s*know|not\s*know|no\s*idea|any\s*recommendation|suggest\s*me|advise\s*me)\b/) ||
+      lower.match(/\b(ethana|evvalo|yevlo|help\s*pannunga|gottilla)\b/)) {
+    return true;
+  }
+
+  // "Skip" / "just recommend" / quick-select answers → go straight to Phase B
+  if (lower.match(/\b(skip|just\s*recommend|show\s*me|give\s*me|any\s*package|show\s*packages|recommend\s*for\s*me)\b/)) {
+    return false;
+  }
+
+  // If session already has cameraCount AND propertyType → Phase B
+  const hasCount = sessionContext.cameraCount != null;
+  const hasProp = sessionContext.propertyType != null;
+  if (hasCount && hasProp) return false;
+
+  // Check if the CURRENT message itself provides both
+  const msgCount = extractCameraCount(latestMsg);
+  const msgProp = detectPropertyType(latestMsg);
+  // detectPropertyType has a default fallback — only count it if explicitly matched
+  const msgHasProp = detectPropertyTypeExplicit(latestMsg);
+
+  if (msgCount && msgHasProp) return false; // "4 cameras for my shop" → Phase B
+  if (msgCount && hasProp) return false;    // prev turn had property, now has count
+  if (msgHasProp && hasCount) return false; // prev turn had count, now has property
+
+  // Otherwise it's vague
+  return true;
+}
+
+/**
+ * Returns the property type only if explicitly matched in the text (not the default fallback).
+ */
+function detectPropertyTypeExplicit(text = '') {
+  const lower = String(text).toLowerCase();
+  for (const [propKey, keywords] of Object.entries(PROPERTY_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (lower.includes(kw)) {
+        if (propKey === 'home') return 'Home / Villa';
+        if (propKey === 'apartment') return 'Apartment / Flat';
+        if (propKey === 'shop') return 'Retail Shop';
+        if (propKey === 'office') return 'Commercial Office';
+        if (propKey === 'warehouse') return 'Warehouse / Godown';
+      }
+    }
+  }
+  return null; // No explicit match
 }
 
 /**
@@ -1095,6 +1193,96 @@ async function generateRecommendations({
 }
 
 /**
+ * Filter packages by budgetMax. If the requested cameraCount produces all packages
+ * over budget, automatically try with reduced camera counts (count-1, count-2…)
+ * and explain the adjustment in a budgetNote.
+ *
+ * Returns: { filteredPackages, budgetNote, adjustedCameraCount }
+ */
+async function applyBudgetFilter({ packages, budgetMax, cameraCount, langStyle, generateRecsCallback }) {
+  if (!budgetMax || !packages || packages.length === 0) {
+    return { filteredPackages: packages, budgetNote: null, adjustedCameraCount: cameraCount };
+  }
+
+  const isKannada = langStyle === 'kannada' || langStyle === 'kanglish';
+  const isTamil = langStyle === 'tanglish' || langStyle === 'tamil';
+
+  // Try with original count first
+  const inBudget = packages.filter(pkg =>
+    pkg.pricing && pkg.pricing.finalAmount && pkg.pricing.finalAmount <= budgetMax
+  );
+
+  if (inBudget.length > 0) {
+    return { filteredPackages: inBudget, budgetNote: null, adjustedCameraCount: cameraCount };
+  }
+
+  // All packages exceed budget — find the cheapest package price to explain the gap
+  const cheapest = packages.reduce((min, pkg) =>
+    (pkg.pricing?.finalAmount || Infinity) < (min.pricing?.finalAmount || Infinity) ? pkg : min
+  , packages[0]);
+  const cheapestPrice = cheapest?.pricing?.finalAmount || 0;
+
+  // Try reducing camera count to find what fits
+  for (let tryCount = cameraCount - 1; tryCount >= 1; tryCount--) {
+    const altPackages = await generateRecsCallback(tryCount);
+    const altInBudget = altPackages.filter(pkg =>
+      pkg.pricing && pkg.pricing.finalAmount && pkg.pricing.finalAmount <= budgetMax
+    );
+    if (altInBudget.length > 0) {
+      const budgetFmt = `₹${budgetMax.toLocaleString('en-IN')}`;
+      const origFmt = `₹${cheapestPrice.toLocaleString('en-IN')}`;
+      let budgetNote;
+      if (isKannada) {
+        budgetNote = `ನಿಮ್ಮ ₹${budgetMax.toLocaleString('en-IN')} ಬಜೆಟ್‌ಗೆ ${cameraCount} ಕ್ಯಾಮೆರಾ ಸಿಸ್ಟಮ್ ಲಭ್ಯವಿಲ್ಲ (ಕನಿಷ್ಟ ${origFmt} ಬೇಕಾಗಿದೆ). ನಿಮ್ಮ ಬಜೆಟ್‌ಗೆ ಸರಿಹೊಂದುವ ${tryCount} ಕ್ಯಾಮೆರಾ ಆಯ್ಕೆಗಳನ್ನು ತೋರಿಸುತ್ತಿದ್ದೇನೆ.`;
+      } else if (isTamil) {
+        budgetNote = `Ungal ${budgetFmt} budget-la ${cameraCount} camera complete system possible illa (minimum ${origFmt} aagum). ${tryCount} camera setup-ai ${budgetFmt} budget-la ready pannirken.`;
+      } else {
+        budgetNote = `A ${cameraCount}-camera complete system starts at ${origFmt} with current stock — just above your ${budgetFmt} budget. Here are the best complete setups strictly within your budget (or customize camera count / storage below).`;
+      }
+      return { filteredPackages: altInBudget, budgetNote, adjustedCameraCount: tryCount };
+    }
+  }
+
+  // Nothing fits at all — return cheapest 1 package as "closest" with a note
+  const budgetFmt = `₹${budgetMax.toLocaleString('en-IN')}`;
+  const origFmt = `₹${cheapestPrice.toLocaleString('en-IN')}`;
+  let budgetNote;
+  if (isKannada) {
+    budgetNote = `ನಿಮ್ಮ ${budgetFmt} ಬಜೆಟ್‌ನಲ್ಲಿ ಸಂಪೂರ್ಣ ಸಿಸ್ಟಮ್ ಸಾಧ್ಯವಿಲ್ಲ. ಕನಿಷ್ಟ ಆಯ್ಕೆ ${origFmt} ನಿಂದ ಪ್ರಾರಂಭವಾಗುತ್ತದೆ. ಇಲ್ಲಿ ಲಭ್ಯವಿರುವ ಹತ್ತಿರದ ಆಯ್ಕೆ ತೋರಿಸಲಾಗಿದೆ.`;
+  } else if (isTamil) {
+    budgetNote = `Ungal ${budgetFmt} budget-la complete system possible illa. Minimum ${origFmt} theva. Closest option kaatukiren.`;
+  } else {
+    budgetNote = `No complete system fits within ${budgetFmt} budget — the closest option starts at ${origFmt}. Consider increasing your budget or requesting a site survey for a customized scope.`;
+  }
+  return { filteredPackages: [cheapest], budgetNote, adjustedCameraCount: 1 };
+}
+
+/**
+ * Generate gathering-phase reply when requirements are incomplete.
+ */
+function generateGatheringReply({ langStyle, sessionContext = {} }) {
+  const isKannada = langStyle === 'kannada' || langStyle === 'kanglish';
+  const isTamil = langStyle === 'tanglish' || langStyle === 'tamil';
+
+  if (isKannada) {
+    return (
+      `ನಮಸ್ಕಾರ! 🙏 ನಾನು ನಿಮ್ಮ **TechBes AI ಸೇವಾ ಸಹಾಯಕ**.\n\n` +
+      `ನಿಮಗೆ ಸೂಕ್ತವಾದ CCTV ಪ್ಯಾಕೇಜ್ ತಯಾರಿಸಲು ಕೆಲವು ಪ್ರಶ್ನೆಗಳಿವೆ. ಕೆಳಗೆ ಆಯ್ಕೆ ಮಾಡಿ ಅಥವಾ ನೇರವಾಗಿ ಟೈಪ್ ಮಾಡಿ 👇`
+    );
+  }
+  if (isTamil) {
+    return (
+      `Vanakkam! 🙏 Naan unga **TechBes AI Service Advisor**.\n\n` +
+      `Ungalukku correct CCTV package suggest panna, sila questions kekkanum. Keezhae select pannunga illa type pannunga 👇`
+    );
+  }
+  return (
+    `Hello! 🙏 I'm your **TechBes AI Service Advisor**.\n\n` +
+    `To suggest the perfect package for you, I need a few quick details. Tap an answer below or type freely 👇`
+  );
+}
+
+/**
  * Generate clarifying interactive quick-reply chips with multi-language support (English, Tamil, Kannada).
  */
 function generateClarificationQuestions(parsed, langStyle = 'english') {
@@ -1225,10 +1413,12 @@ function generateAssistantReply({
   isEstimated = false,
   recommendations = [],
   userPreferences = {},
+  budgetNote = null,
 }) {
   const bestPackage = recommendations.find(r => r.isPopular) || recommendations[0];
   const targetBrand = userPreferences.brand || null;
   const isComponentOnly = userPreferences.componentFocus === 'camera_only';
+  const notePrefix = budgetNote ? `${budgetNote}\n\n` : '';
 
   // Kannada & Kanglish
   if (langStyle === 'kannada' || langStyle === 'kanglish') {
@@ -1246,6 +1436,7 @@ function generateAssistantReply({
     const brandNote = targetBrand ? ` (${targetBrand} ಅಧಿಕೃತ ಸಿಸ್ಟಮ್)` : '';
 
     return (
+      notePrefix +
       `ನಮಸ್ಕಾರ! ನಿಮ್ಮ **${propLabel}**-ಗೆ ಸೂಕ್ತವಾದ **${countStr}** CCTV ಸಿಸ್ಟಮ್‌ಗಾಗಿ${brandNote} ನಾನು 2–3 ಪ್ಯಾಕೇಜ್ ಆಯ್ಕೆಗಳನ್ನು ಸಿದ್ಧಪಡಿಸಿದ್ದೇನೆ.\n\n` +
       `💡 **ಶಿಫಾರಸು ಮಾಡಲಾದ ಅತ್ಯುತ್ತಮ ಆಯ್ಕೆ**: **${bestPackage?.title || 'Smart Color Pro'}** (${priceSnippet}). ಇದರಲ್ಲಿ 24/7 ಕಲರ್ ನೈಟ್ ವಿಷನ್, ಮೊಬೈಲ್ ಲೈವ್ ವೀಕ್ಷಣೆ, ಅಧಿಕೃತ CP Plus / Hikvision ಹಾರ್ಡ್‌ವೇರ್ ಮತ್ತು 2 ವರ್ಷಗಳ ವಾರಂಟಿ ಒಳಗೊಂಡಿರುತ್ತದೆ.\n\n` +
       `📌 *ಗಮನಿಸಿ*: ಅಂತಿಮ ಕೇಬಲ್ ಉದ್ದ ಮತ್ತು ಕ್ಯಾಮೆರಾ ಸ್ಥಾನಗಳನ್ನು ನಮ್ಮ ಉಚಿತ ಸೈಟ್ ಭೇಟಿಯ ಸಮಯದಲ್ಲಿ ಅಂತಿಮಗೊಳಿಸಲಾಗುತ್ತದೆ. ನೀವು ಕೆಳಗಿನ ಪ್ಯಾಕೇಜ್ ಆರಿಸಿ ನೇರವಾಗಿ ಕೊಟೇಶನ್ ವಿನಂತಿಯನ್ನು ಸಲ್ಲಿಸಬಹುದು!`
@@ -1260,6 +1451,7 @@ function generateAssistantReply({
       : 'with itemized quotation';
 
     return (
+      notePrefix +
       `Vanakkam! Ungaloda **${propertyType}**-ku thevayana **${countStr}** CCTV setup-ku naan 2–3 suitable configurations ready pannirken.\n\n` +
       `💡 **Recommended Choice**: **${bestPackage?.title || 'Smart Color Pro'}** (${priceSnippet}). Idhula 24/7 Color Night Vision, mobile live viewing, genuine hardware, and 2-year warranty include aagum.\n\n` +
       `📌 *Note*: Final cable length and exact camera positions will be confirmed during our free on-site survey. Nee-nga package choose panni direct-ah quotation request submit pannalam!`
@@ -1277,6 +1469,7 @@ function generateAssistantReply({
   const brandIntro = targetBrand ? ` featuring genuine **${targetBrand}** hardware` : '';
 
   return (
+    notePrefix +
     `Hello! Based on your requirement for **${propertyType}**, I have configured **${countStr}**${brandIntro} with 2–3 tailored package tiers below.\n\n` +
     `⭐ **Most Popular Option**: **${bestPackage?.title || 'Smart Color Pro'}** (${priceSnippet}). It includes 24/7 color night vision, mobile app streaming, hard drive storage, and complete professional installation.\n\n` +
     `🔍 *Next Steps*: Select a package below to inspect the genuine item breakdown, customize cameras or storage, or request an official quotation with one click!`
@@ -1285,10 +1478,31 @@ function generateAssistantReply({
 
 /**
  * Controller handler for POST /api/v2/ai/recommend-services
+ *
+ * Request body:
+ *   messages: Array<{role, content}>   — full conversation history
+ *   customerLocale: string             — 'en-IN' | 'kn-IN' | 'ta-IN'
+ *   serviceCategory: string | null     — optional pre-set category
+ *   sessionContext: object | null      — accumulated slot values from prior turns
+ *     { propertyType, cameraCount, budgetMax, brand, componentFocus, visionPreference }
+ *
+ * Response data:
+ *   stage: 'gathering_requirements' | 'recommendations'
+ *   sessionContext: updated accumulated context
+ *   reply: string
+ *   clarificationQuestions: []
+ *   recommendations: []
+ *   appliedFilters: []
+ *   budgetNote: string | null
  */
 async function processServiceRecommendation(req, res, next) {
   try {
-    const { messages = [], customerLocale = 'en-IN', serviceCategory = null } = req.body;
+    const {
+      messages = [],
+      customerLocale = 'en-IN',
+      serviceCategory = null,
+      sessionContext: incomingContext = {},
+    } = req.body;
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({
@@ -1297,40 +1511,160 @@ async function processServiceRecommendation(req, res, next) {
       });
     }
 
-    const latestUserMsg = messages[messages.length - 1]?.content || '';
+    const latestUserMsg = messages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
     const fullTranscript = messages.map(m => m.content).join(' ');
 
     const langStyle = detectLanguageStyle(latestUserMsg, customerLocale);
     const { category, subcategory } = detectServiceCategory(fullTranscript, serviceCategory);
-    const propertyType = detectPropertyType(fullTranscript);
+
+    // ── SLOT FILLING: Merge incoming session context with new message extractions ──
+    // Rules: existing session values are overridden only when the NEW message
+    // explicitly provides a fresh value (not when it's the same default).
+    const session = { ...(incomingContext || {}) };
+
+    // Property type — only override if explicitly in the latest message
+    const latestProp = detectPropertyTypeExplicit(latestUserMsg);
+    if (latestProp) session.propertyType = latestProp;
+    else if (!session.propertyType) {
+      // Fallback: scan full transcript for property type
+      const transcriptProp = detectPropertyTypeExplicit(fullTranscript);
+      if (transcriptProp) session.propertyType = transcriptProp;
+    }
+
+    // Camera count — latest message wins
+    const latestCount = extractCameraCount(latestUserMsg);
+    if (latestCount) session.cameraCount = latestCount;
+    else if (!session.cameraCount) {
+      const transcriptCount = extractCameraCount(fullTranscript);
+      if (transcriptCount) session.cameraCount = transcriptCount;
+    }
+
+    // Budget max — latest message wins (multilingual parser)
+    const latestBudget = extractBudgetMax(latestUserMsg);
+    if (latestBudget) session.budgetMax = latestBudget;
+    else if (!session.budgetMax) {
+      const transcriptBudget = extractBudgetMax(fullTranscript);
+      if (transcriptBudget) session.budgetMax = transcriptBudget;
+    }
+
+    // User preferences (brand, componentFocus, visionPreference, etc.)
+    const latestPrefs = extractUserPreferences(latestUserMsg);
+    if (latestPrefs.brand) session.brand = latestPrefs.brand;
+    if (latestPrefs.componentFocus && latestPrefs.componentFocus !== 'full_system') {
+      session.componentFocus = latestPrefs.componentFocus;
+    }
+    if (latestPrefs.visionPreference) session.visionPreference = latestPrefs.visionPreference;
+
+    // Merge budgetCap from preferences parser (older regex) if multilingual parser missed it
+    if (!session.budgetMax && latestPrefs.budgetCap) {
+      session.budgetMax = latestPrefs.budgetCap;
+    }
+
+    // ── PHASE DETECTION ──
+    const vague = isVagueRequest(latestUserMsg, session);
+
+    // ── PHASE A: GATHERING REQUIREMENTS ──
+    if (vague) {
+      const clarificationQuestions = generateClarificationQuestions(
+        { category, propertyType: session.propertyType, cameraCount: session.cameraCount },
+        langStyle
+      );
+      const reply = generateGatheringReply({ langStyle, sessionContext: session });
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          stage: 'gathering_requirements',
+          sessionContext: session,
+          reply,
+          languageStyle: langStyle,
+          detectedCategory: category,
+          detectedSubcategory: subcategory,
+          clarificationQuestions,
+          recommendations: [],
+          appliedFilters: [],
+          budgetNote: null,
+          estimatedCameraCount: session.cameraCount || null,
+          isEstimatedCount: false,
+          detectedPropertyType: session.propertyType || null,
+        },
+      });
+    }
+
+    // ── PHASE B: TAILORED RECOMMENDATIONS ──
     const floors = extractFloors(fullTranscript);
-    const { count: cameraCount, isEstimated } = estimateCameraCount({
-      propertyType,
+    const { count: estimatedCount, isEstimated } = estimateCameraCount({
+      propertyType: session.propertyType || 'Home / Villa',
       floors,
       text: fullTranscript,
     });
 
-    const userPreferences = extractUserPreferences(fullTranscript);
+    const cameraCount = session.cameraCount || estimatedCount;
+    const propertyType = session.propertyType || 'Home / Villa';
 
-    // Generate grounded packages with Kannada / Tamil / English text
-    const recommendations = await generateRecommendations({
+    const userPreferences = {
+      brand: session.brand || null,
+      componentFocus: session.componentFocus || 'full_system',
+      visionPreference: session.visionPreference || 'Color Night Vision',
+      budgetCap: session.budgetMax || null,
+    };
+
+    // Helper to generate packages for a given camera count (used by budget filter)
+    const generateRecsForCount = (count) => generateRecommendations({
       category,
       subcategory,
       propertyType,
-      cameraCount,
+      cameraCount: count,
       visionPreference: userPreferences.visionPreference,
-      audioPreference: userPreferences.audioPreference,
+      audioPreference: false,
       cableEstimatePerCam: 25,
       langStyle,
       userPreferences,
     });
 
-    const clarificationQuestions = generateClarificationQuestions(
-      {
-        category,
-        propertyType,
+    // Generate base packages
+    let recommendations = await generateRecsForCount(cameraCount);
+
+    // Apply budget filter
+    let budgetNote = null;
+    let adjustedCameraCount = cameraCount;
+    if (session.budgetMax) {
+      const result = await applyBudgetFilter({
+        packages: recommendations,
+        budgetMax: session.budgetMax,
         cameraCount,
-      },
+        langStyle,
+        generateRecsCallback: generateRecsForCount,
+      });
+      recommendations = result.filteredPackages;
+      budgetNote = result.budgetNote;
+      adjustedCameraCount = result.adjustedCameraCount;
+    }
+
+    // Build applied filters array for the UI
+    const appliedFilters = [];
+    if (propertyType) {
+      const propIcons = {
+        'Home / Villa': '🏠',
+        'Apartment / Flat': '🏢',
+        'Retail Shop': '🛍️',
+        'Commercial Office': '💼',
+        'Warehouse / Godown': '🏭',
+      };
+      appliedFilters.push({ key: 'propertyType', label: `${propIcons[propertyType] || '📍'} ${propertyType}`, value: propertyType });
+    }
+    if (session.cameraCount || adjustedCameraCount) {
+      appliedFilters.push({ key: 'cameraCount', label: `📷 ${adjustedCameraCount} Camera${adjustedCameraCount !== 1 ? 's' : ''}`, value: adjustedCameraCount });
+    }
+    if (session.budgetMax) {
+      appliedFilters.push({ key: 'budget', label: `💰 Under ₹${session.budgetMax.toLocaleString('en-IN')}`, value: session.budgetMax });
+    }
+    if (userPreferences.brand) {
+      appliedFilters.push({ key: 'brand', label: `🏷️ ${userPreferences.brand}`, value: userPreferences.brand });
+    }
+
+    const clarificationQuestions = generateClarificationQuestions(
+      { category, propertyType, cameraCount: adjustedCameraCount },
       langStyle
     );
 
@@ -1338,24 +1672,33 @@ async function processServiceRecommendation(req, res, next) {
       langStyle,
       category,
       propertyType,
-      cameraCount,
-      isEstimated,
+      cameraCount: adjustedCameraCount,
+      isEstimated: session.cameraCount ? false : isEstimated,
       recommendations,
       userPreferences,
+      budgetNote,
     });
+
+    // Update session with final resolved values
+    session.cameraCount = session.cameraCount || adjustedCameraCount;
+    session.propertyType = propertyType;
 
     return res.status(200).json({
       success: true,
       data: {
+        stage: 'recommendations',
+        sessionContext: session,
         reply,
         languageStyle: langStyle,
         detectedCategory: category,
         detectedSubcategory: subcategory,
         detectedPropertyType: propertyType,
-        estimatedCameraCount: cameraCount,
-        isEstimatedCount: isEstimated,
+        estimatedCameraCount: adjustedCameraCount,
+        isEstimatedCount: session.cameraCount ? false : isEstimated,
         clarificationQuestions,
         recommendations,
+        appliedFilters,
+        budgetNote,
       },
     });
   } catch (err) {
@@ -1372,12 +1715,17 @@ module.exports = {
   detectLanguageStyle,
   detectServiceCategory,
   detectPropertyType,
+  detectPropertyTypeExplicit,
   extractCameraCount,
   extractFloors,
+  extractBudgetMax,
   estimateCameraCount,
   extractUserPreferences,
+  isVagueRequest,
   generateRecommendations,
+  applyBudgetFilter,
   generateClarificationQuestions,
+  generateGatheringReply,
   generateAssistantReply,
   processServiceRecommendation,
 };

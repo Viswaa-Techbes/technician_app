@@ -418,6 +418,42 @@ const jobSchema = new mongoose.Schema(
       enum: ['pending_dispatch', 'dispatching', 'assigned', 'no_tech_found', 'pending_admin_assignment', null],
       default: null,
     },
+    dispatchNote: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    beforePhotos: {
+      type: [String],
+      default: [],
+    },
+    afterPhotos: {
+      type: [String],
+      default: [],
+    },
+    adminVerified: {
+      type: Boolean,
+      default: false,
+    },
+    verificationStatus: {
+      type: String,
+      enum: ['pending', 'verified', 'rework_requested'],
+      default: 'pending',
+    },
+    verifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    verifiedAt: {
+      type: Date,
+      default: null,
+    },
+    verificationNote: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     dispatchAttempts: {
       type: Number,
       default: 0,
@@ -591,8 +627,11 @@ jobSchema.post('save', async function(doc) {
       await JobStatusHistory.create({
         jobId: doc._id,
         status: doc.status,
-        changedBy: doc.assignedTechnician || null,
-        note: 'Status updated',
+        changedBy: doc._statusChangedBy || doc.assignedTechnician || null,
+        note: doc._statusNote || (doc.status === 'assigned' && doc.dispatchNote ? `Assigned: ${doc.dispatchNote}` : 'Status updated'),
+        lat: doc._statusLat || null,
+        lng: doc._statusLng || null,
+        timestamp: new Date(),
       });
     } catch (err) {
       console.error('[JobStatusHistory] Error logging pre-save status change:', err);
@@ -613,6 +652,9 @@ jobSchema.pre('findOneAndUpdate', async function() {
   }
   if (status) {
     this._newStatusForHistory = status;
+    this._noteForHistory = update.note || (update.$set && update.$set.note) || null;
+    this._latForHistory = update.lat || (update.$set && update.$set.lat) || null;
+    this._lngForHistory = update.lng || (update.$set && update.$set.lng) || null;
   }
 });
 
@@ -624,7 +666,10 @@ jobSchema.post('findOneAndUpdate', async function(doc) {
         jobId: doc._id,
         status: this._newStatusForHistory,
         changedBy: doc.assignedTechnician || null,
-        note: 'Status updated',
+        note: this._noteForHistory || (this._newStatusForHistory === 'assigned' && doc.dispatchNote ? `Assigned: ${doc.dispatchNote}` : 'Status updated'),
+        lat: this._latForHistory || null,
+        lng: this._lngForHistory || null,
+        timestamp: new Date(),
       });
     } catch (err) {
       console.error('[JobStatusHistory] Error logging query status change:', err);

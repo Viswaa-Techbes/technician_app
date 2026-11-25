@@ -1571,6 +1571,80 @@ async function updateQuoteRequest(req, res, next) {
     }
 
     Object.assign(quote, req.body);
+
+    // Auto-create/upsert linked Work Order (Job) if admin sets status to accepted or converted_to_order
+    const isAcceptedStatus = ['quotation_accepted', 'Accepted', 'converted_to_order', 'Converted to Booking', 'Converted'].includes(quote.status);
+    let createdJob = null;
+    if (isAcceptedStatus && !quote.orderId && !quote.jobId) {
+      const Job = require('../../models/Job');
+      const JobStatusHistory = mongoose.model('JobStatusHistory');
+      const year = new Date().getFullYear();
+      const bookingNumber = `ORD-${year}-${String(Math.floor(10000 + Math.random() * 90000))}`;
+      const startOtp = String(Math.floor(1000 + Math.random() * 9000));
+      const completionOtp = String(Math.floor(100000 + Math.random() * 900000));
+
+      const meta = new Map();
+      meta.set('quoteRequestId', quote._id.toString());
+      meta.set('requestId', quote.requestId || '');
+      if (Array.isArray(quote.items) && quote.items.length > 0) {
+        meta.set('quotedItems', JSON.stringify(quote.items));
+      }
+      if (quote.adminNotes) meta.set('adminNotes', quote.adminNotes);
+
+      const scopeSummary = Array.isArray(quote.items) && quote.items.length > 0
+        ? quote.items.map((it) => `${it.qty || it.quantity || 1}x ${it.name || it.productName || it.description || 'Item'} (₹${it.price || it.unitPrice || 0})`).join(', ')
+        : (quote.notes || quote.equipmentRequirements || '');
+
+      createdJob = await Job.create({
+        bookingNumber,
+        bookingId: bookingNumber,
+        title: `${quote.serviceType || quote.serviceCategory || 'CCTV'} - Approved Quote #${quote.requestId || ''}`.trim(),
+        serviceName: quote.serviceType || quote.serviceCategory || 'Service Quotation',
+        description: scopeSummary,
+        serviceType: 'installation',
+        client: quote.customerId || null,
+        customerName: quote.fullName || 'Customer',
+        customerPhone: quote.mobile || '',
+        location: quote.address || '',
+        address: quote.address || '',
+        pincode: quote.pincode || '',
+        amount: Number(quote.finalAmount || 0),
+        price: Number(quote.finalAmount || 0),
+        paymentStatus: 'pending',
+        quoteRequestId: quote._id.toString(),
+        status: 'pending',
+        dispatchStatus: 'pending_dispatch',
+        startOtp,
+        completionOtp,
+        useNewFlow: true,
+        v2Metadata: meta,
+      });
+
+      quote.jobId = createdJob._id;
+      quote.orderId = createdJob._id;
+      quote.orderNumber = bookingNumber;
+
+      await JobStatusHistory.create({
+        jobId: createdJob._id.toString(),
+        bookingId: bookingNumber,
+        status: 'pending',
+        note: `Work Order auto-created from Admin Accepted Quote #${quote.requestId}`,
+        changedBy: req.user?.id || null,
+        role: req.user?.role || 'admin',
+        timestamp: new Date(),
+      });
+
+      const io = req.app.get('io') || global._socketIo;
+      if (io) {
+        io.to('admin_room').emit('newBooking', {
+          jobId: createdJob._id.toString(),
+          bookingNumber: createdJob.bookingNumber,
+          customerName: createdJob.customerName,
+          title: createdJob.title,
+        });
+      }
+    }
+
     await quote.save();
 
     const populated = await QuoteRequest.findById(quote._id)
@@ -1730,6 +1804,67 @@ async function acceptQuote(req, res, next) {
     if (notes) {
       quote.adminNotes = (quote.adminNotes ? quote.adminNotes + '\n' : '') + `[Customer Note on Accept]: ${notes}`;
     }
+
+    // Automatically convert approved quotation into an active Work Order (Job) if not yet linked
+    let createdJob = null;
+    if (!quote.jobId) {
+      const Job = require('../../models/Job');
+      const JobStatusHistory = mongoose.model('JobStatusHistory');
+      const year = new Date().getFullYear();
+      const bookingNumber = `ORD-${year}-${String(Math.floor(10000 + Math.random() * 90000))}`;
+      const startOtp = String(Math.floor(1000 + Math.random() * 9000));
+      const completionOtp = String(Math.floor(100000 + Math.random() * 900000));
+
+      const meta = new Map();
+      meta.set('quoteRequestId', quote._id.toString());
+      meta.set('requestId', quote.requestId || '');
+      if (Array.isArray(quote.items) && quote.items.length > 0) {
+        meta.set('quotedItems', JSON.stringify(quote.items));
+      }
+      if (quote.adminNotes) meta.set('adminNotes', quote.adminNotes);
+
+      const scopeSummary = Array.isArray(quote.items) && quote.items.length > 0
+        ? quote.items.map((it) => `${it.qty || 1}x ${it.name || it.description || 'Item'} (₹${it.price || it.unitPrice || 0})`).join(', ')
+        : (quote.notes || quote.equipmentRequirements || '');
+
+      createdJob = await Job.create({
+        bookingNumber,
+        bookingId: bookingNumber,
+        title: `${quote.serviceType || 'CCTV'} - Approved Quote #${quote.requestId || ''}`.trim(),
+        serviceName: quote.serviceType || 'Service Quotation',
+        description: scopeSummary,
+        serviceType: 'installation',
+        client: quote.customerId || req.user?.id || null,
+        customerName: quote.fullName || 'Customer',
+        customerPhone: quote.mobile || '',
+        location: quote.address || '',
+        address: quote.address || '',
+        pincode: quote.pincode || '',
+        amount: Number(quote.finalAmount || 0),
+        price: Number(quote.finalAmount || 0),
+        paymentStatus: 'pending',
+        quoteRequestId: quote._id.toString(),
+        status: 'pending',
+        dispatchStatus: 'pending_dispatch',
+        startOtp,
+        completionOtp,
+        useNewFlow: true,
+        v2Metadata: meta,
+      });
+
+      quote.jobId = createdJob._id;
+
+      await JobStatusHistory.create({
+        jobId: createdJob._id.toString(),
+        bookingId: bookingNumber,
+        status: 'pending',
+        note: `Work Order auto-created from Customer Approved Quote #${quote.requestId}`,
+        changedBy: req.user?.id || null,
+        role: req.user?.role || 'client',
+        timestamp: new Date(),
+      });
+    }
+
     await quote.save();
 
     // Real-time broadcast to Admin room
@@ -1741,7 +1876,16 @@ async function acceptQuote(req, res, next) {
         status: quote.status,
         customerName: quote.fullName,
         finalAmount: quote.finalAmount,
+        jobId: quote.jobId,
       });
+      if (createdJob) {
+        io.to('admin_room').emit('newBooking', {
+          jobId: createdJob._id.toString(),
+          bookingNumber: createdJob.bookingNumber,
+          customerName: createdJob.customerName,
+          title: createdJob.title,
+        });
+      }
     }
 
     // Notify Admins
@@ -1893,6 +2037,64 @@ async function getQuotationInvoice(req, res, next) {
   }
 }
 
+async function deleteQuoteRequest(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { force } = req.query;
+    const mongoose = require('mongoose');
+
+    let quote = null;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      quote = await QuoteRequest.findById(id);
+    }
+    if (!quote) {
+      quote = await QuoteRequest.findOne({ requestId: id });
+    }
+
+    if (!quote) {
+      return res.status(404).json({ success: false, message: 'Quote Request not found' });
+    }
+
+    // Safeguard: Prevent accidental deletion of quotations already converted to active bookings or having verified payments
+    const isConverted = Boolean(
+      quote.orderId ||
+      ['converted_to_order', 'Converted to Booking', 'Converted'].includes(quote.status)
+    );
+    const isPaid = Boolean(
+      ['advance_paid', 'fully_paid', 'paid'].includes(quote.quotePaymentStatus) ||
+      (quote.paymentDetails && quote.paymentDetails.amountPaid > 0) ||
+      (quote.advancePaymentDetails && quote.advancePaymentDetails.amountPaid > 0)
+    );
+
+    if ((isConverted || isPaid) && force !== 'true') {
+      return res.status(400).json({
+        success: false,
+        message: `Quotation ${quote.requestId || id} cannot be deleted because it is linked to an active booking or has confirmed payments. Pass force=true to proceed with deletion if explicitly authorized.`,
+        isConverted,
+        isPaid,
+      });
+    }
+
+    const targetRequestId = quote.requestId || quote._id.toString();
+    const adminIdentity = req.user ? (req.user.email || req.user.name || req.user.id || req.user._id) : 'Admin';
+
+    await QuoteRequest.deleteOne({ _id: quote._id });
+
+    console.log(`[ADMIN ACTION] Quotation deleted: ${targetRequestId} by Admin: ${adminIdentity} at ${new Date().toISOString()}`);
+
+    return res.json({
+      success: true,
+      message: `Quote Request ${targetRequestId} was permanently deleted.`,
+      data: {
+        id: quote._id,
+        requestId: targetRequestId,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   submitQuoteRequest,
   uploadVoiceNote,
@@ -1905,6 +2107,7 @@ module.exports = {
   createPaymentOrder,
   verifyQuotePayment,
   updateQuoteRequest,
+  deleteQuoteRequest,
   convertToBooking,
   downloadQuotationPdf,
   acceptQuote,
