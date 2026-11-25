@@ -6,7 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'core/network/api_config.dart';
 
 class LocationService {
-  static String get _baseUrl => '${ApiConfig.baseUrl}/api/location';
+  static String get _baseUrl => '${ApiConfig.baseUrl}/api/v2/location';
   static final LocationService _instance = LocationService._internal();
   Timer? _timer;
   String? _currentTechnicianId;

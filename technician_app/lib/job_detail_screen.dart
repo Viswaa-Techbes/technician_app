@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 import 'dart:io';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'services/api_service.dart';
 import 'models.dart';
@@ -85,38 +83,34 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
       
       if (_technicianCoords != null) {
         final api = ref.read(apiServiceProvider);
-        final baseUrl = api.baseUrl;
-        final response = await http.get(
-          Uri.parse('$baseUrl/api/v2/routing/directions?startLat=${_technicianCoords!.latitude}&startLng=${_technicianCoords!.longitude}&endLat=$custLat&endLng=$custLng'),
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        ).timeout(const Duration(seconds: 5));
+        final data = await api.getDirections(
+          startLat: _technicianCoords!.latitude,
+          startLng: _technicianCoords!.longitude,
+          endLat: custLat,
+          endLng: custLng,
+        );
         
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          if (data['success'] == true && data['data'] != null) {
-            final routeData = data['data'];
-            final List coords = routeData['polyline'] ?? [];
-            setState(() {
-              _routePoints = coords.map((c) => LatLng((c[0] as num).toDouble(), (c[1] as num).toDouble())).toList();
-              _distance = (routeData['distanceKm'] as num).toDouble();
-              _eta = (routeData['durationMinutes'] as num).toDouble();
-            });
-            
-            // Adjust camera to fit bounds
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted && _routePoints.isNotEmpty) {
-                final bounds = LatLngBounds.fromPoints(_routePoints);
-                _mapController.fitCamera(
-                  CameraFit.bounds(
-                    bounds: bounds,
-                    padding: const EdgeInsets.all(50.0),
-                  ),
-                );
-              }
-            });
-          }
+        if (data != null && data['success'] == true && data['data'] != null) {
+          final routeData = data['data'];
+          final List coords = routeData['polyline'] ?? [];
+          setState(() {
+            _routePoints = coords.map((c) => LatLng((c[0] as num).toDouble(), (c[1] as num).toDouble())).toList();
+            _distance = (routeData['distanceKm'] as num).toDouble();
+            _eta = (routeData['durationMinutes'] as num).toDouble();
+          });
+          
+          // Adjust camera to fit bounds
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _routePoints.isNotEmpty) {
+              final bounds = LatLngBounds.fromPoints(_routePoints);
+              _mapController.fitCamera(
+                CameraFit.bounds(
+                  bounds: bounds,
+                  padding: const EdgeInsets.all(50.0),
+                ),
+              );
+            }
+          });
         }
       }
     } catch (e) {

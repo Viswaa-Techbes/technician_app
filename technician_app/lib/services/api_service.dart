@@ -549,6 +549,23 @@ class ApiService {
     );
     return jsonDecode(res.body);
   }
+
+  Future<Map<String, dynamic>?> getDirections({
+    required double startLat,
+    required double startLng,
+    required double endLat,
+    required double endLng,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/v2/routing/directions?startLat=$startLat&startLng=$startLng&endLat=$endLat&endLng=$endLng');
+    final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 5));
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['success'] == true) {
+        return Map<String, dynamic>.from(data);
+      }
+    }
+    return null;
+  }
 }
 
 final apiServiceProvider = Provider<ApiService>((ref) {
