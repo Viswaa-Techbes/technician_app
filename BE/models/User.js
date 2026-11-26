@@ -71,8 +71,16 @@ const userSchema = new mongoose.Schema(
     // ─── Dispatch Status (replaces isOnline for technicians) ──────────────────
     availabilityStatus: {
       type: String,
-      enum: ['ONLINE', 'OFFLINE', 'BUSY'],
+      enum: ['ONLINE', 'OFFLINE', 'BUSY', 'AVAILABLE', 'UNAVAILABLE', 'ON_JOB'],
       default: 'OFFLINE',
+      set: function(val) {
+        if (!val || typeof val !== 'string') return val;
+        const upper = val.trim().toUpperCase();
+        if (upper === 'AVAILABLE') return 'ONLINE';
+        if (upper === 'UNAVAILABLE') return 'OFFLINE';
+        if (upper === 'BUSY' || upper === 'ON_JOB') return 'BUSY';
+        return upper;
+      },
     },
     // ─── Technician Profile Fields ────────────────────────────────────────────
     kycStatus: {
@@ -290,26 +298,42 @@ userSchema.index({ email: 1 }, { unique: true, sparse: true });
 
 function syncStatusesHelper(obj) {
   if (obj.availabilityStatus) {
-    if (obj.availabilityStatus === 'ONLINE') {
+    const rawAvail = String(obj.availabilityStatus).trim().toUpperCase();
+    if (rawAvail === 'ONLINE' || rawAvail === 'AVAILABLE') {
+      obj.availabilityStatus = 'ONLINE';
       obj.isOnline = true;
       obj.status = 'available';
-    } else if (obj.availabilityStatus === 'OFFLINE') {
+    } else if (rawAvail === 'OFFLINE' || rawAvail === 'UNAVAILABLE') {
+      obj.availabilityStatus = 'OFFLINE';
       obj.isOnline = false;
       obj.status = 'offline';
-    } else if (obj.availabilityStatus === 'BUSY') {
+    } else if (rawAvail === 'BUSY' || rawAvail === 'ON_JOB') {
+      obj.availabilityStatus = 'BUSY';
       obj.isOnline = true;
       obj.status = 'busy';
+    } else {
+      obj.availabilityStatus = 'ONLINE';
+      obj.isOnline = true;
+      obj.status = 'available';
     }
   } else if (obj.status) {
-    if (obj.status === 'available') {
+    const rawStatus = String(obj.status).trim().toLowerCase();
+    if (rawStatus === 'available') {
       obj.isOnline = true;
+      obj.status = 'available';
       obj.availabilityStatus = 'ONLINE';
-    } else if (obj.status === 'offline') {
+    } else if (rawStatus === 'offline') {
       obj.isOnline = false;
+      obj.status = 'offline';
       obj.availabilityStatus = 'OFFLINE';
-    } else if (obj.status === 'busy') {
+    } else if (rawStatus === 'busy') {
       obj.isOnline = true;
+      obj.status = 'busy';
       obj.availabilityStatus = 'BUSY';
+    } else {
+      obj.isOnline = true;
+      obj.status = 'available';
+      obj.availabilityStatus = 'ONLINE';
     }
   } else if (obj.isOnline !== undefined) {
     if (obj.isOnline) {
