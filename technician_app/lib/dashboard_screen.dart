@@ -172,7 +172,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildContent(BuildContext context, List<Job> jobs) {
     final completedCount = jobs.where((j) => j.status == JobStatus.completed || j.status == JobStatus.paymentDone).length;
-    final assignedCount = jobs.where((j) => j.status == JobStatus.assigned).length;
+    final assignedCount = jobs.where((j) =>
+        j.status == JobStatus.assigned ||
+        j.status == JobStatus.accepted ||
+        j.status == JobStatus.travelling ||
+        j.status == JobStatus.arrived ||
+        j.status == JobStatus.working ||
+        j.status == JobStatus.workUploaded ||
+        j.status == JobStatus.completionRequested ||
+        j.status == JobStatus.approvedByManager ||
+        j.status == JobStatus.paymentRequested ||
+        j.status == JobStatus.paymentPending).length;
     final pendingCount = jobs.where((j) => j.status == JobStatus.completionRequested || j.status == JobStatus.workUploaded || j.status == JobStatus.approvedByManager || j.status == JobStatus.paymentPending).length;
 
     final screenWidth = MediaQuery.of(context).size.width;

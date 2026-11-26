@@ -8,7 +8,7 @@ import 'services/api_service.dart';
 import 'models.dart';
 import 'widgets.dart';
 import 'features/job_description/widgets/job_description_section.dart';
-import 'features/reviews/screens/submit_review_screen.dart';
+import 'providers/job_providers.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -164,6 +164,33 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
     _timer?.cancel();
   }
 
+  Future<void> _syncAfterWorksheetReturn() async {
+    try {
+      final jobs = await ref.refresh(jobsProvider(null).future);
+      final match = jobs.where((j) => j.id == widget.job.id).toList();
+      if (!mounted) return;
+      if (match.isNotEmpty) {
+        final updatedStatus = match.first.status;
+        if (updatedStatus == JobStatus.completed || updatedStatus == JobStatus.paymentDone) {
+          _pauseTimer();
+        }
+        setState(() {
+          _currentStatus = updatedStatus;
+        });
+      } else {
+        setState(() {
+          _currentStatus = JobStatus.workUploaded;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _currentStatus = JobStatus.workUploaded;
+        });
+      }
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -282,9 +309,17 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
               ),
               const SizedBox(height: 24),
               Text(
-                _isRunning ? "TASK SESSION ACTIVE" : "SESSION PAUSED",
+                (_currentStatus == JobStatus.completed || _currentStatus == JobStatus.paymentDone)
+                    ? "WORK SESSION COMPLETED"
+                    : _isRunning
+                        ? "TASK SESSION ACTIVE"
+                        : "SESSION PAUSED",
                 style: TextStyle(
-                  color: _isRunning ? const Color(0xFF2563EB) : const Color(0xFFF59E0B),
+                  color: (_currentStatus == JobStatus.completed || _currentStatus == JobStatus.paymentDone)
+                      ? const Color(0xFF10B981)
+                      : _isRunning
+                          ? const Color(0xFF2563EB)
+                          : const Color(0xFFF59E0B),
                   fontWeight: FontWeight.w900,
                   fontSize: 11,
                   letterSpacing: 2,
@@ -469,10 +504,8 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                     builder: (context) => WorksheetFormScreen(job: widget.job),
                   ),
                 );
-                if (result == true) {
-                  setState(() {
-                    _currentStatus = JobStatus.workUploaded;
-                  });
+                if (result == true && mounted) {
+                  await _syncAfterWorksheetReturn();
                 }
               },
               color: const Color(0xFF2563EB),
@@ -968,19 +1001,22 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
         _currentStatus == JobStatus.paymentDone;
 
     return InkWell(
-      onTap: () {
+      onTap: () async {
         if (!isStartedOrLater) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Please start the job before uploading photos.')),
           );
           return;
         }
-        Navigator.push(
+        final result = await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => WorksheetFormScreen(job: widget.job),
           ),
         );
+        if (result == true && mounted) {
+          await _syncAfterWorksheetReturn();
+        }
       },
       borderRadius: BorderRadius.circular(24),
       child: Container(
@@ -1436,10 +1472,6 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 4),
                 textAlign: TextAlign.center,
               ),
-              if (devOtp != null) ...[
-                const SizedBox(height: 12),
-                Text('(Dev Mode: OTP is $devOtp)', style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
-              ]
             ],
           ),
           actions: [
@@ -1520,10 +1552,12 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                       await _updateStatus('payment_done');
                       if (!mounted) return;
                       Navigator.pop(context);
+                      _pauseTimer();
                       setState(() {
                         _currentStatus = JobStatus.completed;
                         _currentPaymentStatus = PaymentStatus.paid;
                       });
+                      ref.invalidate(jobsProvider(null));
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Payment marked as collected.')),
                       );
@@ -1827,7 +1861,10 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                     final otpInput = await _showOtpDialog('complete', devOtp);
                     if (otpInput != null && otpInput.isNotEmpty) {
                       await api.verifyCompleteOtp(widget.job.id, otpInput);
+                      _pauseTimer();
+                      if (!mounted) return;
                       setState(() => _currentStatus = JobStatus.completed);
+                      ref.invalidate(jobsProvider(null));
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('🎉 Job completed successfully!'), backgroundColor: Colors.green),
                       );
@@ -1868,23 +1905,28 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
 
       case JobStatus.paymentDone:
       case JobStatus.completed:
-        return CustomButton(
-          label: "COLLECT CLIENT REVIEW",
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => SubmitReviewScreen(
-                  technicianId: widget.job.technicianId ?? '',
-                  technicianName: widget.job.technicianName ?? "Technician",
-                  projectId: widget.job.id,
-                  clientName: widget.job.customerName,
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFECFDF5),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.check_circle_rounded, color: Color(0xFF059669), size: 20),
+              SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  "✓ Job Completed — Awaiting Customer Portal Review",
+                  style: TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.w800, fontSize: 13),
+                  textAlign: TextAlign.center,
                 ),
               ),
-            );
-          },
-          color: const Color(0xFFF59E0B),
-          icon: Icons.star_rounded,
+            ],
+          ),
         );
 
       case JobStatus.cancelled:
