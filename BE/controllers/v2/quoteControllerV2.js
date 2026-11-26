@@ -1027,14 +1027,14 @@ async function sendQuotation(req, res, next) {
     const validity = quote.validityDays || 15;
     const validUntil = new Date(Date.now() + validity * 24 * 60 * 60 * 1000);
 
-    // Ensure advance/balance amounts are configured
-    if (!quote.advanceAmount || quote.advanceAmount <= 0) {
-      quote.advancePercentage = quote.advancePercentage || 50;
-      quote.advanceAmount = Math.round(((quote.finalAmount * quote.advancePercentage) / 100) * 100) / 100;
-      quote.balanceAmount = (quote.advancePaidAmount || 0) > 0
-        ? Math.max(0, Math.round((quote.finalAmount - quote.advancePaidAmount - (quote.balancePaidAmount || 0)) * 100) / 100)
-        : Math.max(0, Math.round((quote.finalAmount - quote.advanceAmount) * 100) / 100);
+    // Configure advance/balance amounts (default 0% advance - pay on completion)
+    if (quote.advancePercentage === undefined || quote.advancePercentage === null) {
+      quote.advancePercentage = 0;
     }
+    quote.advanceAmount = Math.round(((quote.finalAmount * quote.advancePercentage) / 100) * 100) / 100;
+    quote.balanceAmount = (quote.advancePaidAmount || 0) > 0
+      ? Math.max(0, Math.round((quote.finalAmount - quote.advancePaidAmount - (quote.balancePaidAmount || 0)) * 100) / 100)
+      : Math.max(0, Math.round((quote.finalAmount - quote.advanceAmount) * 100) / 100);
 
     quote.status = 'quotation_sent';
     quote.sentAt = new Date();
@@ -1903,12 +1903,12 @@ async function acceptQuote(req, res, next) {
 
     // Automatically convert approved quotation into an active Work Order (Job) if not yet linked
     let createdJob = null;
+    const Job = require('../../models/Job');
     if (!quote.jobId) {
-      const Job = require('../../models/Job');
       const JobStatusHistory = mongoose.model('JobStatusHistory');
       const year = new Date().getFullYear();
       const bookingNumber = `ORD-${year}-${String(Math.floor(10000 + Math.random() * 90000))}`;
-      const startOtp = String(Math.floor(1000 + Math.random() * 9000));
+      const startOtp = String(Math.floor(100000 + Math.random() * 900000));
       const completionOtp = String(Math.floor(100000 + Math.random() * 900000));
 
       const meta = new Map();
@@ -1999,10 +1999,15 @@ async function acceptQuote(req, res, next) {
       )
     ));
 
+    const activeJob = createdJob || (quote.jobId ? await Job.findById(quote.jobId) : null);
+
     return res.json({
       success: true,
-      message: 'Quotation accepted successfully. You can now proceed to confirm booking.',
+      message: 'Quotation accepted & Work Order created successfully.',
       data: quote,
+      quote,
+      job: activeJob,
+      jobId: quote.jobId,
     });
   } catch (err) {
     next(err);
