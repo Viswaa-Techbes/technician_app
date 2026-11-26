@@ -228,6 +228,32 @@ async function updateJobStatus(req, res, next) {
     if (status === 'in_progress' || status === 'started') updates.startedAt = new Date();
     if (status === 'completed' || status === 'payment_done') updates.completedAt = new Date();
 
+    // Ensure Start OTP is generated & persisted when technician arrives on site
+    if (['arrived', 'site_visited', 'reached'].includes(status)) {
+      const existingJob = await Job.findById(id).select('startOtp client assignedTechnician').lean();
+      if (existingJob && !existingJob.startOtp) {
+        const bcrypt = require('bcryptjs');
+        const OtpVerification = require('../../models/OtpVerification');
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpHash = await bcrypt.hash(otp, 12);
+        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+        await OtpVerification.deleteMany({ bookingId: id, purpose: 'start_job' });
+        await OtpVerification.deleteMany({ email: id.toString(), purpose: 'start_job' });
+        await OtpVerification.create({
+          email: id.toString(),
+          otpHash,
+          otp,
+          purpose: 'start_job',
+          bookingId: id,
+          technicianId: existingJob.assignedTechnician || null,
+          customerId: existingJob.client || null,
+          used: false,
+          expiresAt,
+        });
+        updates.startOtp = otp;
+      }
+    }
+
     const job = await Job.findByIdAndUpdate(id, updates, { new: true }).lean();
     if (!job) return res.status(404).json({ success: false, message: 'Job not found' });
 

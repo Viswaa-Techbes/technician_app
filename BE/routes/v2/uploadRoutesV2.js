@@ -10,12 +10,14 @@ const router = express.Router();
 router.use(authenticate, requireRoles('client', 'technician', 'manager', 'admin', 'resident', 'association'));
 
 // Allowed MIME types and extensions whitelist
-const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.pdf']);
+const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.pdf']);
 const ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
   'image/jpg',
   'image/png',
   'image/webp',
+  'image/heic',
+  'image/heif',
   'application/pdf',
 ]);
 
@@ -32,10 +34,12 @@ const fileFilter = (req, file, cb) => {
   }
 
   if (!ALLOWED_EXTENSIONS.has(ext)) {
-    return cb(new Error(`File extension '${ext}' is not permitted. Allowed: .jpg, .jpeg, .png, .webp, .pdf`));
+    return cb(new Error(`File extension '${ext}' is not permitted. Allowed: .jpg, .jpeg, .png, .webp, .heic, .pdf`));
   }
 
-  if (!ALLOWED_MIME_TYPES.has(mime)) {
+  // Android / Flutter MultipartFile often sends application/octet-stream by default
+  const isOctetStream = mime === 'application/octet-stream' || mime === 'binary/octet-stream';
+  if (!ALLOWED_MIME_TYPES.has(mime) && !isOctetStream) {
     return cb(new Error(`File MIME type '${mime}' is not permitted.`));
   }
 

@@ -28,6 +28,9 @@ async function getOrCreateStartJobOtp(job) {
   }).select('+otpHash');
 
   if (record) {
+    if (record.otp && job.startOtp !== record.otp) {
+      await Job.findByIdAndUpdate(jobId, { startOtp: record.otp });
+    }
     return { otp: record.otp, record };
   }
 
@@ -51,6 +54,8 @@ async function getOrCreateStartJobOtp(job) {
     used: false,
     expiresAt,
   });
+
+  await Job.findByIdAndUpdate(jobId, { startOtp: otp });
 
   return { otp, record };
 }
@@ -108,6 +113,22 @@ router.post('/start/:jobId', verifyToken, async (req, res) => {
     }
 
     const { otp } = await getOrCreateStartJobOtp(job);
+
+    const io = getIo(req);
+    if (io && job.client) {
+      io.to(job.client.toString()).emit('otpGenerated', {
+        jobId: jobId.toString(),
+        bookingId: jobId.toString(),
+        startOtp: otp,
+        type: 'start_job',
+      });
+      io.to(job.client.toString()).emit('bookingStatusUpdated', {
+        jobId: jobId.toString(),
+        bookingId: jobId.toString(),
+        startOtp: otp,
+        status: job.status,
+      });
+    }
 
     let emailSent = false;
     if (job.client) {
@@ -279,9 +300,6 @@ router.post('/complete/:jobId', verifyToken, async (req, res) => {
     job.completionOtp = otp;
     await job.save();
 
-    job.completionOtp = otp;
-    await job.save();
-
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
     const otpHash = await bcrypt.hash(otp, 12);
 
@@ -292,6 +310,22 @@ router.post('/complete/:jobId', verifyToken, async (req, res) => {
       purpose: 'complete_job',
       expiresAt,
     });
+
+    const io = getIo(req);
+    if (io && job.client) {
+      io.to(job.client.toString()).emit('otpGenerated', {
+        jobId: jobId.toString(),
+        bookingId: jobId.toString(),
+        completionOtp: otp,
+        type: 'complete_job',
+      });
+      io.to(job.client.toString()).emit('bookingStatusUpdated', {
+        jobId: jobId.toString(),
+        bookingId: jobId.toString(),
+        completionOtp: otp,
+        status: job.status,
+      });
+    }
 
     let emailSent = false;
     if (job.client) {

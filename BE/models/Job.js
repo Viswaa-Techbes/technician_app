@@ -431,6 +431,14 @@ const jobSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    startOtp: {
+      type: String,
+      default: '',
+    },
+    completionOtp: {
+      type: String,
+      default: '',
+    },
     adminVerified: {
       type: Boolean,
       default: false,
@@ -596,8 +604,24 @@ async function triggerStartJobOtp(jobId, clientId, technicianId) {
       expiresAt,
     });
 
+    // Persist startOtp directly on Job document for customer dashboard visibility
+    await mongoose.model('Job').findByIdAndUpdate(jobId, { startOtp: otp });
+
     // Notify Customer
     const io = global._socketIo || null;
+    if (io) {
+      io.to(clientId.toString()).emit('otpGenerated', {
+        jobId: jobId.toString(),
+        bookingId: jobId.toString(),
+        startOtp: otp,
+        type: 'start_job',
+      });
+      io.to(clientId.toString()).emit('bookingStatusUpdated', {
+        jobId: jobId.toString(),
+        bookingId: jobId.toString(),
+        startOtp: otp,
+      });
+    }
 
     const message = `Your technician has arrived. Share this OTP with the technician to start the job. OTP: ${otp}`;
     const title = 'Your technician has arrived';

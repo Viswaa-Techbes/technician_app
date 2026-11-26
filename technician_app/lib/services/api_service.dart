@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models.dart';
 import '../features/auth/presentation/providers/auth_provider.dart';
@@ -334,10 +335,20 @@ class ApiService {
 
     for (var fileData in filesData) {
       if (fileData['bytes'] != null && fileData['name'] != null) {
+        final name = fileData['name'].toString().toLowerCase();
+        MediaType contentType = MediaType('image', 'jpeg');
+        if (name.endsWith('.png')) {
+          contentType = MediaType('image', 'png');
+        } else if (name.endsWith('.webp')) {
+          contentType = MediaType('image', 'webp');
+        } else if (name.endsWith('.pdf')) {
+          contentType = MediaType('application', 'pdf');
+        }
         request.files.add(http.MultipartFile.fromBytes(
           'files',
           fileData['bytes'],
           filename: fileData['name'],
+          contentType: contentType,
         ));
       }
     }

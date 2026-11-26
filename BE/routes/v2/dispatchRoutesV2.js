@@ -261,16 +261,31 @@ router.post('/otp/start/:jobId', verifyToken, async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     console.log(`[OTP] START JOB OTP for Job ${jobId}: ${otp}`);
 
+    job.startOtp = otp;
+    await job.save();
+
     const otpHash = await bcrypt.hash(otp, 12);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
 
+    await OtpVerification.deleteMany({ bookingId: job._id, purpose: 'start_job' });
     await OtpVerification.deleteMany({ email: jobId, purpose: 'start_job' });
     await OtpVerification.create({
       email: jobId,
       otpHash,
+      otp,
       purpose: 'start_job',
+      bookingId: job._id,
+      technicianId: job.assignedTechnician || null,
+      customerId: job.client || null,
+      used: false,
       expiresAt,
     });
+
+    const io = getIo(req);
+    if (io && job.client) {
+      io.to(job.client.toString()).emit('otpGenerated', { jobId: jobId.toString(), bookingId: jobId.toString(), startOtp: otp, type: 'start_job' });
+      io.to(job.client.toString()).emit('bookingStatusUpdated', { jobId: jobId.toString(), bookingId: jobId.toString(), startOtp: otp, status: job.status });
+    }
 
     let emailSent = false;
     if (job.client) {
@@ -382,6 +397,9 @@ router.post('/otp/complete/:jobId', verifyToken, async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     console.log(`[OTP] COMPLETE JOB OTP for Job ${jobId}: ${otp}`);
 
+    job.completionOtp = otp;
+    await job.save();
+
     const otpHash = await bcrypt.hash(otp, 12);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
 
@@ -392,6 +410,22 @@ router.post('/otp/complete/:jobId', verifyToken, async (req, res) => {
       purpose: 'complete_job',
       expiresAt,
     });
+
+    const io = getIo(req);
+    if (io && job.client) {
+      io.to(job.client.toString()).emit('otpGenerated', {
+        jobId: jobId.toString(),
+        bookingId: jobId.toString(),
+        completionOtp: otp,
+        type: 'complete_job',
+      });
+      io.to(job.client.toString()).emit('bookingStatusUpdated', {
+        jobId: jobId.toString(),
+        bookingId: jobId.toString(),
+        completionOtp: otp,
+        status: job.status,
+      });
+    }
 
     let emailSent = false;
     if (job.client) {

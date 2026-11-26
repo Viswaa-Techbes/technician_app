@@ -596,20 +596,64 @@ function sanitizeQuoteForCustomer(quote) {
 }
 
 /**
+ * Helper to extract normalized last-10-digits of a phone number
+ */
+function getLast10Digits(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  return digits.length >= 10 ? digits.slice(-10) : '';
+}
+
+/**
+ * Build MongoDB filter for matching quotes belonging to a customer
+ */
+function buildCustomerQuoteFilter(userId, userDoc) {
+  const orConditions = [{ customerId: userId }];
+
+  const email = userDoc?.email ? String(userDoc.email).trim() : '';
+  if (email) {
+    const escapedEmail = email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    orConditions.push({ email: new RegExp(`^${escapedEmail}$`, 'i') });
+  }
+
+  const tenDigit = getLast10Digits(userDoc?.mobileNumber || userDoc?.phone);
+  if (tenDigit) {
+    const phoneRegex = new RegExp(`${tenDigit}$`);
+    orConditions.push(
+      { mobile: phoneRegex },
+      { whatsapp: phoneRegex },
+      { customerMobile: phoneRegex }
+    );
+  }
+
+  return { $or: orConditions };
+}
+
+/**
+ * Check if a customer owns a given quote by customerId, email, or normalized 10-digit mobile
+ */
+function isQuoteOwner(quote, userId, userDoc) {
+  if (!quote) return false;
+  if (quote.customerId && String(quote.customerId) === String(userId)) return true;
+
+  const userEmail = userDoc?.email ? String(userDoc.email).trim().toLowerCase() : '';
+  const quoteEmail = quote.email ? String(quote.email).trim().toLowerCase() : '';
+  if (userEmail && quoteEmail && userEmail === quoteEmail) return true;
+
+  const userTen = getLast10Digits(userDoc?.mobileNumber || userDoc?.phone);
+  const quoteTen = getLast10Digits(quote.mobile || quote.whatsapp || quote.customerMobile);
+  if (userTen && quoteTen && userTen === quoteTen) return true;
+
+  return false;
+}
+
+/**
  * List quotes for logged-in customer (Customer Portal)
  */
 async function getCustomerQuotes(req, res, next) {
   try {
     const userId = req.user.id;
     const userDoc = req.authUser || (await User.findById(userId));
-    const mobile = userDoc ? userDoc.mobileNumber : '';
-
-    const filter = {
-      $or: [{ customerId: userId }],
-    };
-    if (mobile) {
-      filter.$or.push({ mobile });
-    }
+    const filter = buildCustomerQuoteFilter(userId, userDoc);
 
     const quotes = await QuoteRequest.find(filter).populate('orderId', 'status scheduledTime technicianName assignedTechnician').sort({ createdAt: -1 });
     const sanitized = quotes.map(sanitizeQuoteForCustomer);
@@ -641,12 +685,7 @@ async function getQuoteDetailsForCustomer(req, res, next) {
     // Security check: if customer is logged in, verify ownership
     if (req.user && req.user.role === 'client') {
       const userDoc = req.authUser || (await User.findById(req.user.id));
-      const userMobile = userDoc?.mobileNumber;
-      const isOwner =
-        (quote.customerId && quote.customerId.toString() === req.user.id) ||
-        (userMobile && quote.mobile === userMobile);
-
-      if (!isOwner) {
+      if (!isQuoteOwner(quote, req.user.id, userDoc)) {
         return res.status(403).json({ success: false, message: 'Access denied to this quotation' });
       }
     }
@@ -1000,6 +1039,29 @@ async function sendQuotation(req, res, next) {
     quote.status = 'quotation_sent';
     quote.sentAt = new Date();
     quote.validUntil = validUntil;
+
+    // Bind quote to customer's portal account (customerId & email) if found
+    const customerTen = cleanPhone.slice(-10);
+    const userLookupOr = [];
+    if (quote.customerId) userLookupOr.push({ _id: quote.customerId });
+    if (quote.email && String(quote.email).trim()) {
+      const escapedEmail = String(quote.email).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      userLookupOr.push({ email: new RegExp(`^${escapedEmail}$`, 'i') });
+    }
+    if (customerTen) {
+      const phoneRx = new RegExp(`${customerTen}$`);
+      userLookupOr.push({ mobileNumber: phoneRx }, { phone: phoneRx });
+    }
+    if (userLookupOr.length > 0) {
+      const matchedUser = await User.findOne({ $or: userLookupOr, isDeleted: { $ne: true } }).select('_id email');
+      if (matchedUser) {
+        quote.customerId = matchedUser._id;
+        if (!quote.email && matchedUser.email) {
+          quote.email = matchedUser.email;
+        }
+      }
+    }
+
     await quote.save();
 
     // Prepare WhatsApp Notification content per Part 12
@@ -1820,9 +1882,18 @@ async function acceptQuote(req, res, next) {
       return res.status(404).json({ success: false, message: 'Quote Request not found' });
     }
 
-    // Check ownership if authenticated customer
-    if (req.user && req.user.role === 'client' && quote.customerId && String(quote.customerId) !== String(req.user.id)) {
-      return res.status(403).json({ success: false, message: 'Unauthorized to accept this quotation' });
+    // Check ownership if authenticated customer (supports customerId, email, or normalized 10-digit mobile)
+    if (req.user && req.user.role === 'client') {
+      const userDoc = req.authUser || (await User.findById(req.user.id));
+      if (!isQuoteOwner(quote, req.user.id, userDoc)) {
+        return res.status(403).json({ success: false, message: 'Unauthorized to accept this quotation' });
+      }
+      if (!quote.customerId) {
+        quote.customerId = req.user.id;
+      }
+      if (!quote.email && userDoc?.email) {
+        quote.email = userDoc.email;
+      }
     }
 
     quote.status = 'quotation_accepted';
