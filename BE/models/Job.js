@@ -81,6 +81,11 @@ const jobSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    customerEmail: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     scheduledTime: {
       type: String,
       default: 'ASAP',

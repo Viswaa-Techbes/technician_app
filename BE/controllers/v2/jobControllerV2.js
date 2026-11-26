@@ -400,6 +400,51 @@ async function requestPayment(req, res, next) {
   }
 }
 
+function getLast10Digits(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  return digits.length >= 10 ? digits.slice(-10) : '';
+}
+
+function buildCustomerBookingOr(userId, userDoc) {
+  const orConditions = [{ client: userId }, { userId }];
+  const email = userDoc?.email ? String(userDoc.email).trim() : '';
+  if (email) {
+    const escaped = email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    orConditions.push({ customerEmail: new RegExp(`^${escaped}$`, 'i') });
+  }
+  const ten = getLast10Digits(userDoc?.mobileNumber || userDoc?.phone);
+  if (ten) {
+    orConditions.push({ customerPhone: new RegExp(`${ten}$`) });
+  }
+  return orConditions;
+}
+
+function isCustomerBookingOwner(job, userId, userDoc) {
+  if (!job) return false;
+  const uid = String(userId);
+  const clientId = job.client?._id ? String(job.client._id) : (job.client ? String(job.client) : '');
+  const jobUserId = job.userId?._id ? String(job.userId._id) : (job.userId ? String(job.userId) : '');
+  const jobCustomerId = job.customerId ? String(job.customerId) : '';
+
+  if (clientId && clientId === uid) return true;
+  if (jobUserId && jobUserId === uid) return true;
+  if (jobCustomerId && (jobCustomerId === uid || (userDoc?.customerId && jobCustomerId === String(userDoc.customerId)))) return true;
+
+  const userEmail = userDoc?.email ? String(userDoc.email).trim().toLowerCase() : '';
+  const jobEmails = [job.customerEmail, job.email, job.client?.email]
+    .filter(Boolean)
+    .map((e) => String(e).trim().toLowerCase());
+  if (userEmail && jobEmails.includes(userEmail)) return true;
+
+  const userTen = getLast10Digits(userDoc?.mobileNumber || userDoc?.phone);
+  const jobTens = [job.customerPhone, job.mobileNumber, job.phone, job.client?.mobileNumber, job.client?.phone]
+    .map(getLast10Digits)
+    .filter(Boolean);
+  if (userTen && jobTens.includes(userTen)) return true;
+
+  return false;
+}
+
 // ─── List Bookings ────────────────────────────────────────────────────────────
 async function listBookings(req, res, next) {
   try {
@@ -407,7 +452,10 @@ async function listBookings(req, res, next) {
     const query = {};
     if (status) query.status = status;
     if (mod) query.module = mod;
-    if (req.user.role === 'client') query.client = req.user.id;
+    if (req.user.role === 'client') {
+      const userDoc = req.authUser || (await User.findById(req.user.id).select('email mobileNumber phone').lean());
+      query.$or = buildCustomerBookingOr(req.user.id, userDoc);
+    }
     if (req.user.role === 'technician') query.assignedTechnician = req.user.id;
 
     const jobs = await jobServiceV2.listJobsV2(query);
@@ -454,8 +502,11 @@ async function getBookingDetails(req, res, next) {
       return res.status(404).json({ success: false, message: 'Booking not found' });
     }
 
-    if (req.user.role === 'client' && job.client && job.client._id.toString() !== req.user.id) {
-      return res.status(403).json({ success: false, message: 'Not authorized to view this booking' });
+    if (req.user.role === 'client') {
+      const userDoc = req.authUser || (await User.findById(req.user.id).select('email mobileNumber phone customerId').lean());
+      if (!isCustomerBookingOwner(job, req.user.id, userDoc)) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view this booking' });
+      }
     }
     if (req.user.role === 'technician' && job.assignedTechnician && job.assignedTechnician._id.toString() !== req.user.id) {
       return res.status(403).json({ success: false, message: 'Not authorized to view this booking' });

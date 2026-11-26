@@ -1923,6 +1923,10 @@ async function acceptQuote(req, res, next) {
         ? quote.items.map((it) => `${it.qty || 1}x ${it.name || it.description || 'Item'} (₹${it.price || it.unitPrice || 0})`).join(', ')
         : (quote.notes || quote.equipmentRequirements || '');
 
+      const customerUserId = req.user?.id || quote.customerId || null;
+      const customerEmail = req.authUser?.email || req.user?.email || quote.email || '';
+      const customerPhone = quote.mobile || req.authUser?.mobileNumber || '';
+
       createdJob = await Job.create({
         bookingNumber,
         bookingId: bookingNumber,
@@ -1930,9 +1934,11 @@ async function acceptQuote(req, res, next) {
         serviceName: quote.serviceType || 'Service Quotation',
         description: scopeSummary,
         serviceType: 'installation',
-        client: quote.customerId || req.user?.id || null,
+        client: customerUserId,
+        userId: customerUserId,
         customerName: quote.fullName || 'Customer',
-        customerPhone: quote.mobile || '',
+        customerEmail,
+        customerPhone,
         location: quote.address || '',
         address: quote.address || '',
         pincode: quote.pincode || '',

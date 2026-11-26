@@ -70,8 +70,20 @@ async function deleteAddress(req, res, next) {
 
 async function getBookings(req, res, next) {
   try {
+    const userDoc = req.authUser || (await mongoose.model('User').findById(req.user.id).select('email mobileNumber phone').lean());
+    const orConditions = [{ client: req.user.id }, { userId: req.user.id }];
+    if (userDoc?.email) {
+      const escaped = String(userDoc.email).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      orConditions.push({ customerEmail: new RegExp(`^${escaped}$`, 'i') });
+    }
+    const digits = String(userDoc?.mobileNumber || userDoc?.phone || '').replace(/\D/g, '');
+    const ten = digits.length >= 10 ? digits.slice(-10) : '';
+    if (ten) {
+      orConditions.push({ customerPhone: new RegExp(`${ten}$`) });
+    }
+
     const [bookings, activeOtps] = await Promise.all([
-      Job.find({ client: req.user.id, useNewFlow: true })
+      Job.find({ $or: orConditions, useNewFlow: true })
         .sort({ createdAt: -1 })
         .populate('assignedTechnician', 'name phone mobileNumber')
         .lean(),
